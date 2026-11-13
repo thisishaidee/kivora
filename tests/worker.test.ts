@@ -105,6 +105,76 @@ describe("KIVORA Worker routes", () => {
     expect(storedSessionHash).not.toBe(cookieToken);
   });
 
+  it("rotates recovery codes and revokes previous browser sessions", async () => {
+    const statements: { sql: string; values: unknown[] }[] = [];
+    const db = {
+      prepare: (sql: string) => {
+        const statement = {
+          sql,
+          values: [] as unknown[],
+          bind(...values: unknown[]) { this.values = values; return this; },
+          first: async () => null,
+          all: async () => ({ results: [] }),
+          run: async () => ({ success: true, meta: { changes: 1 } }),
+        };
+        statements.push(statement);
+        return statement;
+      },
+      batch: async () => [
+        { success: true, results: [{ id: "worker-a" }], meta: { changes: 1 } },
+        { success: true, results: [], meta: { changes: 1 } },
+        { success: true, results: [], meta: { changes: 1 } },
+      ],
+    };
+    const oldCode = "e".repeat(64);
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/identity/recover", {
+        method: "POST",
+        headers: { origin: "https://kivora.test", "content-type": "application/json" },
+        body: JSON.stringify({ recovery_code: oldCode }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.worker.id).toBe("worker-a");
+    expect(body.recovery_code).toMatch(/^[0-9a-f]{64}$/);
+    expect(body.recovery_code).not.toBe(oldCode);
+    expect(statements[0].sql).toContain("RETURNING id");
+    expect(statements[1].sql).toContain("DELETE FROM worker_sessions");
+    expect(statements[2].sql).toContain("INSERT INTO worker_sessions");
+    expect(statements[0].values[2]).not.toBe(oldCode);
+  });
+
+  it("rejects a replayed recovery code without issuing a session", async () => {
+    const db = {
+      prepare: (sql: string) => ({
+        sql,
+        bind() { return this; },
+        first: async () => null,
+        all: async () => ({ results: [] }),
+        run: async () => ({ success: true, meta: { changes: 0 } }),
+      }),
+      batch: async () => [
+        { success: true, results: [], meta: { changes: 0 } },
+        { success: true, results: [], meta: { changes: 0 } },
+        { success: true, results: [], meta: { changes: 0 } },
+      ],
+    };
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/identity/recover", {
+        method: "POST",
+        headers: { origin: "https://kivora.test", "content-type": "application/json" },
+        body: JSON.stringify({ recovery_code: "f".repeat(64) }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
   it("does not expose private routes without a valid worker session", async () => {
     const db = makeDb(null);
     const response = await worker.fetch(
