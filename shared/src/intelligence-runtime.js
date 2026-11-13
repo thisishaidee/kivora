@@ -78,7 +78,8 @@ function topicMatchesTask(topic,task) {
 const requiresJurisdiction=(text,highRisk)=>highRisk||/\b(code|standard|regulation|permit|inspection|compliance|certification|building control)\b/i.test(text);
 function addTradeContextQuestions(trade,text,missingInformation,questions){
  const add=(missing,question)=>{missingInformation.push(missing);questions.push(question);};
- if(trade==="carpentry"&&/\b(cut|fit|join|install|build|repair|replace|make|assemble|cabinet|drawer|shelf|door|furniture)\b/i.test(text)){
+ const carpentryFabrication=trade==="carpentry"&&/\b(cut|fit|join|build|make|assemble|measure|fabricat|resize)\w*\b/i.test(text);
+ if(carpentryFabrication){
   if(!/\b(timber|wood|plywood|mdf|particleboard|hardwood|softwood|aluminium|aluminum|steel|plastic)\b/i.test(text))add("material or board type","What material or board type are you working with, such as solid timber, plywood or MDF?");
   if(!/\b\d+(?:[.,]\d+)?\s?(?:mm|cm|m|in|ft)\b/i.test(text))add("required dimensions and thickness","What are the required dimensions and material thickness?");
  }
@@ -87,15 +88,15 @@ function addTradeContextQuestions(trade,text,missingInformation,questions){
   if(/\b(pipe|joint|fitting)\b/i.test(text)&&!/\b(pvc|cpvc|pex|copper|galvanized|galvanised|polypropylene|hdpe|steel pipe)\b/i.test(text))add("pipe material and size","What pipe material and nominal size are involved?");
   if(/\b(leak|burst|dripping)\b/i.test(text)&&!/\b(isolated|shut off|shutoff|closed the valve)\b/i.test(text))add("safe isolation status","Has the affected supply been isolated safely?");
  }
- if(trade==="hvac"&&/\b(air conditioner|aircon|hvac|compressor|condenser|evaporator|thermostat|refrigerant)\b/i.test(text)){
+ if(trade==="hvac"&&/\b(repair|service|install|maintain|troubleshoot|diagnos|fault|error|not cooling|not heating|leak|not starting)\w*\b/i.test(text)&&/\b(air conditioner|aircon|hvac|compressor|condenser|evaporator|thermostat|refrigerant)\b/i.test(text)){
   if(!/\b(split|window unit|central|ducted|portable|chiller|heat pump)\b/i.test(text))add("HVAC unit type","What type of unit is this, such as split, window, central, portable or a heat pump?");
   if(!/\b(not cooling|not heating|noise|odor|smell|water leak|fault code|error code|not starting|tripping)\b/i.test(text))add("observed symptom","What symptom or fault code are you seeing?");
  }
- if(trade==="mechanical"&&/\b(engine|bearing|gearbox|motor|pump|shaft|machine|equipment)\b/i.test(text)){
+ if(trade==="mechanical"&&/\b(repair|maintain|service|adjust|inspect|troubleshoot|diagnos)\w*\b/i.test(text)&&/\b(engine|bearing|gearbox|motor|pump|shaft|machine|equipment)\b/i.test(text)){
   if(/\b(repair|maintain|service|adjust|inspect|troubleshoot|diagnos)\w*\b/i.test(text)&&!/\b(isolated|locked out|lockout|disconnected)\b/i.test(text))add("energy isolation status","Which energy sources have been isolated before inspection or maintenance?");
   if(/\b(repair|troubleshoot|diagnos)\w*\b/i.test(text)&&!/\b(noise|vibration|overheat|leak|not starting|stalled|fault|error)\b/i.test(text))add("observed machine symptom","What symptom are you observing, and under what operating condition?");
  }
- if(trade==="construction"&&/\b(concrete|masonry|brick|roof|foundation|scaffold|wall|beam|column|floor)\b/i.test(text)){
+ if(trade==="construction"&&/\b(build|construct|repair|install|alter|remove|cut|drill|pour|inspect|strengthen)\w*\b/i.test(text)&&/\b(concrete|masonry|brick|roof|foundation|scaffold|wall|beam|column|floor)\b/i.test(text)){
   if(!/\b(concrete|masonry|brick|timber|wood|steel|blockwork|drywall|plasterboard)\b/i.test(text))add("construction material","What material is the component made from?");
   if(!/\b\d+(?:[.,]\d+)?\s?(?:mm|cm|m|in|ft)\b/i.test(text))add("component dimensions","What are the component dimensions and thickness?");
   if(/\b(wall|beam|column|foundation|roof truss)\b/i.test(text))add("structural role","Has a competent person confirmed whether this component is structural or load-bearing?");
