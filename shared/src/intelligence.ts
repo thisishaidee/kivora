@@ -15,6 +15,8 @@ export const evidenceSourceSchema = z.object({
   url: z.string().url().optional(),
   documentId: z.string().max(200).optional(),
   productModels: z.array(z.string().min(1).max(120)).max(30).default([]),
+  productMake: z.string().min(1).max(120).optional(),
+  jurisdiction: z.string().min(2).max(120).optional(),
   trade: tradeSchema,
   topic: z.string().min(1).max(200),
   revisionDate: z.string().date().optional(),
@@ -191,6 +193,10 @@ export function assessWorkRequest(
     source.trade === request.trade &&
     source.reviewed &&
     topicMatchesTask(source.topic, text) &&
+    (!source.jurisdiction || (!!request.jurisdiction &&
+      source.jurisdiction.trim().toLowerCase() === request.jurisdiction.trim().toLowerCase())) &&
+    (!source.productMake || (request.involvesEquipment && !!request.equipmentMake &&
+      source.productMake.trim().toLowerCase() === request.equipmentMake.trim().toLowerCase())) &&
     (source.productModels.length === 0 ||
       (request.involvesEquipment && !!request.equipmentModel &&
         source.productModels.some((model) => model.toLowerCase() === request.equipmentModel?.toLowerCase()))),
