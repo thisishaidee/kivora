@@ -34,6 +34,7 @@ jobs:
         run: |
           branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           cp package-lock.json /tmp/kivora-package-lock.json
+          rm -f package-lock.json
           git fetch origin "$branch"
           git checkout -B "$branch" "origin/$branch"
           cp /tmp/kivora-package-lock.json package-lock.json
