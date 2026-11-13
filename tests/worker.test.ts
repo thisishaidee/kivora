@@ -94,7 +94,14 @@ describe("KIVORA Worker routes", () => {
     expect(cookie).toContain("Secure");
     expect(cookie).toContain("SameSite=Strict");
     expect(cookie).toContain("Path=/");
-    expect(db.statements).toHaveLength(0);
+    expect(db.statements).toHaveLength(2);
+    const storedRecoveryHash = db.statements[0].values[1];
+    const cookieToken = cookie.split(";")[0].split("=")[1];
+    const storedSessionHash = db.statements[1].values[2];
+    expect(storedRecoveryHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(storedSessionHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(storedRecoveryHash).not.toBe(body.recovery_code);
+    expect(storedSessionHash).not.toBe(cookieToken);
   });
 
   it("does not expose private routes without a valid worker session", async () => {
