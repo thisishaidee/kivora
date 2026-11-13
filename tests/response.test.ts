@@ -8,6 +8,7 @@ const request = {
   involvesEquipment: true,
   equipmentMake: "Acme",
   equipmentModel: "K-100",
+  knownFacts: ["This is a water supply tap and the water supply has been isolated."],
 };
 const evidence = [{
   id: "manual-k100",

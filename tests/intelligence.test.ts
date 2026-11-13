@@ -8,7 +8,7 @@ const base = {
   involvesEquipment: true,
   equipmentMake: "Acme",
   equipmentModel: "K-100",
-  knownFacts: [],
+  knownFacts: ["This is a water supply tap and the water supply has been isolated."],
 };
 
 const reviewedEvidence = [{
@@ -78,7 +78,7 @@ describe("KIVORA deterministic intelligence gate", () => {
   it("asks for jurisdiction and exact model instead of inventing standards or specs", () => {
     const result = assessWorkRequest({
       trade: "hvac",
-      task: "My air conditioner compressor is not starting.",
+      task: "Install an air conditioner and confirm compliance with local electrical regulations.",
       involvesEquipment: true,
     }, []);
     expect(result.decision).toBe("clarify");
@@ -169,5 +169,73 @@ describe("evidence jurisdiction and make applicability", () => {
     }]);
     expect(result.decision).toBe("clarify");
     expect(result.evidenceSources).toHaveLength(0);
+  });
+});
+
+
+describe("trade-specific context prompts", () => {
+  it("does not ask for jurisdiction or fabrication dimensions for a general carpentry explanation", () => {
+    const result = assessWorkRequest({
+      trade: "carpentry",
+      task: "How do I identify grain direction before sanding timber?",
+    });
+    expect(result.missingInformation).not.toContain("work jurisdiction");
+    expect(result.missingInformation).not.toContain("material or board type");
+    expect(result.missingInformation).not.toContain("required dimensions and thickness");
+  });
+
+  it("asks for material and dimensions before a carpentry fabrication task", () => {
+    const result = assessWorkRequest({
+      trade: "carpentry",
+      task: "I need to cut and assemble a cabinet door.",
+    });
+    expect(result.questions).toContain("What material or board type are you working with, such as solid timber, plywood or MDF?");
+    expect(result.questions).toContain("What are the required dimensions and material thickness?");
+  });
+
+  it("asks for system type and safe isolation on a plumbing leak", () => {
+    const result = assessWorkRequest({
+      trade: "plumbing",
+      task: "There is a leak from a kitchen tap.",
+    });
+    expect(result.questions).toContain("Is this a water-supply, drainage or gas system?");
+    expect(result.questions).toContain("Has the affected supply been isolated safely?");
+    expect(result.missingInformation).not.toContain("work jurisdiction");
+  });
+
+  it("asks HVAC diagnostic context only for a repair task", () => {
+    const general = assessWorkRequest({ trade: "hvac", task: "What does a compressor do?" });
+    const repair = assessWorkRequest({ trade: "hvac", task: "Repair an air conditioner that is not cooling.", jurisdiction: "Nigeria" });
+    expect(general.questions).toHaveLength(0);
+    expect(repair.questions).toContain("What type of unit is this, such as split, window, central, portable or a heat pump?");
+    expect(repair.questions).not.toContain("What symptom or fault code are you seeing?");
+  });
+
+  it("escalates electrical installation and requires qualified isolation", () => {
+    const result = assessWorkRequest({
+      trade: "electrical",
+      task: "Install a new wall socket.",
+    });
+    expect(result.decision).toBe("escalate");
+    expect(result.stopWork).toBe(true);
+    expect(result.missingInformation).toContain("work jurisdiction");
+    expect(result.questions).toContain("Has a qualified electrician isolated the supply and verified absence of voltage?");
+  });
+
+  it("escalates refrigerant charging and gives no DIY procedure", () => {
+    const result = assessWorkRequest({
+      trade: "hvac",
+      task: "Recharge refrigerant in a split air conditioner.",
+      jurisdiction: "Nigeria",
+    });
+    expect(result.detectedHazards).toContain("refrigerant-handling");
+    expect(result.decision).toBe("escalate");
+    expect(result.stopWork).toBe(true);
+    expect(result.permittedGuidance[0]).toContain("Do not vent or handle refrigerant");
+  });
+
+  it("asks an unsure worker to identify the trade", () => {
+    const result = assessWorkRequest({ trade: "unsure", task: "I need help fixing this." });
+    expect(result.questions).toContain("Which trade best describes this task: carpentry, electrical, plumbing, HVAC, mechanical or construction?");
   });
 });
