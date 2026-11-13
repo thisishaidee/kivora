@@ -17,12 +17,16 @@
 - [x] Design anonymous worker identity and one-time recovery credential.
 - [x] Define hashed credential storage and HttpOnly cookie requirements.
 - [x] Define private session schema and ownership indexes.
-- [ ] Create and bind D1 database.
-- [ ] Apply and verify the initial migration.
-- [ ] Implement identity creation, session validation, recovery rotation and revocation.
-- [ ] Implement work-session CRUD with owner-scoped database predicates.
-- [ ] Test cross-worker isolation, expiry, CSRF/origin checks and recovery replay.
-- [ ] Add conservative abuse controls and retention/deletion behaviour.
+- [x] Create and bind the free D1 database.
+- [x] Apply and inspect the initial schema and indexes; foreign-key check returned no violations.
+- [x] Implement anonymous identity creation, cookie session validation, one-time recovery and recovery rotation.
+- [x] Implement private work-session create/list/read/archive/restore/delete and worker message storage.
+- [x] Enforce owner-scoped predicates, same-origin state changes and bounded JSON request bodies.
+- [x] Add user-facing recovery-code handling, device logout and identity/session deletion controls.
+- [x] Configure Cloudflare Rate Limiting bindings for anonymous identity and authenticated worker routes.
+- [ ] Verify rate limits and recovery replay behaviour on the deployed Worker; define an automated retention policy.
+- [ ] Run real D1 integration tests and cross-worker isolation tests against the deployed Worker.
+- [ ] Deploy the Worker and verify the browser flow end to end.
 
 ## Stage 3 — Evidence-backed task workflow
 - Structured task intake and trade classification.

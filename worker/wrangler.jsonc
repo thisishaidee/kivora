@@ -1,0 +1,26 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "kivora",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-13",
+  "ratelimits": [
+    {
+      "name": "IDENTITY_LIMITER",
+      "namespace_id": "2026111301",
+      "simple": { "limit": 20, "period": 60 }
+    },
+    {
+      "name": "WORKER_LIMITER",
+      "namespace_id": "2026111302",
+      "simple": { "limit": 120, "period": 60 }
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kivora",
+      "database_id": "3657a2bf-f4c2-484e-a214-8fdd05435c59",
+      "migrations_dir": "../migrations"
+    }
+  ]
+}

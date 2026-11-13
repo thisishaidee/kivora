@@ -7,6 +7,8 @@
     "skipLibCheck": true,
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -16,5 +18,5 @@
     "noUnusedParameters": true,
     "types": ["vite/client", "vitest/globals"]
   },
-  "include": ["web/src", "shared/src", "worker/src", "tests", "vite.config.ts", "vitest.config.ts"]
+  "include": ["web/src", "shared/src", "worker/src", "functions", "tests", "vite.config.ts", "vitest.config.ts"]
 }
