@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import worker from "../worker/src/index";
 
-const makeDb = (firstResult = null) => {
-  const statements = [];
+const makeDb = (firstResult: unknown = null) => {
+  const statements: { sql: string; values: unknown[] }[] = [];
   const db = {
-    prepare: (sql) => {
+    prepare: (sql: string) => {
       const statement = {
         sql,
-        values: [],
-        bind(...values) { this.values = values; return this; },
+        values: [] as unknown[],
+        bind(...values: unknown[]) { this.values = values; return this; },
         first: async () => firstResult,
         all: async () => ({ results: [] }),
         run: async () => ({ success: true, meta: { changes: 1 } }),
@@ -16,7 +16,7 @@ const makeDb = (firstResult = null) => {
       statements.push(statement);
       return statement;
     },
-    batch: async (batchStatements) => batchStatements.map(() => ({
+    batch: async (batchStatements: unknown[]) => batchStatements.map(() => ({
       success: true,
       results: [],
       meta: { changes: 1 },
@@ -85,6 +85,7 @@ describe("KIVORA Worker routes", () => {
     );
     const body = await response.json();
     const cookie = response.headers.get("set-cookie");
+    if (!cookie) throw new Error("Missing session cookie");
 
     expect(response.status).toBe(201);
     expect(body.worker.id).toBeTruthy();
