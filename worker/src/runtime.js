@@ -197,6 +197,15 @@ const handleApi = async (request, env, url) => {
     return json({ recovery_code: recoveryCode, recovery_code_displayed_once: true });
   }
 
+  if (path === "/api/identity/logout" && method === "POST") {
+    const worker = await authenticate(request, env.DB);
+    const token = cookieValue(request);
+    if (!worker || !token) return json({ error: "unauthorized" }, 401);
+    await env.DB.prepare("UPDATE worker_sessions SET revoked_at = ? WHERE worker_id = ? AND session_token_hash = ? AND revoked_at IS NULL")
+      .bind(nowSeconds(), worker.worker_id, await hashToken(token)).run();
+    return json({ logged_out: true }, 200, { "set-cookie": clearCookieHeader() });
+  }
+
   if (path === "/api/identity" && method === "DELETE") {
     const worker = await authenticate(request, env.DB);
     if (!worker) return json({ error: "unauthorized" }, 401);
