@@ -88,6 +88,13 @@ const HAZARD_RULES: HazardRule[] = [
     instruction: "Do not loosen fittings or open the system while pressure may remain. Follow the equipment manufacturer's isolation and depressurisation procedure.",
   },
   {
+    id: "refrigerant-handling",
+    pattern: /\b(refrigerant leak|recharge refrigerant|charge refrigerant|recover refrigerant|vent refrigerant|open refrigerant circuit)\b/i,
+    level: "high-risk",
+    stopWork: true,
+    instruction: "Stop work. Do not vent or handle refrigerant. Keep ignition sources away if flammable refrigerant may be present and contact a qualified HVAC professional who follows local refrigerant recovery and environmental requirements.",
+  },
+  {
     id: "structural-load",
     pattern: /\b(load-bearing|load bearing|structural beam|foundation|support column|bearing wall|roof truss)\b/i,
     level: "high-risk",
@@ -239,9 +246,9 @@ export function assessWorkRequest(
   const text = [request.task, ...request.knownFacts].join("\n");
   const matched = HAZARD_RULES.filter((rule) => rule.pattern.test(text));
   const detectedHazards = matched.map((rule) => rule.id);
-  const highRisk = matched.some((rule) => rule.level === "high-risk") ||
-    (request.trade === "electrical" && ELECTRICAL_HIGH_RISK.test(text));
-  const stopWork = matched.some((rule) => rule.stopWork);
+  const electricalHighRisk = request.trade === "electrical" && ELECTRICAL_HIGH_RISK.test(text);
+  const highRisk = matched.some((rule) => rule.level === "high-risk") || electricalHighRisk;
+  const stopWork = matched.some((rule) => rule.stopWork) || electricalHighRisk;
   const missingInformation: string[] = [];
   const questions: string[] = [];
   const limitations: string[] = [
