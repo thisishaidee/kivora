@@ -5,18 +5,24 @@ import {
   type IntelligenceAssessment,
   type WorkRequest,
 } from "./intelligence";
-import { workRequestSchema } from "./intelligence";
+import { evidenceSourceSchema, workRequestSchema } from "./intelligence";
 
 export const responseBlockSchema = z.object({
+  kind: z.enum(["safety", "explanation", "procedure", "measurement", "parts"]),
+  content: z.string().trim().min(1).max(1800),
+  evidenceIds: z.array(z.string().min(1).max(120)).max(10),
+});
+export type ResponseBlock = z.infer<typeof responseBlockSchema>;
+
+const providerBlockSchema = z.object({
   kind: z.enum(["explanation", "procedure", "measurement", "parts"]),
   content: z.string().trim().min(1).max(1800),
   evidenceIds: z.array(z.string().min(1).max(120)).min(1).max(10),
 });
-export type ResponseBlock = z.infer<typeof responseBlockSchema>;
 
 export const providerDraftSchema = z.object({
   summary: z.string().trim().min(1).max(500),
-  blocks: z.array(responseBlockSchema).min(1).max(12),
+  blocks: z.array(providerBlockSchema).min(1).max(12),
   followUpQuestions: z.array(z.string().trim().min(1).max(300)).max(8).default([]),
 });
 export type ProviderDraft = z.infer<typeof providerDraftSchema>;
@@ -83,6 +89,9 @@ function validateDraft(
   evidence: EvidenceSource[],
 ): { draft: ProviderDraft; citations: AssistantResponse["citations"] } {
   const draft = providerDraftSchema.parse(draftInput);
+  if (UNSAFE_INSTRUCTION_PATTERN.test([draft.summary, ...draft.followUpQuestions].join("\\n"))) {
+    throw new Error("unsafe_instruction");
+  }
   const sourceById = new Map(evidence.map((source) => [source.id, source]));
   const citedIds = new Set<string>();
 
@@ -129,7 +138,7 @@ export async function composeAssistantResponse(
   provider?: IntelligenceProvider,
 ): Promise<AssistantResponse> {
   const request = workRequestSchema.parse(requestInput);
-  const evidence = z.array(z.any()).max(100).parse(evidenceInput) as EvidenceSource[];
+  const evidence = z.array(evidenceSourceSchema).max(100).parse(evidenceInput);
   const assessment = assessWorkRequest(request, evidence);
 
   if (assessment.decision === "escalate") {
@@ -139,9 +148,9 @@ export async function composeAssistantResponse(
       assessment,
       assessment.questions,
       assessment.permittedGuidance.map((content) => ({
-        kind: "explanation" as const,
+        kind: "safety" as const,
         content,
-        evidenceIds: ["deterministic-safety-rule"],
+        evidenceIds: [],
       })),
     );
   }
