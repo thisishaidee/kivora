@@ -398,3 +398,89 @@ describe("KIVORA assessment endpoint", () => {
     expect(await response.json()).toEqual({ error: "invalid_assessment_request" });
   });
 });
+
+
+describe("private evidence source API", () => {
+  it("stores a new source as private and pending regardless of browser claims", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/evidence-sources", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"a".repeat(64)}`,
+        },
+        body: JSON.stringify({
+          trade: "plumbing",
+          sourceType: "manufacturer_manual",
+          publisher: "Acme",
+          title: "K-100 service manual",
+          sourceUrl: "https://manufacturer.example/manual.pdf",
+          language: "en",
+          productMake: "Acme",
+          productModel: "K-100",
+          topic: "cartridge identification",
+          pageOrSection: "4.2",
+          evidenceNote: "Section 4.2 identifies the cartridge assembly.",
+          review_status: "approved",
+          visibility: "shared",
+          rights_status: "public_domain",
+          reviewer_id: "attacker",
+        }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    const body = await response.json();
+    const insert = db.statements.find((statement) => statement.sql.includes("INSERT INTO evidence_sources"));
+    expect(response.status).toBe(201);
+    expect(body.eligible_for_guidance).toBe(false);
+    expect(body.source.review_status).toBe("pending");
+    expect(body.source.rights_status).toBe("user_provided_private");
+    expect(insert?.sql).toContain("'private'");
+    expect(insert?.sql).toContain("'pending'");
+    expect(insert?.sql).toContain("'user_provided_private'");
+    expect(insert?.values[1]).toBe("worker-a");
+  });
+
+  it("rejects HTTP source URLs and malformed source metadata", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/evidence-sources", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"b".repeat(64)}`,
+        },
+        body: JSON.stringify({
+          trade: "plumbing",
+          sourceType: "manufacturer_manual",
+          publisher: "Acme",
+          title: "K-100 manual",
+          sourceUrl: "http://unsafe.example/manual",
+          topic: "cartridge",
+          evidenceNote: "Note",
+        }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    expect(response.status).toBe(400);
+    expect(db.statements.some((statement) => statement.sql.includes("INSERT INTO evidence_sources"))).toBe(false);
+  });
+
+  it("lists only the authenticated worker's private evidence", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/evidence-sources", {
+        headers: { cookie: `__Host-kivora_session=${"c".repeat(64)}` },
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ sources: [] });
+    expect(db.statements[1].sql).toContain("visibility = 'private'");
+    expect(db.statements[1].sql).toContain("owner_worker_id = ?");
+    expect(db.statements[1].values).toEqual(["worker-a"]);
+  });
+});
