@@ -8,6 +8,7 @@ import {
   type Trade,
   type UnitSystem,
 } from "../../shared/src/contracts";
+import type { IntelligenceAssessment } from "../../shared/src/intelligence";
 
 type IdentityState = "checking" | "welcome" | "recovery" | "recovery-code" | "ready";
 type WorkSession = {
@@ -64,6 +65,11 @@ export default function App() {
   const [language, setLanguage] = useState<Language>("en");
   const [units, setUnits] = useState<UnitSystem>("metric");
   const [task, setTask] = useState("");
+  const [jurisdiction, setJurisdiction] = useState("");
+  const [involvesEquipment, setInvolvesEquipment] = useState(false);
+  const [equipmentMake, setEquipmentMake] = useState("");
+  const [equipmentModel, setEquipmentModel] = useState("");
+  const [assessment, setAssessment] = useState<IntelligenceAssessment | null>(null);
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [messages, setMessages] = useState<WorkMessage[]>([]);
@@ -178,12 +184,14 @@ export default function App() {
     const validTrade = tradeSchema.safeParse(trade);
     const validLanguage = languageSchema.safeParse(language);
     const validUnits = unitSystemSchema.safeParse(units);
-    if (!validTrade.success || !validLanguage.success || !validUnits.success || !task.trim()) {
+    const submittedTask = task.trim();
+    if (!validTrade.success || !validLanguage.success || !validUnits.success || !submittedTask) {
       setNotice("Add a job description and check your preferences.");
       return;
     }
     setBusy(true);
     setNotice("");
+    setAssessment(null);
     try {
       const result = await api<{ session: WorkSession }>("/api/work-sessions", {
         method: "POST",
@@ -191,7 +199,7 @@ export default function App() {
           trade: validTrade.data,
           language: validLanguage.data,
           units: validUnits.data,
-          task: task.trim(),
+          task: submittedTask,
         }),
       });
       setTask("");
@@ -199,11 +207,27 @@ export default function App() {
       setMessages([{
         id: "initial-task",
         role: "worker",
-        content: task.trim(),
+        content: submittedTask,
         created_at: result.session.created_at,
       }]);
       await refreshSessions();
-      setNotice("Your task is saved in your private workspace. Guided AI assistance is the next build stage.");
+      try {
+        const triage = await api<{ assessment: IntelligenceAssessment }>("/api/assess", {
+          method: "POST",
+          body: JSON.stringify({
+            trade: validTrade.data,
+            task: submittedTask,
+            jurisdiction: jurisdiction.trim() || undefined,
+            involvesEquipment,
+            equipmentMake: equipmentMake.trim() || undefined,
+            equipmentModel: equipmentModel.trim() || undefined,
+          }),
+        });
+        setAssessment(triage.assessment);
+        setNotice("Your task is saved. Review the assessment before taking action.");
+      } catch {
+        setNotice("Your task is saved, but the assessment service is unavailable. No technical guidance was generated.");
+      }
     } catch {
       setNotice("Your task could not be saved. It has not been sent to an AI service.");
     } finally {
@@ -218,6 +242,7 @@ export default function App() {
       const result = await api<{ session: WorkSession; messages: WorkMessage[] }>(`/api/work-sessions/${id}`);
       setActiveSession(result.session);
       setMessages(result.messages);
+      setAssessment(null);
     } catch {
       setNotice("That work session could not be opened.");
     } finally {
@@ -409,6 +434,28 @@ export default function App() {
                 </div>
               </fieldset>
 
+              <label className="field">
+                <span>Where is the work taking place?</span>
+                <input value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} placeholder="Country or jurisdiction (for example, Nigeria)" />
+              </label>
+
+              <label className="recovery-confirm">
+                <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
+                <span>This job involves a specific machine, appliance, tool or product</span>
+              </label>
+              {involvesEquipment && (
+                <div className="field-grid">
+                  <label className="field">
+                    <span>Manufacturer / make</span>
+                    <input value={equipmentMake} onChange={(event) => setEquipmentMake(event.target.value)} placeholder="Brand or manufacturer" />
+                  </label>
+                  <label className="field">
+                    <span>Exact model</span>
+                    <input value={equipmentModel} onChange={(event) => setEquipmentModel(event.target.value)} placeholder="Model number" />
+                  </label>
+                </div>
+              )}
+
               <label className="field task-field">
                 <span>Describe the job, product or problem</span>
                 <textarea value={task} onChange={(event) => setTask(event.target.value)} placeholder="What are you trying to do? What have you noticed? Include a product or model number if you have one." rows={5} />
@@ -420,6 +467,38 @@ export default function App() {
               <p className="privacy-note">Your task is stored in your private workspace. Avoid passwords, access codes and customer personal details. AI guidance is not connected yet.</p>
             </form>
           </section>
+
+          {assessment && (
+            <section className="workspace assessment-card" aria-live="polite">
+              <div className="workspace-heading">
+                <div>
+                  <p className="eyebrow">INITIAL WORK ASSESSMENT</p>
+                  <h2>{assessment.decision === "escalate" ? "Stop and get qualified help" : assessment.decision === "clarify" ? "A few details are still needed" : "Evidence-backed guidance may proceed"}</h2>
+                </div>
+                <span className="step-label">{assessment.safetyLevel.toUpperCase()}</span>
+              </div>
+              {assessment.detectedHazards.length > 0 && (
+                <div className="assessment-group">
+                  <h3>Detected risk signals</h3>
+                  <ul>{assessment.detectedHazards.map((hazard) => <li key={hazard}>{hazard.replace(/-/g, " ")}</li>)}</ul>
+                </div>
+              )}
+              {assessment.permittedGuidance.length > 0 && (
+                <div className="assessment-group">
+                  <h3>Immediate safety guidance</h3>
+                  <ul>{assessment.permittedGuidance.map((item) => <li key={item}>{item}</li>)}</ul>
+                </div>
+              )}
+              {assessment.questions.length > 0 && (
+                <div className="assessment-group">
+                  <h3>What KIVORA needs to know</h3>
+                  <ul>{assessment.questions.map((question) => <li key={question}>{question}</li>)}</ul>
+                </div>
+              )}
+              {language !== "en" && <p className="privacy-note">Safety assessment wording is currently available in English only. Reviewed Nigerian English, Pidgin and French safety wording is not ready yet.</p>}
+              <p className="privacy-note">Compatibility: {assessment.compatibilityStatus}. This is a preliminary deterministic assessment, not a complete risk assessment or technical procedure.</p>
+            </section>
+          )}
 
           <section className="workspace session-library">
             <div className="workspace-heading">
