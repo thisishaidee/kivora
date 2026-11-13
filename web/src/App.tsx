@@ -544,7 +544,7 @@ export default function App() {
               <div className="workspace-heading">
                 <div>
                   <p className="eyebrow">INITIAL WORK ASSESSMENT</p>
-                  <h2>{assessment.decision === "escalate" ? "Stop and get qualified help" : assessment.decision === "clarify" ? "A few details are still needed" : "Evidence-backed guidance may proceed"}</h2>
+                  <h2>{assessment.decision === "escalate" ? "Stop and get qualified help" : assessment.decision === "clarify" ? "A few details are still needed" : "Evidence requirements met"}</h2>
                 </div>
                 <span className="step-label">{assessment.safetyLevel.toUpperCase()}</span>
               </div>
@@ -567,7 +567,7 @@ export default function App() {
                 </div>
               )}
               {language !== "en" && <p className="privacy-note">Safety assessment wording is currently available in English only. Reviewed Nigerian English, Pidgin and French safety wording is not ready yet.</p>}
-              <p className="privacy-note">Compatibility: {assessment.compatibilityStatus}. This is a preliminary deterministic assessment, not a complete risk assessment or technical procedure.</p>
+              <p className="privacy-note">Compatibility: {assessment.compatibilityStatus}. This is a preliminary deterministic assessment, not an AI answer, complete risk assessment or technical procedure.</p>
             </section>
           )}
 
