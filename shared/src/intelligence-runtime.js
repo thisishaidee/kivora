@@ -5,6 +5,7 @@ const HAZARD_RULES = [
   { id:"live-electrical", pattern:/\b(live wire|live circuit|energized|energised|electric shock|electrocution|mains wiring|distribution board|breaker panel)\b/i, stopWork:true, instruction:"Do not touch exposed conductors or work on an energised circuit. Isolate power and have absence of voltage verified by a qualified electrician using appropriate equipment." },
   { id:"gas-leak", pattern:/\b(gas leak|smell of gas|leaking gas|lpg leak|propane leak|natural gas leak)\b/i, stopWork:true, instruction:"Stop work, avoid flames and electrical switching, leave the affected area, and contact the local gas emergency service or a qualified gas professional from a safe location." },
   { id:"pressure-system", pattern:/\b(pressurised|pressurized|pressure vessel|boiler|compressed air tank|hydraulic accumulator)\b/i, stopWork:true, instruction:"Do not loosen fittings or open the system while pressure may remain. Follow the equipment manufacturer's isolation and depressurisation procedure." },
+  { id:"refrigerant-handling", pattern:/\b(refrigerant leak|recharge refrigerant|charge refrigerant|recover refrigerant|vent refrigerant|open refrigerant circuit)\b/i, stopWork:true, instruction:"Stop work. Do not vent or handle refrigerant. Keep ignition sources away if flammable refrigerant may be present and contact a qualified HVAC professional who follows local refrigerant recovery and environmental requirements." },
   { id:"structural-load", pattern:/\b(load-bearing|load bearing|structural beam|foundation|support column|bearing wall|roof truss)\b/i, stopWork:false, instruction:"Do not cut, drill, remove or alter a potentially structural member without a competent structural assessment and applicable approvals." },
   { id:"working-at-height", pattern:/\b(roof work|working at height|scaffold|scaffolding|ladder above|fall arrest)\b/i, stopWork:true, instruction:"Do not proceed without a suitable inspected access system, fall protection and a task-specific safe-work plan." },
   { id:"rotating-machinery", pattern:/\b(unguarded machine|missing machine guard|operating without a guard|adjusting while running|clearing a jam while running|entanglement hazard)\b/i, stopWork:true, instruction:"Keep clear of moving parts. Isolate and lock out the machine before adjustment, clearing jams or maintenance; use the manufacturer's procedure." },
@@ -111,8 +112,9 @@ export function assessWorkRequest(input,evidenceInput=[]) {
   const text=[request.task,...request.knownFacts].join("\n");
   const matched=HAZARD_RULES.filter(rule=>rule.pattern.test(text));
   const detectedHazards=matched.map(rule=>rule.id);
-  const highRisk=matched.length>0||(request.trade==="electrical"&&ELECTRICAL_HIGH_RISK.test(text));
-  const stopWork=matched.some(rule=>rule.stopWork);
+  const electricalHighRisk=request.trade==="electrical"&&ELECTRICAL_HIGH_RISK.test(text);
+  const highRisk=matched.length>0||electricalHighRisk;
+  const stopWork=matched.some(rule=>rule.stopWork)||electricalHighRisk;
   const missingInformation=[];
   const questions=[];
   const limitations=[
