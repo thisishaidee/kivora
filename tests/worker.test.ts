@@ -47,9 +47,14 @@ describe("KIVORA Worker routes", () => {
   });
 
   it("does not expose private routes without a worker session", async () => {
+    const statement = {
+      bind: () => statement,
+      first: async () => null,
+    };
+    const db = { prepare: () => statement };
     const response = await worker.fetch(
       new Request("https://kivora.test/api/work-sessions"),
-      { ASSETS: { fetch: vi.fn() }, DB: {} as never },
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
     );
 
     expect(response.status).toBe(401);
