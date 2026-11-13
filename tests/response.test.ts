@@ -101,3 +101,17 @@ describe("provider-neutral grounded response pipeline", () => {
     expect(unconfigured.status).toBe("unavailable");
   });
 });
+
+
+  it("rejects unsupported measurements hidden in the provider summary", async () => {
+    const result = await composeAssistantResponse(request, evidence, provider(async () => ({
+      summary: "The clearance should be 15 mm.",
+      blocks: [{
+        kind: "explanation",
+        content: "The cartridge assembly is shown in section 4.2.",
+        evidenceIds: ["manual-k100"],
+      }],
+    })));
+    expect(result.status).toBe("unavailable");
+    expect(result.blocks).toHaveLength(0);
+  });
