@@ -8,7 +8,13 @@ describe("Worker-native assessment parity", () => {
     [{ trade: "plumbing", task: "A dripping kitchen tap", jurisdiction: "Nigeria" }],
     [{ trade: "plumbing", task: "I smell gas and suspect a gas leak." }],
     [{ trade: "electrical", task: "Explain the difference between a lamp and a light fitting.", jurisdiction: "Nigeria" }],
-    [{ trade: "carpentry", task: "What is a table saw used for?", jurisdiction: "Nigeria" }],
+    [{ trade: "carpentry", task: "What is a table saw used for?" }],
+    [{ trade: "carpentry", task: "I need to cut and assemble a cabinet door." }],
+    [{ trade: "plumbing", task: "There is a leak from a kitchen tap." }],
+    [{ trade: "hvac", task: "Repair an air conditioner that is not cooling.", jurisdiction: "Nigeria" }],
+    [{ trade: "electrical", task: "Install a new wall socket." }],
+    [{ trade: "hvac", task: "Recharge refrigerant in a split air conditioner.", jurisdiction: "Nigeria" }],
+    [{ trade: "unsure", task: "I need help fixing this." }],
   ])("matches the typed intelligence engine for the same request", (request) => {
     expect(assessWorkerRuntime(request)).toEqual(assessTypeScript(request));
   });
