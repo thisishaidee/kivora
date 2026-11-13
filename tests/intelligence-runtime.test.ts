@@ -68,6 +68,7 @@ describe("Worker-native private evidence validation", () => {
 
   it("rejects impossible revision dates and normalizes SHA-256 fingerprints", () => {
     expect(parsePrivateEvidenceCapture({ ...valid, revisionDate: "2026-02-31" }).success).toBe(false);
+    expect(parsePrivateEvidenceCapture({ ...valid, revisionDate: "2026-02-28" }).success).toBe(true);
     const parsed = parsePrivateEvidenceCapture({ ...valid, sourceSha256: "A".repeat(64) });
     expect(parsed.success).toBe(true);
     expect(parsed.data.sourceSha256).toBe("a".repeat(64));
