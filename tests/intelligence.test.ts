@@ -5,6 +5,7 @@ const base = {
   trade: "plumbing",
   task: "My kitchen tap is dripping and I want to identify the cartridge.",
   jurisdiction: "Nigeria",
+  involvesEquipment: true,
   equipmentMake: "Acme",
   equipmentModel: "K-100",
   knownFacts: [],
@@ -78,6 +79,7 @@ describe("KIVORA deterministic intelligence gate", () => {
     const result = assessWorkRequest({
       trade: "hvac",
       task: "My air conditioner compressor is not starting.",
+      involvesEquipment: true,
     }, []);
     expect(result.decision).toBe("clarify");
     expect(result.missingInformation).toContain("work jurisdiction");
