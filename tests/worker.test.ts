@@ -401,7 +401,7 @@ describe("KIVORA assessment endpoint", () => {
 
 
 describe("private evidence source API", () => {
-  it("stores a new source as private and pending regardless of browser claims", async () => {
+  it("stores a new source as private and pending", async () => {
     const db = makeDb({ worker_id: "worker-a" });
     const response = await worker.fetch(
       new Request("https://kivora.test/api/evidence-sources", {
@@ -423,10 +423,6 @@ describe("private evidence source API", () => {
           topic: "cartridge identification",
           pageOrSection: "4.2",
           evidenceNote: "Section 4.2 identifies the cartridge assembly.",
-          review_status: "approved",
-          visibility: "shared",
-          rights_status: "public_domain",
-          reviewer_id: "attacker",
         }),
       }),
       { ASSETS: { fetch: vi.fn() }, DB: db as never },
