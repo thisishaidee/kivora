@@ -13,18 +13,47 @@ describe("KIVORA Worker routes", () => {
     expect(await response.json()).toEqual({
       service: "kivora-api",
       status: "ok",
-      version: "0.1.0",
+      version: "0.3.0",
+      storage: "d1",
     });
   });
 
-  it("does not pretend unimplemented API routes exist", async () => {
+  it("fails closed when the D1 binding is absent", async () => {
     const response = await worker.fetch(
-      new Request("https://kivora.test/api/sessions"),
+      new Request("https://kivora.test/api/identity", {
+        method: "POST",
+        headers: { origin: "https://kivora.test", "content-type": "application/json" },
+        body: "{}",
+      }),
       { ASSETS: { fetch: vi.fn() } },
     );
 
-    expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({ error: "not_implemented" });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "service_unavailable" });
+  });
+
+  it("rejects cross-origin state changes", async () => {
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/identity", {
+        method: "POST",
+        headers: { origin: "https://attacker.test", "content-type": "application/json" },
+        body: "{}",
+      }),
+      { ASSETS: { fetch: vi.fn() } },
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "origin_not_allowed" });
+  });
+
+  it("does not expose private routes without a worker session", async () => {
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/work-sessions"),
+      { ASSETS: { fetch: vi.fn() }, DB: {} as never },
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "unauthorized" });
   });
 
   it("passes non-API requests to the static asset binding", async () => {
