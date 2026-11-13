@@ -73,3 +73,15 @@ select:focus,textarea:focus,input:not([type="checkbox"]):focus{border-color:#657
 .assessment-group h3{font-size:12px;margin:0 0 9px;color:#394336}
 .assessment-group ul{margin:0;padding-left:19px;color:#535b50;font-size:12px;line-height:1.75}
 .assessment-group li+li{margin-top:6px}
+
+.evidence-library{margin-top:22px}
+.evidence-form{display:flex;flex-direction:column;gap:16px;margin-top:22px}
+.evidence-form .field-grid{gap:14px}
+.evidence-form textarea{resize:vertical;min-height:88px;line-height:1.6}
+.evidence-list{margin-top:24px;border-top:1px solid #eceee8}
+.evidence-item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 0;border-bottom:1px solid #eceee8}
+.evidence-item h3{font-size:13px;margin:6px 0 4px;color:#252922}
+.evidence-item p{font-size:11px;color:#858b81;margin:0}
+.evidence-item a{font-size:10px;color:#6a725f;white-space:nowrap}
+.evidence-status{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.07em;color:#8a7650}
+@media(max-width:650px){.evidence-item{align-items:flex-start;flex-direction:column;gap:8px}.evidence-item a{align-self:flex-end}}
