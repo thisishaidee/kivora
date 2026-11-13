@@ -63,7 +63,7 @@ Requires Node.js 22 or newer.
 
 ## Current limitations
 
-Worker identity, private persistent sessions, D1 binding, AI providers, evidence retrieval, image understanding, voice input/output, compatibility assessment, trade-specific safety enforcement, Bitcoin/Lightning wallet integration and production deployment are not yet implemented. See the implementation plan for the sequence and deployment gates.
+Worker identity and private work-session endpoints are implemented on the current feature branch and the D1 schema is provisioned in Cloudflare. The branch still needs CI, Worker deployment and end-to-end browser verification. AI providers, evidence retrieval, image understanding, voice input/output, compatibility assessment and trade-specific safety enforcement are not yet implemented. The optional NWC wallet integration is being developed separately. See the implementation plan for the sequence and deployment gates.
 
 ## Security
 
