@@ -22,6 +22,18 @@ type WorkSession = {
   archived_at: number | null;
 };
 type WorkMessage = { id: string; role: string; content: string; created_at: number };
+type EvidenceSource = {
+  id: string;
+  trade: Trade;
+  source_type: string;
+  publisher: string;
+  title: string;
+  source_url: string | null;
+  topic: string;
+  rights_status: string;
+  review_status: string;
+  created_at: number;
+};
 
 const trades: { value: Trade; label: string }[] = [
   { value: "carpentry", label: "Carpentry & furniture" },
@@ -71,6 +83,16 @@ export default function App() {
   const [equipmentModel, setEquipmentModel] = useState("");
   const [assessment, setAssessment] = useState<IntelligenceAssessment | null>(null);
   const [sessions, setSessions] = useState<WorkSession[]>([]);
+  const [evidenceSources, setEvidenceSources] = useState<EvidenceSource[]>([]);
+  const [evidenceType, setEvidenceType] = useState("manufacturer_manual");
+  const [evidencePublisher, setEvidencePublisher] = useState("");
+  const [evidenceTitle, setEvidenceTitle] = useState("");
+  const [evidenceUrl, setEvidenceUrl] = useState("");
+  const [evidenceTopic, setEvidenceTopic] = useState("");
+  const [evidenceNote, setEvidenceNote] = useState("");
+  const [evidenceMake, setEvidenceMake] = useState("");
+  const [evidenceModel, setEvidenceModel] = useState("");
+  const [evidenceSection, setEvidenceSection] = useState("");
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [messages, setMessages] = useState<WorkMessage[]>([]);
   const [notice, setNotice] = useState("");
@@ -80,6 +102,53 @@ export default function App() {
   async function refreshSessions() {
     const result = await api<{ sessions: WorkSession[] }>("/api/work-sessions");
     setSessions(result.sessions);
+  }
+
+  async function refreshEvidenceSources() {
+    const result = await api<{ sources: EvidenceSource[] }>("/api/evidence-sources");
+    setEvidenceSources(result.sources);
+  }
+
+  async function saveEvidenceSource(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!evidencePublisher.trim() || !evidenceTitle.trim() || !evidenceTopic.trim() || !evidenceNote.trim()) {
+      setNotice("Add the source publisher, title, topic and your evidence note.");
+      return;
+    }
+    setBusy(true);
+    setNotice("");
+    try {
+      await api("/api/evidence-sources", {
+        method: "POST",
+        body: JSON.stringify({
+          trade,
+          sourceType: evidenceType,
+          publisher: evidencePublisher.trim(),
+          title: evidenceTitle.trim(),
+          sourceUrl: evidenceUrl.trim() || undefined,
+          productMake: evidenceMake.trim() || undefined,
+          productModel: evidenceModel.trim() || undefined,
+          topic: evidenceTopic.trim(),
+          pageOrSection: evidenceSection.trim() || undefined,
+          evidenceNote: evidenceNote.trim(),
+          language,
+        }),
+      });
+      setEvidencePublisher("");
+      setEvidenceTitle("");
+      setEvidenceUrl("");
+      setEvidenceTopic("");
+      setEvidenceNote("");
+      setEvidenceMake("");
+      setEvidenceModel("");
+      setEvidenceSection("");
+      await refreshEvidenceSources();
+      setNotice("Source saved privately. It is pending review and cannot be used for AI guidance yet.");
+    } catch {
+      setNotice("The source could not be saved. Check the link and source details.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   useEffect(() => {
@@ -92,6 +161,8 @@ export default function App() {
         try {
           const list = await api<{ sessions: WorkSession[] }>("/api/work-sessions");
           if (alive) setSessions(list.sessions);
+          const sources = await api<{ sources: EvidenceSource[] }>("/api/evidence-sources");
+          if (alive) setEvidenceSources(sources.sources);
         } catch {
           if (alive) setNotice("Your private workspace could not be loaded. Refresh to retry.");
         }
@@ -173,9 +244,9 @@ export default function App() {
     setIdentityState("ready");
     setNotice("Your private workspace is ready.");
     try {
-      await refreshSessions();
+      await Promise.all([refreshSessions(), refreshEvidenceSources()]);
     } catch {
-      setNotice("Your workspace is ready, but the session list could not be loaded.");
+      setNotice("Your workspace is ready, but saved workspace data could not be loaded.");
     }
   }
 
@@ -499,6 +570,83 @@ export default function App() {
               <p className="privacy-note">Compatibility: {assessment.compatibilityStatus}. This is a preliminary deterministic assessment, not a complete risk assessment or technical procedure.</p>
             </section>
           )}
+
+          <section className="workspace evidence-library">
+            <div className="workspace-heading">
+              <div>
+                <p className="eyebrow">TECHNICAL SOURCES</p>
+                <h2>Your evidence library</h2>
+              </div>
+              <span className="step-label">{evidenceSources.length} SAVED</span>
+            </div>
+            <p className="privacy-note">Record where a technical fact came from. Notes stay private to this worker and remain pending review. They do not currently unlock AI guidance. Do not paste long copyrighted manual passages.</p>
+            <form onSubmit={(event) => void saveEvidenceSource(event)} className="evidence-form">
+              <div className="field-grid">
+                <label className="field">
+                  <span>Source type</span>
+                  <select value={evidenceType} onChange={(event) => setEvidenceType(event.target.value)}>
+                    <option value="manufacturer_manual">Manufacturer manual</option>
+                    <option value="technical_bulletin">Technical bulletin</option>
+                    <option value="service_notice">Service notice</option>
+                    <option value="standard">Standard or regulation</option>
+                    <option value="field_observation">Field observation</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Publisher / manufacturer</span>
+                  <input value={evidencePublisher} onChange={(event) => setEvidencePublisher(event.target.value)} maxLength={200} placeholder="Who published it?" required />
+                </label>
+              </div>
+              <label className="field">
+                <span>Source title</span>
+                <input value={evidenceTitle} onChange={(event) => setEvidenceTitle(event.target.value)} maxLength={300} placeholder="Manual, bulletin or reference title" required />
+              </label>
+              <label className="field">
+                <span>Source link (HTTPS)</span>
+                <input type="url" value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} placeholder="https://..." />
+              </label>
+              <div className="field-grid">
+                <label className="field">
+                  <span>Product make (if relevant)</span>
+                  <input value={evidenceMake} onChange={(event) => setEvidenceMake(event.target.value)} placeholder="Manufacturer" />
+                </label>
+                <label className="field">
+                  <span>Exact model (if relevant)</span>
+                  <input value={evidenceModel} onChange={(event) => setEvidenceModel(event.target.value)} placeholder="Model number" />
+                </label>
+              </div>
+              <label className="field">
+                <span>Topic this source supports</span>
+                <input value={evidenceTopic} onChange={(event) => setEvidenceTopic(event.target.value)} maxLength={200} placeholder="For example, tap cartridge identification" required />
+              </label>
+              <label className="field">
+                <span>Page or section</span>
+                <input value={evidenceSection} onChange={(event) => setEvidenceSection(event.target.value)} maxLength={120} placeholder="Page, chapter or section reference" />
+              </label>
+              <label className="field">
+                <span>Your concise evidence note</span>
+                <textarea value={evidenceNote} onChange={(event) => setEvidenceNote(event.target.value)} rows={3} maxLength={2000} placeholder="Summarise the specific fact and its context in your own words." required />
+              </label>
+              <button className="submit-button" type="submit" disabled={busy || !evidencePublisher.trim() || !evidenceTitle.trim() || !evidenceTopic.trim() || !evidenceNote.trim()}>
+                {busy ? "Saving…" : "Save private source"} <span aria-hidden="true">↗</span>
+              </button>
+            </form>
+            {evidenceSources.length > 0 && (
+              <div className="evidence-list">
+                {evidenceSources.map((source) => (
+                  <article className="evidence-item" key={source.id}>
+                    <div>
+                      <span className="evidence-status">PENDING REVIEW · PRIVATE</span>
+                      <h3>{source.title}</h3>
+                      <p>{source.publisher} · {source.topic}</p>
+                    </div>
+                    {source.source_url && <a href={source.source_url} target="_blank" rel="noreferrer">Open source</a>}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
 
           <section className="workspace session-library">
             <div className="workspace-heading">
