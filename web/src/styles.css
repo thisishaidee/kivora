@@ -35,3 +35,29 @@ select:focus,textarea:focus{border-color:#65765a;box-shadow:0 0 0 3px #65765a1c}
 .notice{color:#6c5630}
 .footer{display:flex;justify-content:space-between;padding:36px 0 28px;color:#858b81;font-size:9px;letter-spacing:.04em}
 @media(max-width:650px){.page-shell{padding:0 20px}.topbar{height:68px}.topbar-note{max-width:145px;text-align:right;line-height:1.5}.hero{padding:58px 0 42px}.hero h1{font-size:62px}.intro{font-size:14px}.workspace{padding:25px 20px 23px}.workspace-heading h2{font-size:20px}.field-grid{grid-template-columns:1fr;gap:17px}.unit-options{flex-wrap:wrap}.footer{gap:14px;line-height:1.5}.footer span:last-child{text-align:right}}
+
+
+.wallet-panel{max-width:780px;margin:24px 0 0;background:#fff;border:1px solid #e4e5df;border-radius:17px;padding:30px 38px;box-shadow:0 14px 45px #22220a08}
+.wallet-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}
+.wallet-heading h2{font-size:22px;letter-spacing:-.04em;margin:9px 0 0}
+.wallet-protocol{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.08em;color:#73796f;border:1px solid #e0e3da;border-radius:20px;padding:7px 9px;white-space:nowrap}
+.wallet-copy{font-size:13px;line-height:1.7;color:#697066;margin:0 0 20px;max-width:590px}
+.wallet-connect input{font-size:12px}
+.wallet-action{margin-top:16px}
+.submit-button:disabled{opacity:.55;cursor:wait}
+.wallet-connected{display:flex;flex-direction:column;gap:18px}
+.wallet-summary{display:flex;align-items:center;gap:12px;padding:14px;background:#f5f6f2;border-radius:9px}
+.wallet-status-dot{width:8px;height:8px;border-radius:50%;background:#5c8750;flex:0 0 auto}
+.wallet-summary strong{font-size:13px}
+.wallet-summary p{font-size:11px;color:#777d73;margin:4px 0 0}
+.text-button{margin-left:auto;border:0;background:transparent;color:#6a725f;font-size:11px;text-decoration:underline;cursor:pointer;padding:8px}
+.wallet-balance{display:flex;justify-content:space-between;align-items:center;padding:17px 0;border-bottom:1px solid #eceee8}
+.wallet-balance span{font-size:12px;color:#73796f}
+.wallet-balance strong{font-size:20px;letter-spacing:-.04em}
+.invoice-tools{display:flex;flex-direction:column;gap:8px}
+.invoice-tools .wallet-action{margin-top:6px}
+.invoice-result{padding:15px;background:#f7f8f5;border-radius:9px}
+.invoice-result textarea{font-family:"DM Mono",monospace;font-size:10px;overflow-wrap:anywhere}
+.invoice-result .unit-option{margin-top:10px}
+.wallet-notice{margin-top:16px}
+@media(max-width:650px){.wallet-panel{padding:24px 20px}.wallet-heading h2{font-size:19px}.wallet-summary{align-items:flex-start}.wallet-balance{gap:12px}.wallet-balance strong{font-size:17px;text-align:right}}
