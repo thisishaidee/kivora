@@ -262,6 +262,23 @@ export default function App() {
     }
   }
 
+  async function logout() {
+    setBusy(true);
+    try {
+      await api("/api/identity/logout", { method: "POST" });
+      setWorkerId("");
+      setSessions([]);
+      setActiveSession(null);
+      setMessages([]);
+      setIdentityState("welcome");
+      setNotice("You have been logged out. Your private workspace remains available with your recovery code.");
+    } catch {
+      setNotice("You could not be logged out. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deleteIdentity() {
     if (!window.confirm("Delete your KIVORA identity and all private work sessions? This cannot be undone.")) return;
     setBusy(true);
@@ -466,6 +483,7 @@ export default function App() {
             <p className="privacy-note">Anonymous worker ID: {workerId.slice(0, 8)}…{workerId.slice(-4)}. Your sessions are not shared with other workers.</p>
             <div className="account-actions">
               <button className="unit-option" type="button" onClick={() => void rotateRecoveryCode()} disabled={busy}>Generate new recovery code</button>
+              <button className="unit-option" type="button" onClick={() => void logout()} disabled={busy}>Log out on this device</button>
               <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete identity and all data</button>
             </div>
           </section>
