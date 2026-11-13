@@ -10,8 +10,8 @@
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
 /** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter }} Env */
 
-import { assessWorkRequest, workRequestSchema } from "../../shared/src/intelligence";
-import { privateEvidenceCaptureSchema } from "../../shared/src/evidence";
+import { assessWorkRequest, parseWorkRequest } from "../../shared/src/intelligence-runtime.js";
+import { parsePrivateEvidenceCapture } from "../../shared/src/evidence-runtime.js";
 
 const SESSION_COOKIE = "__Host-kivora_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -234,7 +234,7 @@ const handleApi = async (request, env, url) => {
     try {
       // Browser-supplied evidence is ignored. Only approved shared records
       // from the server-side registry may support an assessment.
-      const request = workRequestSchema.parse(body);
+      const request = parseWorkRequest(body);
       const evidenceResult = await env.DB.prepare(
         `SELECT id, publisher, title, source_url, document_ref, product_make,
           product_model, trade, topic, revision_date, retrieved_at,
@@ -293,7 +293,7 @@ const handleApi = async (request, env, url) => {
 
   if (path === "/api/evidence-sources" && method === "POST") {
     const body = await readJson(request);
-    const parsed = privateEvidenceCaptureSchema.safeParse(body);
+    const parsed = parsePrivateEvidenceCapture(body);
     if (!parsed.success) return json({ error: "invalid_evidence_source" }, 400);
     const source = parsed.data;
     const id = newId();
