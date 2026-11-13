@@ -209,7 +209,6 @@ const handleApi = async (request, env, url) => {
   if (path === "/api/identity" && method === "DELETE") {
     const worker = await authenticate(request, env.DB);
     if (!worker) return json({ error: "unauthorized" }, 401);
-    const now = nowSeconds();
     await env.DB.batch([
       env.DB.prepare("DELETE FROM work_session_messages WHERE worker_id = ?").bind(worker.worker_id),
       env.DB.prepare("DELETE FROM work_sessions WHERE worker_id = ?").bind(worker.worker_id),
