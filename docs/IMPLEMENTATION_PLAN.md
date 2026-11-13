@@ -1,25 +1,28 @@
 # KIVORA Implementation Plan
 
-## Stage 0 — Product foundation
+## Stage 0 — Product and submission foundation
 - [x] Confirm multi-trade product direction.
 - [x] Define evidence and safety principles.
-- [ ] Validate hackathon rules and any mandatory Bitcoin/Lightning requirement against official sources.
+- [x] Verify official Dakar Bitcoin Hack submission requirements.
 - [ ] Complete technical provider and platform capability checks.
 
 ## Stage 1 — Application foundation
-- [ ] Mobile-first application shell.
-- [ ] Shared typed trade, language and unit contracts.
-- [ ] Minimal API health endpoint.
-- [ ] CI build and typecheck.
+- [x] Mobile-first application shell.
+- [x] Shared typed trade, language and unit contracts.
+- [x] Minimal API health endpoint.
+- [x] CI typecheck, unit tests and production build.
 - [ ] Deploy preview and verify on Android.
 
 ## Stage 2 — Worker identity and private work sessions
-- Anonymous worker identity with a high-entropy recovery credential shown once.
-- Store only a cryptographic hash of the credential.
-- Private-by-default sessions with ownership checks on every read, write and delete.
-- Session expiry, credential rotation/revocation, rate limiting and abuse controls.
-- No cross-worker visibility by default.
-- Decide recovery and data-retention UX before storing sensitive content.
+- [x] Design anonymous worker identity and one-time recovery credential.
+- [x] Define hashed credential storage and HttpOnly cookie requirements.
+- [x] Define private session schema and ownership indexes.
+- [ ] Create and bind D1 database.
+- [ ] Apply and verify the initial migration.
+- [ ] Implement identity creation, session validation, recovery rotation and revocation.
+- [ ] Implement work-session CRUD with owner-scoped database predicates.
+- [ ] Test cross-worker isolation, expiry, CSRF/origin checks and recovery replay.
+- [ ] Add conservative abuse controls and retention/deletion behaviour.
 
 ## Stage 3 — Evidence-backed task workflow
 - Structured task intake and trade classification.
@@ -41,6 +44,13 @@
 - Expand other trades with bounded capabilities and trade-specific policies.
 
 ## Stage 6 — Hackathon integration and release
-- Verify official Bitcoin/Lightning rules and choose a secure, compatible implementation.
-- Keep wallet use separate from ordinary AI access.
-- End-to-end testing, privacy review, threat review and demo rehearsal.
+- [x] Confirm the official submission requires a Bitcoin/Lightning wallet implementation.
+- [ ] Select and implement a real, testable wallet integration.
+- [ ] Keep wallet use separate from ordinary AI access; never store seed phrases or private keys.
+- [ ] Publish an accessible MVP or demo video.
+- [ ] Prepare the three-minute presentation and final submission.
+- [ ] End-to-end testing, privacy review, threat review and demo rehearsal.
+
+## Delivery rule
+
+No paid provider, paid Cloudflare plan, billing activation or user-fund transaction without explicit approval. A feature is complete only after its tests and real-device checks pass.
