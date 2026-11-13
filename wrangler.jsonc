@@ -8,6 +8,18 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
   },
+  "ratelimits": [
+    {
+      "name": "IDENTITY_LIMITER",
+      "namespace_id": "2026111301",
+      "simple": { "limit": 20, "period": 60 }
+    },
+    {
+      "name": "WORKER_LIMITER",
+      "namespace_id": "2026111302",
+      "simple": { "limit": 120, "period": 60 }
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
