@@ -214,7 +214,7 @@ const handleApi = async (request, env, url) => {
       env.DB.prepare("DELETE FROM work_session_messages WHERE worker_id = ?").bind(worker.worker_id),
       env.DB.prepare("DELETE FROM work_sessions WHERE worker_id = ?").bind(worker.worker_id),
       env.DB.prepare("DELETE FROM worker_sessions WHERE worker_id = ?").bind(worker.worker_id),
-      env.DB.prepare("UPDATE workers SET revoked_at = ?, updated_at = ? WHERE id = ?").bind(now, now, worker.worker_id),
+      env.DB.prepare("DELETE FROM workers WHERE id = ?").bind(worker.worker_id),
     ]);
     return json({ deleted: true }, 200, { "set-cookie": clearCookieHeader() });
   }
@@ -319,7 +319,7 @@ const worker = {
       } catch (error) {
         console.error(JSON.stringify({
           message: "KIVORA request failed",
-          path: url.pathname,
+          path: url.pathname.startsWith("/api/work-sessions/") ? "/api/work-sessions/:id" : url.pathname,
           error_type: error instanceof Error ? error.name : "unknown",
         }));
         return json({ error: "internal_error" }, 500);
