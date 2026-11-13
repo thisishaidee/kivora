@@ -8,7 +8,7 @@ const base = {
   involvesEquipment: true,
   equipmentMake: "Acme",
   equipmentModel: "K-100",
-  knownFacts: [],
+  knownFacts: ["This is a water supply tap and the water supply has been isolated."],
 };
 
 const reviewedEvidence = [{
@@ -78,7 +78,7 @@ describe("KIVORA deterministic intelligence gate", () => {
   it("asks for jurisdiction and exact model instead of inventing standards or specs", () => {
     const result = assessWorkRequest({
       trade: "hvac",
-      task: "My air conditioner compressor is not starting.",
+      task: "Install an air conditioner and confirm compliance with local electrical regulations.",
       involvesEquipment: true,
     }, []);
     expect(result.decision).toBe("clarify");
