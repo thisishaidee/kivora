@@ -12,7 +12,7 @@ const json = (data: unknown, status = 200): Response =>
     },
   });
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
@@ -30,4 +30,6 @@ export default {
 
     return env.ASSETS.fetch(request);
   },
-} satisfies ExportedHandler<Env>;
+};
+
+export default worker;
