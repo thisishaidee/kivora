@@ -26,14 +26,14 @@ The registry does not store raw PDF/manual pages in D1. Evidence notes must be c
 ## Review states
 
 - `pending`: captured but not eligible for AI guidance.
-- `approved`: source applicability and evidence note reviewed; requires reviewer identity, reviewer role, review time and known reuse rights.
+- `approved`: source applicability and evidence note reviewed; requires reviewer identity, reviewer role, review time and known reuse rights. Only a qualified reviewer or the manufacturer may authorize evidence for shared technical assessment.
 - `rejected`: unsuitable, unreliable or unsupported.
 - `superseded`: replaced by a newer source revision.
 
-A review-state value is a data gate, not proof that the reviewer is competent. Production review tooling must verify reviewer authority before allowing approval. Only approved, applicable records may be supplied to the response composer.
+A review-state value is a data gate, not proof that the reviewer is competent. Production review tooling must verify reviewer authority before allowing approval. The assessment API accepts only approved, rights-cleared shared records reviewed by a qualified reviewer or the manufacturer. Private worker notes remain pending and are never used as evidence for other workers.
 
 ## Safety and applicability
 
 Source matching must consider trade, task topic, exact model where relevant, jurisdiction, language, units, source revision and the worker's actual task. A manufacturer manual for one model must not be generalized to another. Standards and regulations require jurisdiction-specific matching.
 
-The current response pipeline does not yet query this table. No source is automatically trusted or promoted to approved by the migration.
+The deterministic assessment API now queries this table using trade, topic, jurisdiction, manufacturer and exact model filters. The AI response composer is not yet connected to the registry, and no AI provider is configured. No source is automatically trusted or promoted to approved by the migration.
