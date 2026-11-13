@@ -1,9 +1,9 @@
-import worker from "../../worker/src/runtime.js";
-
 type PagesContext = {
   request: Request;
-  env: unknown;
+  env: {
+    KIVORA_API: { fetch(request: Request): Promise<Response> };
+  };
 };
 
 export const onRequest = ({ request, env }: PagesContext): Promise<Response> =>
-  worker.fetch(request, env as never);
+  env.KIVORA_API.fetch(request);
