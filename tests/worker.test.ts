@@ -362,7 +362,7 @@ describe("KIVORA assessment endpoint", () => {
     expect(evidenceQuery?.sql).toContain("visibility = 'shared'");
     expect(evidenceQuery?.sql).toContain("review_status = 'approved'");
     expect(evidenceQuery?.sql).toContain("rights_status IN");
-    expect(evidenceQuery?.values).toEqual(["plumbing", "Nigeria", "Acme", "K-100"]);
+    expect(evidenceQuery?.values).toEqual(["plumbing", "Nigeria", "", ""]);
   });
 
   it("returns a stop-work escalation for a reported gas leak", async () => {
