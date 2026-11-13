@@ -242,6 +242,7 @@ const handleApi = async (request, env, url) => {
          FROM evidence_sources
          WHERE visibility = 'shared' AND review_status = 'approved'
            AND rights_status IN ('public_domain', 'open_license', 'permission')
+           AND reviewer_role IN ('qualified_reviewer', 'manufacturer')
            AND trade = ?
            AND (jurisdiction IS NULL OR jurisdiction = ? COLLATE NOCASE)
            AND (product_make IS NULL OR product_make = ? COLLATE NOCASE)
