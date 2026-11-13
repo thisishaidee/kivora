@@ -63,4 +63,12 @@ describe("Worker-native private evidence validation", () => {
     expect(parsePrivateEvidenceCapture({ ...valid, sourceUrl: "http://unsafe.example/manual" }).success).toBe(false);
     expect(parsePrivateEvidenceCapture({ ...valid, review_status: "approved", visibility: "shared" }).success).toBe(false);
   });
+
+  it("rejects impossible revision dates and normalizes SHA-256 fingerprints", () => {
+    expect(parsePrivateEvidenceCapture({ ...valid, revisionDate: "2026-02-31" }).success).toBe(false);
+    expect(parsePrivateEvidenceCapture({ ...valid, revisionDate: "2026-02-28" }).success).toBe(true);
+    const parsed = parsePrivateEvidenceCapture({ ...valid, sourceSha256: "A".repeat(64) });
+    expect(parsed.success).toBe(true);
+    expect(parsed.data.sourceSha256).toBe("a".repeat(64));
+  });
 });
