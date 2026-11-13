@@ -100,6 +100,8 @@ All non-GET API requests require an exact same-origin `Origin` header. JSON bodi
 - The four tables and five owner/expiry indexes from migrations 0001 and 0002 are present.
 - `PRAGMA foreign_key_check` returned no violations.
 - The Wrangler configuration on this branch binds `DB` to that database.
-- No Worker deployment is claimed yet.
+- Cloudflare Worker script `kivora` was uploaded on 13 November 2026 with the D1 and two Rate Limiting bindings.
+- Its `workers.dev` endpoint is disabled and no public route is attached; the script is deployed but not publicly reachable.
+- The static app assets have not been deployed yet, so the public application is not live.
 
 No account credentials or wallet secrets are stored in the repository.
