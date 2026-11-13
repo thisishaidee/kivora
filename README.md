@@ -42,6 +42,7 @@ These are initial fields, not a limit on future expansion. One shared workflow a
 - [Worker identity and private sessions](docs/WORKER_IDENTITY.md)
 - [Worker validation plan](docs/VALIDATION_PLAN.md)
 - [Dakar Bitcoin Hack requirements](docs/HACKATHON.md)
+- [Lightning wallet integration](docs/LIGHTNING_WALLET.md)
 - [Foundation status and limitations](FOUNDATION-STATUS.md)
 
 ## Current implementation
@@ -63,7 +64,7 @@ Requires Node.js 22 or newer.
 
 ## Current limitations
 
-Worker identity, private persistent sessions, D1 binding, AI providers, evidence retrieval, image understanding, voice input/output, compatibility assessment, trade-specific safety enforcement, Bitcoin/Lightning wallet integration and production deployment are not yet implemented. See the implementation plan for the sequence and deployment gates.
+Worker identity, private persistent sessions, D1 binding, AI providers, evidence retrieval, image understanding, voice input/output, compatibility assessment, trade-specific safety enforcement, A live NWC wallet interoperability test and production deployment are still pending. The current wallet panel supports connection, wallet info, balance and receive-invoice creation; it does not send payments. See the implementation plan for the sequence and deployment gates.
 
 ## Security
 

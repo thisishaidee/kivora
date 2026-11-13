@@ -1,4 +1,5 @@
 import { useState } from "react";
+import WalletPanel from "./WalletPanel";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -46,7 +47,7 @@ export default function App() {
       return;
     }
     setNotice("The guided work-session flow is not connected yet. Your draft stays on this device and has not been sent.");
-    console.info("KIVORA local draft preferences", preferences);
+    void preferences;
   }
 
   return (
@@ -108,6 +109,8 @@ export default function App() {
           {notice && <p className="notice" role="status">{notice}</p>}
         </form>
       </section>
+
+      <WalletPanel />
 
       <footer className="footer">
         <span>KIVORA</span>

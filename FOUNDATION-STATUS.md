@@ -1,8 +1,8 @@
-# Foundation Status
+# Foundation and Wallet Status
 
-This repository update establishes a mobile-first React/Vite interface, shared TypeScript/Zod contracts, a Cloudflare Worker health route, shell-only service-worker caching, initial automated tests and GitHub Actions CI.
+This repository contains a mobile-first React/Vite interface, shared TypeScript/Zod contracts, a Cloudflare Worker health route, shell-only service-worker caching, automated tests and GitHub Actions CI.
 
-## Implemented in this foundation
+## Implemented
 
 - Trade selection across six skilled-worker fields plus multiple/unsure.
 - English, Nigerian English, Nigerian Pidgin and French preference options.
@@ -11,24 +11,24 @@ This repository update establishes a mobile-first React/Vite interface, shared T
 - API health endpoint.
 - Static app-shell caching; API responses are not cached.
 - Shared contract tests and Worker route tests.
-- Initial D1 SQL migration for worker identities, browser sessions and private work sessions.
-- Security design for anonymous worker identity, one-time recovery codes and private session ownership.
-- Official hackathon requirements recorded, including the mandatory Bitcoin/Lightning wallet submission component.
+- D1 SQL migration and security design for independent worker identities and private work sessions.
+- NWC wallet panel: connection URI parsing, wallet information, balance display and receive-invoice creation when supported.
+- Wallet connection URI is kept in component memory only and is not sent to the KIVORA API or stored persistently.
+- Official hackathon requirements recorded.
 
-## Explicitly not implemented
+## Not implemented or not yet verified
 
 - Worker identity endpoints, authentication or private persistent sessions.
 - D1 database binding or deployed database.
 - AI model/provider integration or source retrieval.
 - Voice input/output or image understanding.
 - Compatibility assessment or trade-specific safety engine.
-- Bitcoin/Lightning wallet integration.
+- Live NWC wallet interoperability test on Android.
+- Outgoing Lightning payments.
 - Production deployment.
 
-The continue action is intentionally a local placeholder. The form does not send or persist the worker's task. Do not present this foundation as a functioning AI assistant.
+The work-task continue action is intentionally a local placeholder. The form does not send or persist the worker's task. Do not present this as a functioning AI assistant.
 
 ## Verification
 
-GitHub Actions runs TypeScript checking, unit tests and a production build. The first successful CI run validated the typecheck and production build; subsequent runs are checking the added test suite and schema documentation. Check the latest workflow result before treating the current branch as fully verified.
-
-No deployment is claimed.
+GitHub Actions runs TypeScript checking, unit tests and a production build. The foundation CI has passed all three checks. The wallet branch has its own CI runs; verify the latest branch run before merging. No deployment is claimed.
