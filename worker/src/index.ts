@@ -1,4 +1,4 @@
-/** @template T
+/** @template [T=Record<string, unknown>]
  * @typedef {{ results?: T[], success: boolean, meta?: { changes?: number } }} D1Result
  */
 /** @typedef {{
