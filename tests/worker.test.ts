@@ -480,3 +480,32 @@ describe("private evidence source API", () => {
     expect(db.statements[1].values).toEqual(["worker-a"]);
   });
 });
+
+
+  it("rejects client attempts to set review, rights or sharing state", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/evidence-sources", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"d".repeat(64)}`,
+        },
+        body: JSON.stringify({
+          trade: "plumbing",
+          sourceType: "manufacturer_manual",
+          publisher: "Acme",
+          title: "Manual",
+          topic: "tap cartridge",
+          evidenceNote: "Private note.",
+          visibility: "shared",
+          review_status: "approved",
+          rights_status: "public_domain",
+        }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    expect(response.status).toBe(400);
+    expect(db.statements.some((statement) => statement.sql.includes("INSERT INTO evidence_sources"))).toBe(false);
+  });
