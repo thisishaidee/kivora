@@ -150,3 +150,24 @@ describe("equipment context handling", () => {
     expect(result.questions.some((question) => question.includes("exact model"))).toBe(true);
   });
 });
+
+
+describe("evidence jurisdiction and make applicability", () => {
+  it("does not use evidence reviewed for another jurisdiction", () => {
+    const result = assessWorkRequest(base, [{
+      ...reviewedEvidence[0],
+      jurisdiction: "France",
+    }]);
+    expect(result.decision).toBe("clarify");
+    expect(result.evidenceSources).toHaveLength(0);
+  });
+
+  it("does not use model-family evidence for a different manufacturer", () => {
+    const result = assessWorkRequest(base, [{
+      ...reviewedEvidence[0],
+      productMake: "OtherBrand",
+    }]);
+    expect(result.decision).toBe("clarify");
+    expect(result.evidenceSources).toHaveLength(0);
+  });
+});
