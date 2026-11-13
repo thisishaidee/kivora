@@ -71,5 +71,4 @@ describe("Worker-native private evidence validation", () => {
     expect(parsed.success).toBe(true);
     expect(parsed.data.sourceSha256).toBe("a".repeat(64));
   });
-  });
 });
