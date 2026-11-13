@@ -1,3 +1,10 @@
+/** @typedef {{ results?: T[], success: boolean, meta?: { changes?: number } }} D1Result */
+/** @template T
+ * @typedef {{ bind(...values: unknown[]): D1Statement, first(): Promise<T | null>, all(): Promise<D1Result<T>>, run(): Promise<D1Result> }} D1Statement
+ */
+/** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
+/** @typedef {{ ASSETS: { fetch(request: Request): Promise<Response> }, DB?: D1Database }} Env */
+
 const SESSION_COOKIE = "__Host-kivora_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MAX_JSON_BYTES = 24_000;
@@ -6,6 +13,7 @@ const TRADES = new Set(["carpentry", "electrical", "plumbing", "hvac", "mechanic
 const LANGUAGES = new Set(["en", "en-ng", "pcm-ng", "fr"]);
 const UNITS = new Set(["metric", "imperial"]);
 
+/** @param {unknown} data @param {number} [status] @param {HeadersInit} [headers] */
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status,
   headers: {
@@ -25,11 +33,13 @@ const randomToken = () => {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
 
+/** @param {string} token */
 const hashToken = async (token) => {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
 
+/** @param {Request} request */
 const cookieValue = (request) => {
   const cookie = request.headers.get("cookie");
   if (!cookie) return null;
@@ -49,6 +59,7 @@ const clearCookieHeader = () =>
 const newId = () => crypto.randomUUID();
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
+/** @param {Request} request @returns {Promise<Record<string, unknown> | null>} */
 const readJson = async (request) => {
   if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) return null;
   const declaredLength = Number(request.headers.get("content-length") || "0");
@@ -83,6 +94,7 @@ const readJson = async (request) => {
   }
 };
 
+/** @param {Request} request @param {D1Database} db @returns {Promise<{worker_id: string} | null>} */
 const authenticate = async (request, db) => {
   const token = cookieValue(request);
   if (!token || !/^[0-9a-f]{64}$/.test(token)) return null;
@@ -94,8 +106,10 @@ const authenticate = async (request, db) => {
   ).bind(await hashToken(token), nowSeconds()).first();
 };
 
+/** @param {Request} request @param {URL} url */
 const validOrigin = (request, url) => request.headers.get("origin") === url.origin;
 
+/** @param {Request} request @param {Env} env @param {URL} url */
 const handleApi = async (request, env, url) => {
   const method = request.method;
   const path = url.pathname;
@@ -271,6 +285,7 @@ const handleApi = async (request, env, url) => {
 };
 
 const worker = {
+  /** @param {Request} request @param {Env} env */
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
