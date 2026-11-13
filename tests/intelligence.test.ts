@@ -123,3 +123,28 @@ describe("trade risk and evidence relevance", () => {
     expect(result.evidenceSources).toHaveLength(0);
   });
 });
+
+
+describe("equipment context handling", () => {
+  it("does not demand a make and model for a general non-equipment task", () => {
+    const result = assessWorkRequest({
+      trade: "carpentry",
+      task: "How do I identify the grain direction before sanding timber?",
+      jurisdiction: "Nigeria",
+    });
+    expect(result.missingInformation).not.toContain("equipment make");
+    expect(result.missingInformation).not.toContain("equipment model");
+  });
+
+  it("requires exact make and model when the worker marks equipment as involved", () => {
+    const result = assessWorkRequest({
+      trade: "hvac",
+      task: "The air conditioner compressor is not starting.",
+      jurisdiction: "Nigeria",
+      involvesEquipment: true,
+    });
+    expect(result.missingInformation).toContain("equipment make");
+    expect(result.missingInformation).toContain("equipment model");
+    expect(result.questions.some((question) => question.includes("exact model"))).toBe(true);
+  });
+});
