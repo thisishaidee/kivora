@@ -417,7 +417,7 @@ export default function App() {
               <button className="submit-button" type="submit" disabled={busy || !task.trim()}>
                 {busy ? "Saving…" : "Save work session"} <span aria-hidden="true">↗</span>
               </button>
-              <p className="privacy-note">Your task is saved privately to this workspace. AI guidance is not connected yet.</p>
+              <p className="privacy-note">Your task is stored in your private workspace. Avoid passwords, access codes and customer personal details. AI guidance is not connected yet.</p>
             </form>
           </section>
 
