@@ -337,6 +337,7 @@ describe("KIVORA assessment endpoint", () => {
           trade: "plumbing",
           task: "My kitchen tap is dripping and I want to identify the cartridge.",
           jurisdiction: "Nigeria",
+          involvesEquipment: true,
           equipmentMake: "Acme",
           equipmentModel: "K-100",
           evidence: [{
@@ -362,7 +363,7 @@ describe("KIVORA assessment endpoint", () => {
     expect(evidenceQuery?.sql).toContain("visibility = 'shared'");
     expect(evidenceQuery?.sql).toContain("review_status = 'approved'");
     expect(evidenceQuery?.sql).toContain("rights_status IN");
-    expect(evidenceQuery?.values).toEqual(["plumbing", "Nigeria", "", ""]);
+    expect(evidenceQuery?.values).toEqual(["plumbing", "Nigeria", "Acme", "K-100"]);
   });
 
   it("returns a stop-work escalation for a reported gas leak", async () => {
