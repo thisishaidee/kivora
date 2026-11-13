@@ -3,7 +3,7 @@
 :root{font-family:"DM Sans",sans-serif;color:#20231f;background:#f4f3ef;font-synthesis:none;text-rendering:optimizeLegibility}
 *{box-sizing:border-box}
 body{margin:0;min-width:320px}
-button,select,textarea{font:inherit}
+button,select,textarea,input{font:inherit}
 .page-shell{max-width:1120px;margin:0 auto;padding:0 48px}
 .topbar{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #dcded6}
 .brand{display:flex;align-items:center;gap:11px;color:#20231f;text-decoration:none;font-size:15px;font-weight:700;letter-spacing:.14em}
@@ -21,8 +21,8 @@ button,select,textarea{font:inherit}
 .step-label{font-size:10px;color:#8b9088;letter-spacing:.08em;padding-top:5px}
 .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .field{display:flex;flex-direction:column;gap:9px;font-size:12px;font-weight:600;color:#4d534b}
-select,textarea{width:100%;border:1px solid #dfe2d9;border-radius:8px;background:#fff;color:#252922;padding:13px 14px;outline:none}
-select:focus,textarea:focus{border-color:#65765a;box-shadow:0 0 0 3px #65765a1c}
+select,textarea,input:not([type="checkbox"]){width:100%;border:1px solid #dfe2d9;border-radius:8px;background:#fff;color:#252922;padding:13px 14px;outline:none}
+select:focus,textarea:focus,input:not([type="checkbox"]):focus{border-color:#65765a;box-shadow:0 0 0 3px #65765a1c}
 .units-field{border:0;padding:0;margin:24px 0 25px}
 .units-field legend{font-size:12px;font-weight:600;color:#4d534b;margin-bottom:10px}
 .unit-options{display:flex;gap:8px}
@@ -67,3 +67,9 @@ select:focus,textarea:focus{border-color:#65765a;box-shadow:0 0 0 3px #65765a1c}
   .account-actions .unit-option{text-align:center}
   .recovery-code{font-size:10px;padding:14px}
 }
+
+.assessment-card{margin-top:22px;border-color:#dce2d6}
+.assessment-group{margin:18px 0}
+.assessment-group h3{font-size:12px;margin:0 0 9px;color:#394336}
+.assessment-group ul{margin:0;padding-left:19px;color:#535b50;font-size:12px;line-height:1.75}
+.assessment-group li+li{margin-top:6px}
