@@ -1,0 +1,37 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,500&display=swap");
+
+:root{font-family:"DM Sans",sans-serif;color:#20231f;background:#f4f3ef;font-synthesis:none;text-rendering:optimizeLegibility}
+*{box-sizing:border-box}
+body{margin:0;min-width:320px}
+button,select,textarea{font:inherit}
+.page-shell{max-width:1120px;margin:0 auto;padding:0 48px}
+.topbar{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #dcded6}
+.brand{display:flex;align-items:center;gap:11px;color:#20231f;text-decoration:none;font-size:15px;font-weight:700;letter-spacing:.14em}
+.brand-mark{width:31px;height:31px;border-radius:9px;background:#20231f;color:#f4f3ef;display:grid;place-items:center;font-size:17px;letter-spacing:0}
+.topbar-note,.step-label,.eyebrow,.footer{font-family:"DM Mono",monospace}
+.topbar-note{font-size:10px;color:#777d73;letter-spacing:.04em}
+.hero{padding:76px 0 58px;max-width:650px}
+.eyebrow{font-size:10px;letter-spacing:.16em;color:#777d73;font-weight:500}
+.hero h1{font-size:clamp(54px,8vw,92px);line-height:.98;letter-spacing:-.075em;margin:23px 0 22px;font-weight:600}
+.hero h1 em{font-family:"Playfair Display",serif;font-weight:500;letter-spacing:-.055em}
+.intro{font-size:16px;line-height:1.75;color:#656b62;max-width:480px;margin:0}
+.workspace{background:#fff;border:1px solid #e4e5df;border-radius:17px;padding:34px 38px 32px;max-width:780px;box-shadow:0 14px 45px #22220a08}
+.workspace-heading{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px}
+.workspace-heading h2{font-size:23px;letter-spacing:-.04em;margin:9px 0 0}
+.step-label{font-size:10px;color:#8b9088;letter-spacing:.08em;padding-top:5px}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.field{display:flex;flex-direction:column;gap:9px;font-size:12px;font-weight:600;color:#4d534b}
+select,textarea{width:100%;border:1px solid #dfe2d9;border-radius:8px;background:#fff;color:#252922;padding:13px 14px;outline:none}
+select:focus,textarea:focus{border-color:#65765a;box-shadow:0 0 0 3px #65765a1c}
+.units-field{border:0;padding:0;margin:24px 0 25px}
+.units-field legend{font-size:12px;font-weight:600;color:#4d534b;margin-bottom:10px}
+.unit-options{display:flex;gap:8px}
+.unit-option{border:1px solid #dfe2d9;background:#fff;border-radius:7px;padding:10px 13px;color:#62685f;font-size:11px;cursor:pointer}
+.unit-option.selected{background:#eef1e9;border-color:#77876d;color:#35432f}
+.task-field textarea{resize:vertical;min-height:126px;line-height:1.6;font-weight:400}
+.submit-button{width:100%;margin-top:22px;border:0;border-radius:8px;background:#20231f;color:#fff;padding:15px 18px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;cursor:pointer}
+.submit-button:hover{background:#3b4437}
+.privacy-note,.notice{font-size:11px;color:#858b81;line-height:1.6;margin:13px 0 0}
+.notice{color:#6c5630}
+.footer{display:flex;justify-content:space-between;padding:36px 0 28px;color:#858b81;font-size:9px;letter-spacing:.04em}
+@media(max-width:650px){.page-shell{padding:0 20px}.topbar{height:68px}.topbar-note{max-width:145px;text-align:right;line-height:1.5}.hero{padding:58px 0 42px}.hero h1{font-size:62px}.intro{font-size:14px}.workspace{padding:25px 20px 23px}.workspace-heading h2{font-size:20px}.field-grid{grid-template-columns:1fr;gap:17px}.unit-options{flex-wrap:wrap}.footer{gap:14px;line-height:1.5}.footer span:last-child{text-align:right}}

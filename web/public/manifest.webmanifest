@@ -1,0 +1,10 @@
+{
+  "name": "KIVORA",
+  "short_name": "KIVORA",
+  "description": "Practical intelligence for skilled workers.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f3ef",
+  "theme_color": "#f4f3ef",
+  "icons": []
+}
