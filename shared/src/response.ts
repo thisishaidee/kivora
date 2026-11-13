@@ -118,6 +118,20 @@ function validateDraft(
     }
   }
 
+  const nonBlockText = [draft.summary, ...draft.followUpQuestions];
+  for (const text of nonBlockText) {
+    const measurements = text.match(MEASUREMENT_PATTERN) ?? [];
+    for (const measurement of measurements) {
+      const normalized = measurement.toLowerCase().replace(/\\s+/g, "");
+      const supported = [...citedIds].some((id) => {
+        const source = sourceById.get(id);
+        return !!source && (source.excerpt.match(MEASUREMENT_PATTERN) ?? [])
+          .some((value) => value.toLowerCase().replace(/\\s+/g, "") === normalized);
+      });
+      if (!supported) throw new Error("unsupported_measurement");
+    }
+  }
+
   const citations = [...citedIds].map((id) => {
     const source = sourceById.get(id);
     if (!source) throw new Error("unsupported_citation");
