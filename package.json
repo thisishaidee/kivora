@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "build": "npm run typecheck && vite build",
-    "build:worker": "mkdir -p dist-worker && esbuild worker/src/index.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist-worker/worker.js"
+    "build:worker": "mkdir -p dist-worker && esbuild worker/src/index.ts --bundle --minify --legal-comments=none --format=esm --platform=browser --target=es2022 --outfile=dist-worker/worker.js"
   },
   "dependencies": {
     "react": "19.1.0",
