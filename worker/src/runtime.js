@@ -235,9 +235,9 @@ const handleApi = async (request, env, url) => {
 
   if (path === "/api/work-sessions" && method === "POST") {
     const body = await readJson(request);
-    const trade = body?.trade;
-    const language = body?.language;
-    const units = body?.units;
+    const trade = typeof body?.trade === "string" ? body.trade : "";
+    const language = typeof body?.language === "string" ? body.language : "";
+    const units = typeof body?.units === "string" ? body.units : "";
     const task = typeof body?.task === "string" ? body.task.trim() : "";
     if (!TRADES.has(trade) || !LANGUAGES.has(language) || !UNITS.has(units) || !task || task.length > MAX_TASK_CHARS) {
       return json({ error: "invalid_work_session" }, 400);
