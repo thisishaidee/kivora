@@ -11,6 +11,7 @@
 /** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter }} Env */
 
 import { assessWorkRequest } from "../../shared/src/intelligence";
+import { privateEvidenceCaptureSchema } from "../../shared/src/evidence";
 
 const SESSION_COOKIE = "__Host-kivora_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -238,6 +239,53 @@ const handleApi = async (request, env, url) => {
     } catch {
       return json({ error: "invalid_assessment_request" }, 400);
     }
+  }
+
+  if (path === "/api/evidence-sources" && method === "GET") {
+    const result = await env.DB.prepare(
+      `SELECT id, trade, source_type, publisher, title, source_url, document_ref,
+        source_version, revision_date, retrieved_at, jurisdiction, language,
+        product_make, product_model, topic, page_or_section, evidence_note,
+        rights_status, review_status, created_at, updated_at
+       FROM evidence_sources WHERE visibility = 'private' AND owner_worker_id = ?
+       ORDER BY updated_at DESC LIMIT 100`,
+    ).bind(worker.worker_id).all();
+    return json({ sources: result.results ?? [] });
+  }
+
+  if (path === "/api/evidence-sources" && method === "POST") {
+    const body = await readJson(request);
+    const parsed = privateEvidenceCaptureSchema.safeParse(body);
+    if (!parsed.success) return json({ error: "invalid_evidence_source" }, 400);
+    const source = parsed.data;
+    const id = newId();
+    const now = nowSeconds();
+    await env.DB.prepare(
+      `INSERT INTO evidence_sources (
+        id, visibility, owner_worker_id, trade, source_type, publisher, title,
+        source_url, document_ref, source_version, revision_date, retrieved_at,
+        jurisdiction, language, product_make, product_model, topic,
+        page_or_section, evidence_note, rights_status, source_sha256,
+        review_status, created_at, updated_at
+      ) VALUES (?, 'private', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        'user_provided_private', ?, 'pending', ?, ?)`,
+    ).bind(
+      id, worker.worker_id, source.trade, source.sourceType, source.publisher,
+      source.title, source.sourceUrl ?? null, source.documentRef ?? null,
+      source.sourceVersion ?? null, source.revisionDate ?? null, now,
+      source.jurisdiction ?? null, source.language, source.productMake ?? null,
+      source.productModel ?? null, source.topic, source.pageOrSection ?? null,
+      source.evidenceNote, source.sourceSha256 ?? null, now, now,
+    ).run();
+    return json({
+      source: {
+        id, trade: source.trade, source_type: source.sourceType,
+        publisher: source.publisher, title: source.title, topic: source.topic,
+        rights_status: "user_provided_private", review_status: "pending",
+        created_at: now,
+      },
+      eligible_for_guidance: false,
+    }, 201);
   }
 
   if (path === "/api/work-sessions" && method === "GET") {
