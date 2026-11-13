@@ -1,6 +1,12 @@
-/** @typedef {{ results?: T[], success: boolean, meta?: { changes?: number } }} D1Result */
 /** @template T
- * @typedef {{ bind(...values: unknown[]): D1Statement, first(): Promise<T | null>, all(): Promise<D1Result<T>>, run(): Promise<D1Result> }} D1Statement
+ * @typedef {{ results?: T[], success: boolean, meta?: { changes?: number } }} D1Result
+ */
+/** @typedef {{
+ * bind(...values: unknown[]): D1Statement,
+ * first(): Promise<Record<string, unknown> | null>,
+ * all(): Promise<D1Result<Record<string, unknown>>>,
+ * run(): Promise<D1Result<unknown>>
+ * }} D1Statement
  */
 /** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
 /** @typedef {{ ASSETS: { fetch(request: Request): Promise<Response> }, DB?: D1Database }} Env */
@@ -86,7 +92,7 @@ const readJson = async (request) => {
     }
     const value = JSON.parse(new TextDecoder().decode(bytes));
     if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-    return value;
+    return value as Record<string, unknown>;
   } catch {
     return null;
   } finally {
@@ -94,7 +100,7 @@ const readJson = async (request) => {
   }
 };
 
-/** @param {Request} request @param {D1Database} db @returns {Promise<{worker_id: string} | null>} */
+/** @param {Request} request @param {D1Database} db @returns {Promise<Record<string, unknown> | null>} */
 const authenticate = async (request, db) => {
   const token = cookieValue(request);
   if (!token || !/^[0-9a-f]{64}$/.test(token)) return null;
