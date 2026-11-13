@@ -29,6 +29,7 @@ export const workRequestSchema = z.object({
   trade: tradeSchema,
   task: z.string().trim().min(3).max(4000),
   jurisdiction: z.string().trim().min(2).max(120).optional(),
+  involvesEquipment: z.boolean().default(false),
   equipmentMake: z.string().trim().max(120).optional(),
   equipmentModel: z.string().trim().max(120).optional(),
   knownFacts: z.array(z.string().trim().min(1).max(500)).max(30).default([]),
@@ -168,8 +169,8 @@ export function assessWorkRequest(
     "No technical specification is asserted unless supported by a reviewed, applicable source.",
   ];
 
-  if (!request.equipmentMake) missingInformation.push("equipment make");
-  if (!request.equipmentModel) missingInformation.push("equipment model");
+  if (request.involvesEquipment && !request.equipmentMake) missingInformation.push("equipment make");
+  if (request.involvesEquipment && !request.equipmentModel) missingInformation.push("equipment model");
   if (!request.jurisdiction) missingInformation.push("work jurisdiction");
 
   if (!TRADE_TERMS[request.trade].test(text) && request.trade !== "multiple" && request.trade !== "unsure") {
@@ -179,8 +180,8 @@ export function assessWorkRequest(
   if (!request.jurisdiction) {
     questions.push("Which country or jurisdiction is this work taking place in? Local codes and emergency procedures may differ.");
   }
-  if (!request.equipmentMake || !request.equipmentModel) {
-    questions.push("What is the equipment make and exact model, if equipment is involved?");
+  if (request.involvesEquipment && (!request.equipmentMake || !request.equipmentModel)) {
+    questions.push("What is the equipment make and exact model?");
   }
   if (matched.length > 0) {
     questions.push("Has the hazard been isolated and the area made safe by a competent person?");
@@ -191,7 +192,8 @@ export function assessWorkRequest(
     source.reviewed &&
     topicMatchesTask(source.topic, text) &&
     (source.productModels.length === 0 ||
-      (!!request.equipmentModel && source.productModels.some((model) => model.toLowerCase() === request.equipmentModel?.toLowerCase()))),
+      (request.involvesEquipment && !!request.equipmentModel &&
+        source.productModels.some((model) => model.toLowerCase() === request.equipmentModel?.toLowerCase()))),
   );
 
   const permittedGuidance = matched.map((rule) => rule.instruction);
