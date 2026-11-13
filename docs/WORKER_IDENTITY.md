@@ -1,6 +1,6 @@
 # Worker Identity and Private Sessions
 
-**Status:** Security design proposal. Not yet implemented or deployed.
+**Status:** API and UI implemented on `feat/worker-identity`; Cloudflare D1 database and schema are provisioned. Worker deployment and end-to-end browser verification are still pending.
 
 ## Goals
 
@@ -76,4 +76,29 @@ Do not enable identity endpoints until:
 - The production domain is HTTPS.
 - Data retention and deletion behaviour are visible to workers.
 
-No account credentials or Cloudflare account changes are assumed by this design.
+## Implemented API surface
+
+- `POST /api/identity` — create an anonymous identity and issue the browser cookie plus a one-time recovery code.
+- `GET /api/identity` — resolve the identity from the cookie.
+- `POST /api/identity/recover` — consume the previous recovery code, rotate it and revoke prior browser sessions.
+- `POST /api/identity/recovery/rotate` — rotate a recovery code from an authenticated browser session.
+- `DELETE /api/identity` — delete worker-owned sessions/messages, revoke browser sessions and tombstone the identity.
+- `GET /api/work-sessions` — list only the authenticated worker's sessions.
+- `POST /api/work-sessions` — create a private session and save the initial task as a worker message.
+- `GET /api/work-sessions/:id` — read only when both session ID and authenticated worker ID match.
+- `POST /api/work-sessions/:id/messages` — append a worker message after an owner-scoped existence check.
+- `PATCH /api/work-sessions/:id` — archive or restore only an owned session.
+- `DELETE /api/work-sessions/:id` — delete messages and session using owner-scoped predicates.
+
+All non-GET API requests require an exact same-origin `Origin` header. JSON bodies are streamed and capped at 24 KB; task/message content is capped at 20,000 characters. The session cookie is Secure, HttpOnly, SameSite=Strict, Path=/, host-only and expires after 30 days. The worker source is plain JavaScript-compatible TypeScript so the exact module can be uploaded directly without a bundling step.
+
+## Current Cloudflare state
+
+- D1 database `kivora` was created in the connected Cloudflare account on 13 November 2026.
+- Database ID: `3657a2bf-f4c2-484e-a214-8fdd05435c59`.
+- The four tables and five owner/expiry indexes from migrations 0001 and 0002 are present.
+- `PRAGMA foreign_key_check` returned no violations.
+- The Wrangler configuration on this branch binds `DB` to that database.
+- No Worker deployment is claimed yet.
+
+No account credentials or wallet secrets are stored in the repository.
