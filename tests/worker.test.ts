@@ -271,6 +271,26 @@ describe("KIVORA Worker routes", () => {
     expect(await response.json()).toEqual({ error: "invalid_work_session" });
   });
 
+  it("deletes all private data and the worker identity on account deletion", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/identity", {
+        method: "DELETE",
+        headers: {
+          origin: "https://kivora.test",
+          cookie: `__Host-kivora_session=${"9".repeat(64)}`,
+        },
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ deleted: true });
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    const deleteWorker = db.statements.find((statement) => statement.sql === "DELETE FROM workers WHERE id = ?");
+    expect(deleteWorker?.values).toEqual(["worker-a"]);
+  });
+
   it("passes non-API requests to the static asset binding", async () => {
     const assetResponse = new Response("app-shell");
     const fetchAsset = vi.fn().mockResolvedValue(assetResponse);

@@ -83,7 +83,7 @@ Do not enable identity endpoints until:
 - `POST /api/identity/recover` — consume the previous recovery code, rotate it and revoke prior browser sessions.
 - `POST /api/identity/recovery/rotate` — rotate a recovery code from an authenticated browser session.
 - `POST /api/identity/logout` — revoke the current browser session and clear its cookie without deleting the identity.
-- `DELETE /api/identity` — delete worker-owned sessions/messages, revoke browser sessions and tombstone the identity.
+- `DELETE /api/identity` — delete worker-owned sessions/messages, revoke browser sessions and remove the worker identity record.
 - `GET /api/work-sessions` — list only the authenticated worker's sessions.
 - `POST /api/work-sessions` — create a private session and save the initial task as a worker message.
 - `GET /api/work-sessions/:id` — read only when both session ID and authenticated worker ID match.
@@ -103,5 +103,7 @@ All non-GET API requests require an exact same-origin `Origin` header. JSON bodi
 - Cloudflare Worker script `kivora` was uploaded on 13 November 2026 with the D1 and two Rate Limiting bindings.
 - Its `workers.dev` endpoint is disabled and no public route is attached; the script is deployed but not publicly reachable.
 - The static app assets have not been deployed yet, so the public application is not live.
+
+Deleting an identity removes its worker row, recovery hash, browser-session rows, work-session rows and message rows. A logged-out identity remains available until its owner restores it or explicitly deletes it. There is no automatic age-based retention yet; workers should delete sessions they no longer need.
 
 No account credentials or wallet secrets are stored in the repository.
