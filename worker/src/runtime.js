@@ -10,7 +10,7 @@
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
 /** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter }} Env */
 
-import { assessWorkRequest } from "../../shared/src/intelligence";
+import { assessWorkRequest, workRequestSchema } from "../../shared/src/intelligence";
 import { privateEvidenceCaptureSchema } from "../../shared/src/evidence";
 
 const SESSION_COOKIE = "__Host-kivora_session";
@@ -232,9 +232,47 @@ const handleApi = async (request, env, url) => {
     const body = await readJson(request);
     if (!body) return json({ error: "invalid_assessment_request" }, 400);
     try {
-      // Evidence is intentionally not accepted from the browser. Only a future
-      // server-controlled, reviewed source registry may authorize guided output.
-      const assessment = assessWorkRequest(body);
+      // Browser-supplied evidence is ignored. Only approved shared records
+      // from the server-side registry may support an assessment.
+      const request = workRequestSchema.parse(body);
+      const evidenceResult = await env.DB.prepare(
+        `SELECT id, publisher, title, source_url, document_ref, product_make,
+          product_model, trade, topic, revision_date, retrieved_at,
+          jurisdiction, page_or_section, evidence_note
+         FROM evidence_sources
+         WHERE visibility = 'shared' AND review_status = 'approved'
+           AND rights_status IN ('public_domain', 'open_license', 'permission')
+           AND reviewer_role IN ('qualified_reviewer', 'manufacturer')
+           AND trade = ?
+           AND (jurisdiction IS NULL OR jurisdiction = ? COLLATE NOCASE)
+           AND (product_make IS NULL OR product_make = ? COLLATE NOCASE)
+           AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)
+         ORDER BY updated_at DESC LIMIT 100`,
+      ).bind(
+        request.trade,
+        request.jurisdiction ?? "",
+        request.involvesEquipment ? request.equipmentMake ?? "" : "",
+        request.involvesEquipment ? request.equipmentModel ?? "" : "",
+      ).all();
+      const evidence = (evidenceResult.results ?? []).map((source) => ({
+        id: String(source.id),
+        publisher: String(source.publisher),
+        title: String(source.title),
+        ...(source.source_url ? { url: String(source.source_url) } : {}),
+        ...(source.document_ref ? { documentId: String(source.document_ref) } : {}),
+        productModels: source.product_model ? [String(source.product_model)] : [],
+        ...(source.product_make ? { productMake: String(source.product_make) } : {}),
+        ...(source.jurisdiction ? { jurisdiction: String(source.jurisdiction) } : {}),
+        trade: String(source.trade),
+        topic: String(source.topic),
+        ...(typeof source.revision_date === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(source.revision_date)
+          ? { revisionDate: source.revision_date } : {}),
+        retrievedAt: new Date(Number(source.retrieved_at) * 1000).toISOString(),
+        ...(source.page_or_section ? { pageOrSection: String(source.page_or_section) } : {}),
+        excerpt: String(source.evidence_note),
+        reviewed: true,
+      }));
+      const assessment = assessWorkRequest(request, evidence);
       return json({ assessment });
     } catch {
       return json({ error: "invalid_assessment_request" }, 400);
