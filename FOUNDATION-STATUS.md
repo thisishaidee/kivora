@@ -17,8 +17,12 @@ This repository update establishes a mobile-first React/Vite interface, shared T
 
 ## Explicitly not implemented
 
-- Worker identity endpoints, authentication or private persistent sessions.
-- D1 database binding or deployed database.
+- AI model/provider integration or source retrieval.
+- Voice input/output or image understanding.
+- Compatibility assessment or trade-specific safety engine.
+- Live NWC wallet interoperability test on Android.
+- Outgoing Lightning payments.
+- Public application hosting and static asset deployment.
 - AI model/provider integration or source retrieval.
 - Voice input/output or image understanding.
 - Compatibility assessment or trade-specific safety engine.
