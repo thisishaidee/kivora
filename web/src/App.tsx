@@ -495,6 +495,7 @@ export default function App() {
                   <ul>{assessment.questions.map((question) => <li key={question}>{question}</li>)}</ul>
                 </div>
               )}
+              {language !== "en" && <p className="privacy-note">Safety assessment wording is currently available in English only. Reviewed Nigerian English, Pidgin and French safety wording is not ready yet.</p>}
               <p className="privacy-note">Compatibility: {assessment.compatibilityStatus}. This is a preliminary deterministic assessment, not a complete risk assessment or technical procedure.</p>
             </section>
           )}
