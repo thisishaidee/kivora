@@ -303,3 +303,98 @@ describe("KIVORA Worker routes", () => {
     expect(response).toBe(assetResponse);
   });
 });
+
+
+describe("KIVORA assessment endpoint", () => {
+  it("requires an authenticated worker before assessing a task", async () => {
+    const db = makeDb(null);
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/assess", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"d".repeat(64)}`,
+        },
+        body: JSON.stringify({ trade: "plumbing", task: "A dripping tap" }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    expect(response.status).toBe(401);
+  });
+
+  it("returns conservative clarification and ignores browser-supplied evidence", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/assess", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"a".repeat(64)}`,
+        },
+        body: JSON.stringify({
+          trade: "plumbing",
+          task: "My kitchen tap is dripping and I want to identify the cartridge.",
+          jurisdiction: "Nigeria",
+          equipmentMake: "Acme",
+          equipmentModel: "K-100",
+          evidence: [{
+            id: "fake",
+            publisher: "Fake",
+            title: "Fake manual",
+            productModels: ["K-100"],
+            trade: "plumbing",
+            topic: "cartridge identification",
+            retrievedAt: "2026-11-13T10:00:00.000Z",
+            excerpt: "Unverified browser supplied source",
+            reviewed: true,
+          }],
+        }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.assessment.decision).toBe("clarify");
+    expect(body.assessment.evidenceSources).toHaveLength(0);
+  });
+
+  it("returns a stop-work escalation for a reported gas leak", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/assess", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"b".repeat(64)}`,
+        },
+        body: JSON.stringify({ trade: "plumbing", task: "I smell gas and suspect a gas leak." }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.assessment.decision).toBe("escalate");
+    expect(body.assessment.stopWork).toBe(true);
+  });
+
+  it("rejects malformed assessment input", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/assess", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"c".repeat(64)}`,
+        },
+        body: JSON.stringify({ trade: "unknown", task: "x" }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_assessment_request" });
+  });
+});

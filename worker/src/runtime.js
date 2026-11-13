@@ -10,6 +10,8 @@
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
 /** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter }} Env */
 
+import { assessWorkRequest } from "../../shared/src/intelligence";
+
 const SESSION_COOKIE = "__Host-kivora_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MAX_JSON_BYTES = 24_000;
@@ -223,6 +225,19 @@ const handleApi = async (request, env, url) => {
   if (env.WORKER_LIMITER) {
     const limit = await env.WORKER_LIMITER.limit({ key: String(worker.worker_id) });
     if (!limit.success) return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
+  }
+
+  if (path === "/api/assess" && method === "POST") {
+    const body = await readJson(request);
+    if (!body) return json({ error: "invalid_assessment_request" }, 400);
+    try {
+      // Evidence is intentionally not accepted from the browser. Only a future
+      // server-controlled, reviewed source registry may authorize guided output.
+      const assessment = assessWorkRequest(body);
+      return json({ assessment });
+    } catch {
+      return json({ error: "invalid_assessment_request" }, 400);
+    }
   }
 
   if (path === "/api/work-sessions" && method === "GET") {

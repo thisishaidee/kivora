@@ -100,7 +100,7 @@ const HAZARD_RULES: HazardRule[] = [
   },
   {
     id: "rotating-machinery",
-    pattern: /\b(rotating blade|unguarded machine|machine guard|lathe|table saw|circular saw|press brake|conveyor)\b/i,
+    pattern: /\b(unguarded machine|missing machine guard|operating without a guard|adjusting while running|clearing a jam while running|entanglement hazard)\b/i,
     level: "high-risk",
     stopWork: true,
     instruction: "Keep clear of moving parts. Isolate and lock out the machine before adjustment, clearing jams or maintenance; use the manufacturer's procedure.",
@@ -139,7 +139,15 @@ const TRADE_TERMS: Record<Trade, RegExp> = {
   unsure: /[\s\S]/,
 };
 
-const HIGH_RISK_TRADES = new Set<Trade>(["electrical"]);
+const ELECTRICAL_HIGH_RISK = /\b(rewire|mains wiring|distribution board|breaker panel|replace breaker|install circuit|repair wiring|exposed conductor|live socket)\b/i;
+
+const STOP_WORDS = new Set(["the", "and", "for", "with", "from", "this", "that", "your", "what", "how", "into", "near", "when", "where", "work", "task", "part", "model", "product"]);
+const topicMatchesTask = (topic: string, task: string) => {
+  const topicWords = topic.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  const taskWords = new Set((task.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((word) => !STOP_WORDS.has(word)));
+  const meaningful = topicWords.filter((word) => word.length > 2 && !STOP_WORDS.has(word));
+  return meaningful.length > 0 && meaningful.some((word) => taskWords.has(word));
+};
 
 export function assessWorkRequest(
   input: unknown,
@@ -151,7 +159,7 @@ export function assessWorkRequest(
   const matched = HAZARD_RULES.filter((rule) => rule.pattern.test(text));
   const detectedHazards = matched.map((rule) => rule.id);
   const highRisk = matched.some((rule) => rule.level === "high-risk") ||
-    (HIGH_RISK_TRADES.has(request.trade) && /\b(install|repair|rewire|connect|replace|test|diagnos)\w*\b/i.test(text));
+    (request.trade === "electrical" && ELECTRICAL_HIGH_RISK.test(text));
   const stopWork = matched.some((rule) => rule.stopWork);
   const missingInformation: string[] = [];
   const questions: string[] = [];
@@ -181,6 +189,7 @@ export function assessWorkRequest(
   const applicableEvidence = evidence.filter((source) =>
     source.trade === request.trade &&
     source.reviewed &&
+    topicMatchesTask(source.topic, text) &&
     (source.productModels.length === 0 ||
       (!!request.equipmentModel && source.productModels.some((model) => model.toLowerCase() === request.equipmentModel?.toLowerCase()))),
   );
