@@ -16,5 +16,5 @@
     "noUnusedParameters": true,
     "types": ["vite/client", "vitest/globals"]
   },
-  "include": ["web/src", "shared/src", "worker/src", "tests", "vite.config.ts"]
+  "include": ["web/src", "shared/src", "worker/src", "tests", "vite.config.ts", "vitest.config.ts"]
 }
