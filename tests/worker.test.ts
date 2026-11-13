@@ -108,7 +108,9 @@ describe("KIVORA Worker routes", () => {
   it("does not expose private routes without a valid worker session", async () => {
     const db = makeDb(null);
     const response = await worker.fetch(
-      new Request("https://kivora.test/api/work-sessions"),
+      new Request("https://kivora.test/api/work-sessions", {
+        headers: { cookie: `__Host-kivora_session=${"d".repeat(64)}` },
+      }),
       { ASSETS: { fetch: vi.fn() }, DB: db as never },
     );
 
