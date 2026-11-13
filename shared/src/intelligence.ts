@@ -166,7 +166,8 @@ function addTradeContextQuestions(
     questions.push(question);
   };
 
-  if (trade === "carpentry" && /\b(cut|fit|join|install|build|repair|replace|make|assemble|cabinet|drawer|shelf|door|furniture)\b/i.test(text)) {
+  const carpentryFabrication = trade === "carpentry" && /\b(cut|fit|join|build|make|assemble|measure|fabricat|resize)\w*\b/i.test(text);
+  if (carpentryFabrication) {
     if (!/\b(timber|wood|plywood|mdf|particleboard|hardwood|softwood|aluminium|aluminum|steel|plastic)\b/i.test(text)) {
       add("material or board type", "What material or board type are you working with, such as solid timber, plywood or MDF?");
     }
@@ -187,7 +188,8 @@ function addTradeContextQuestions(
     }
   }
 
-  if (trade === "hvac" && /\b(air conditioner|aircon|hvac|compressor|condenser|evaporator|thermostat|refrigerant)\b/i.test(text)) {
+  if (trade === "hvac" && /\b(repair|service|install|maintain|troubleshoot|diagnos|fault|error|not cooling|not heating|leak|not starting)\w*\b/i.test(text) &&
+    /\b(air conditioner|aircon|hvac|compressor|condenser|evaporator|thermostat|refrigerant)\b/i.test(text)) {
     if (!/\b(split|window unit|central|ducted|portable|chiller|heat pump)\b/i.test(text)) {
       add("HVAC unit type", "What type of unit is this, such as split, window, central, portable or a heat pump?");
     }
@@ -196,7 +198,8 @@ function addTradeContextQuestions(
     }
   }
 
-  if (trade === "mechanical" && /\b(engine|bearing|gearbox|motor|pump|shaft|machine|equipment)\b/i.test(text)) {
+  if (trade === "mechanical" && /\b(repair|maintain|service|adjust|inspect|troubleshoot|diagnos)\w*\b/i.test(text) &&
+    /\b(engine|bearing|gearbox|motor|pump|shaft|machine|equipment)\b/i.test(text)) {
     if (/\b(repair|maintain|service|adjust|inspect|troubleshoot|diagnos)\w*\b/i.test(text) && !/\b(isolated|locked out|lockout|disconnected)\b/i.test(text)) {
       add("energy isolation status", "Which energy sources have been isolated before inspection or maintenance?");
     }
@@ -205,7 +208,8 @@ function addTradeContextQuestions(
     }
   }
 
-  if (trade === "construction" && /\b(concrete|masonry|brick|roof|foundation|scaffold|wall|beam|column|floor)\b/i.test(text)) {
+  if (trade === "construction" && /\b(build|construct|repair|install|alter|remove|cut|drill|pour|inspect|strengthen)\w*\b/i.test(text) &&
+    /\b(concrete|masonry|brick|roof|foundation|scaffold|wall|beam|column|floor)\b/i.test(text)) {
     if (!/\b(concrete|masonry|brick|timber|wood|steel|blockwork|drywall|plasterboard)\b/i.test(text)) {
       add("construction material", "What material is the component made from?");
     }
