@@ -22,8 +22,9 @@
 - [x] Implement anonymous identity creation, cookie session validation, one-time recovery and recovery rotation.
 - [x] Implement private work-session create/list/read/archive/restore/delete and worker message storage.
 - [x] Enforce owner-scoped predicates, same-origin state changes and bounded JSON request bodies.
-- [x] Add user-facing recovery-code handling and identity/session deletion controls.
-- [ ] Add and verify abuse-rate controls and automated retention/deletion policy.
+- [x] Add user-facing recovery-code handling, device logout and identity/session deletion controls.
+- [x] Configure Cloudflare Rate Limiting bindings for anonymous identity and authenticated worker routes.
+- [ ] Verify rate limits and recovery replay behaviour on the deployed Worker; define an automated retention policy.
 - [ ] Run real D1 integration tests and cross-worker isolation tests against the deployed Worker.
 - [ ] Deploy the Worker and verify the browser flow end to end.
 
