@@ -1,28 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { onRequest } from "../functions/api/[[path]]";
 
 describe("Cloudflare Pages API function", () => {
-  it("forwards API requests to the shared Worker runtime", async () => {
-    const db = {
-      prepare: () => ({
-        bind() { return this; },
-        first: async () => ({ ok: 1 }),
-        all: async () => ({ results: [] }),
-        run: async () => ({ success: true, meta: { changes: 1 } }),
-      }),
-      batch: async () => [],
-    };
-    const response = await onRequest({
-      request: new Request("https://kivora.test/api/health"),
-      env: { DB: db },
+  it("forwards API requests to the private Worker service binding", async () => {
+    const request = new Request("https://kivora.pages.dev/api/health");
+    const response = new Response(JSON.stringify({ status: "ok" }));
+    const fetch = vi.fn().mockResolvedValue(response);
+    const result = await onRequest({
+      request,
+      env: { KIVORA_API: { fetch } },
     });
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      service: "kivora-api",
-      status: "ok",
-      version: "0.3.0",
-      storage: "d1",
-    });
+    expect(fetch).toHaveBeenCalledWith(request);
+    expect(result).toBe(response);
   });
 });
