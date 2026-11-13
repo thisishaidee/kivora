@@ -480,7 +480,7 @@ export default function App() {
               {assessment.detectedHazards.length > 0 && (
                 <div className="assessment-group">
                   <h3>Detected risk signals</h3>
-                  <ul>{assessment.detectedHazards.map((hazard) => <li key={hazard}>{hazard.replaceAll("-", " ")}</li>)}</ul>
+                  <ul>{assessment.detectedHazards.map((hazard) => <li key={hazard}>{hazard.replace(/-/g, " ")}</li>)}</ul>
                 </div>
               )}
               {assessment.permittedGuidance.length > 0 && (
