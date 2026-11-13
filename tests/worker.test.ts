@@ -117,6 +117,88 @@ describe("KIVORA Worker routes", () => {
     expect(db.statements[0].sql).toContain("s.session_token_hash");
   });
 
+  it("creates a private work session owned by the authenticated worker", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/work-sessions", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"a".repeat(64)}`,
+        },
+        body: JSON.stringify({
+          trade: "plumbing",
+          language: "pcm-ng",
+          units: "metric",
+          task: "Identify this pipe fitting before installation.",
+        }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.session.id).toBeTruthy();
+    expect(db.statements.some((statement) => statement.sql.includes("INSERT INTO work_sessions"))).toBe(true);
+    const insert = db.statements.find((statement) => statement.sql.includes("INSERT INTO work_sessions"));
+    expect(insert?.values[1]).toBe("worker-a");
+  });
+
+  it("scopes private session reads to the authenticated worker", async () => {
+    const statements: { sql: string; values: unknown[] }[] = [];
+    const db = {
+      prepare: (sql: string) => {
+        const statement = {
+          sql,
+          values: [] as unknown[],
+          bind(...values: unknown[]) { this.values = values; return this; },
+          first: async () => sql.includes("JOIN workers") ? { worker_id: "worker-a" } : null,
+          all: async () => ({ results: [] }),
+          run: async () => ({ success: true, meta: { changes: 1 } }),
+        };
+        statements.push(statement);
+        return statement;
+      },
+      batch: async () => [],
+    };
+    const sessionId = "123e4567-e89b-12d3-a456-426614174000";
+    const response = await worker.fetch(
+      new Request(`https://kivora.test/api/work-sessions/${sessionId}`, {
+        headers: { cookie: `__Host-kivora_session=${"b".repeat(64)}` },
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+
+    expect(response.status).toBe(404);
+    expect(statements[1].sql).toContain("AND worker_id = ?");
+    expect(statements[1].values).toEqual([sessionId, "worker-a"]);
+  });
+
+  it("rejects oversized work-session bodies", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/work-sessions", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"c".repeat(64)}`,
+        },
+        body: JSON.stringify({
+          trade: "plumbing",
+          language: "en",
+          units: "metric",
+          task: "x".repeat(25_000),
+        }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_work_session" });
+  });
+
   it("passes non-API requests to the static asset binding", async () => {
     const assetResponse = new Response("app-shell");
     const fetchAsset = vi.fn().mockResolvedValue(assetResponse);
