@@ -243,9 +243,9 @@ const handleApi = async (request, env, url) => {
          WHERE visibility = 'shared' AND review_status = 'approved'
            AND rights_status IN ('public_domain', 'open_license', 'permission')
            AND trade = ?
-           AND (jurisdiction IS NULL OR jurisdiction = ?)
-           AND (product_make IS NULL OR product_make = ?)
-           AND (product_model IS NULL OR product_model = ?)
+           AND (jurisdiction IS NULL OR jurisdiction = ? COLLATE NOCASE)
+           AND (product_make IS NULL OR product_make = ? COLLATE NOCASE)
+           AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)
          ORDER BY updated_at DESC LIMIT 100`,
       ).bind(
         request.trade,
