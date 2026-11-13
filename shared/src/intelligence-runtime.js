@@ -75,6 +75,35 @@ function topicMatchesTask(topic,task) {
 }
 
 /** @param {unknown} input @param {unknown[]} [evidenceInput] @returns {any} */
+const requiresJurisdiction=(text,highRisk)=>highRisk||/\b(code|standard|regulation|permit|inspection|compliance|certification|building control)\b/i.test(text);
+function addTradeContextQuestions(trade,text,missingInformation,questions){
+ const add=(missing,question)=>{missingInformation.push(missing);questions.push(question);};
+ if(trade==="carpentry"&&/\b(cut|fit|join|install|build|repair|replace|make|assemble|cabinet|drawer|shelf|door|furniture)\b/i.test(text)){
+  if(!/\b(timber|wood|plywood|mdf|particleboard|hardwood|softwood|aluminium|aluminum|steel|plastic)\b/i.test(text))add("material or board type","What material or board type are you working with, such as solid timber, plywood or MDF?");
+  if(!/\b\d+(?:[.,]\d+)?\s?(?:mm|cm|m|in|ft)\b/i.test(text))add("required dimensions and thickness","What are the required dimensions and material thickness?");
+ }
+ if(trade==="plumbing"&&/\b(pipe|tap|faucet|drain|valve|leak|toilet|pump|joint|fitting)\b/i.test(text)){
+  if(!/\b(water supply|drainage|sewage|gas line|potable|irrigation)\b/i.test(text))add("plumbing system type","Is this a water-supply, drainage or gas system?");
+  if(/\b(pipe|joint|fitting)\b/i.test(text)&&!/\b(pvc|cpvc|pex|copper|galvanized|galvanised|polypropylene|hdpe|steel pipe)\b/i.test(text))add("pipe material and size","What pipe material and nominal size are involved?");
+  if(/\b(leak|burst|dripping)\b/i.test(text)&&!/\b(isolated|shut off|shutoff|closed the valve)\b/i.test(text))add("safe isolation status","Has the affected supply been isolated safely?");
+ }
+ if(trade==="hvac"&&/\b(air conditioner|aircon|hvac|compressor|condenser|evaporator|thermostat|refrigerant)\b/i.test(text)){
+  if(!/\b(split|window unit|central|ducted|portable|chiller|heat pump)\b/i.test(text))add("HVAC unit type","What type of unit is this, such as split, window, central, portable or a heat pump?");
+  if(!/\b(not cooling|not heating|noise|odor|smell|water leak|fault code|error code|not starting|tripping)\b/i.test(text))add("observed symptom","What symptom or fault code are you seeing?");
+ }
+ if(trade==="mechanical"&&/\b(engine|bearing|gearbox|motor|pump|shaft|machine|equipment)\b/i.test(text)){
+  if(/\b(repair|maintain|service|adjust|inspect|troubleshoot|diagnos)\w*\b/i.test(text)&&!/\b(isolated|locked out|lockout|disconnected)\b/i.test(text))add("energy isolation status","Which energy sources have been isolated before inspection or maintenance?");
+  if(/\b(repair|troubleshoot|diagnos)\w*\b/i.test(text)&&!/\b(noise|vibration|overheat|leak|not starting|stalled|fault|error)\b/i.test(text))add("observed machine symptom","What symptom are you observing, and under what operating condition?");
+ }
+ if(trade==="construction"&&/\b(concrete|masonry|brick|roof|foundation|scaffold|wall|beam|column|floor)\b/i.test(text)){
+  if(!/\b(concrete|masonry|brick|timber|wood|steel|blockwork|drywall|plasterboard)\b/i.test(text))add("construction material","What material is the component made from?");
+  if(!/\b\d+(?:[.,]\d+)?\s?(?:mm|cm|m|in|ft)\b/i.test(text))add("component dimensions","What are the component dimensions and thickness?");
+  if(/\b(wall|beam|column|foundation|roof truss)\b/i.test(text))add("structural role","Has a competent person confirmed whether this component is structural or load-bearing?");
+ }
+ if(trade==="electrical"&&ELECTRICAL_HIGH_RISK.test(text))add("qualified electrical isolation","Has a qualified electrician isolated the supply and verified absence of voltage?");
+ if(trade==="unsure")add("trade confirmation","Which trade best describes this task: carpentry, electrical, plumbing, HVAC, mechanical or construction?");
+}
+
 export function assessWorkRequest(input,evidenceInput=[]) {
   const request=parseWorkRequest(input);
   const evidence=parseEvidenceSources(evidenceInput);
@@ -91,9 +120,11 @@ export function assessWorkRequest(input,evidenceInput=[]) {
   ];
   if(request.involvesEquipment&&!request.equipmentMake) missingInformation.push("equipment make");
   if(request.involvesEquipment&&!request.equipmentModel) missingInformation.push("equipment model");
-  if(!request.jurisdiction) missingInformation.push("work jurisdiction");
+  const jurisdictionRequired=requiresJurisdiction(text,highRisk);
+  if(jurisdictionRequired&&!request.jurisdiction) missingInformation.push("work jurisdiction");
   if(!TRADE_TERMS[request.trade].test(text)&&request.trade!=="multiple"&&request.trade!=="unsure") missingInformation.push("confirmation that the selected trade matches the task");
-  if(!request.jurisdiction) questions.push("Which country or jurisdiction is this work taking place in? Local codes and emergency procedures may differ.");
+  if(jurisdictionRequired&&!request.jurisdiction) questions.push("Which country or jurisdiction is this work taking place in? Local codes and emergency procedures may differ.");
+  addTradeContextQuestions(request.trade,text,missingInformation,questions);
   if(request.involvesEquipment&&(!request.equipmentMake||!request.equipmentModel)) questions.push("What is the equipment make and exact model?");
   if(matched.length>0) questions.push("Has the hazard been isolated and the area made safe by a competent person?");
   const applicableEvidence=evidence.filter(source=>
