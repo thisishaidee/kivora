@@ -82,6 +82,7 @@ Do not enable identity endpoints until:
 - `GET /api/identity` — resolve the identity from the cookie.
 - `POST /api/identity/recover` — consume the previous recovery code, rotate it and revoke prior browser sessions.
 - `POST /api/identity/recovery/rotate` — rotate a recovery code from an authenticated browser session.
+- `POST /api/identity/logout` — revoke the current browser session and clear its cookie without deleting the identity.
 - `DELETE /api/identity` — delete worker-owned sessions/messages, revoke browser sessions and tombstone the identity.
 - `GET /api/work-sessions` — list only the authenticated worker's sessions.
 - `POST /api/work-sessions` — create a private session and save the initial task as a worker message.
@@ -90,7 +91,7 @@ Do not enable identity endpoints until:
 - `PATCH /api/work-sessions/:id` — archive or restore only an owned session.
 - `DELETE /api/work-sessions/:id` — delete messages and session using owner-scoped predicates.
 
-All non-GET API requests require an exact same-origin `Origin` header. JSON bodies are streamed and capped at 24 KB; task/message content is capped at 20,000 characters. The session cookie is Secure, HttpOnly, SameSite=Strict, Path=/, host-only and expires after 30 days. The worker source is plain JavaScript-compatible TypeScript so the exact module can be uploaded directly without a bundling step.
+All non-GET API requests require an exact same-origin `Origin` header. JSON bodies are streamed and capped at 24 KB; task/message content is capped at 20,000 characters. Cloudflare Rate Limiting bindings are configured for 20 identity creation/recovery attempts per IP per minute and 120 authenticated API requests per worker per minute. These limits are approximate and local to each Cloudflare location, not a global hard quota. The IP limit is deliberately only used for anonymous identity creation/recovery; authenticated requests are keyed by worker ID. The session cookie is Secure, HttpOnly, SameSite=Strict, Path=/, host-only and expires after 30 days. The worker source is plain JavaScript-compatible TypeScript so the exact module can be uploaded directly without a bundling step.
 
 ## Current Cloudflare state
 
