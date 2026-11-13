@@ -17,7 +17,7 @@ interface D1Database {
 }
 interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
-  DB: D1Database;
+  DB?: D1Database;
 }
 interface AuthenticatedWorker { worker_id: string }
 interface WorkSessionRow {
