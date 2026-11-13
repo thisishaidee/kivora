@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS evidence_sources (
   )),
   publisher TEXT NOT NULL CHECK (length(publisher) BETWEEN 1 AND 200),
   title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 300),
-  source_url TEXT,
+  source_url TEXT CHECK (source_url IS NULL OR substr(source_url, 1, 8) = 'https://'),
   document_ref TEXT,
   source_version TEXT,
   revision_date TEXT,
@@ -35,7 +35,10 @@ CREATE TABLE IF NOT EXISTS evidence_sources (
   )),
   license_name TEXT,
   license_url TEXT,
-  source_sha256 TEXT CHECK (source_sha256 IS NULL OR length(source_sha256) = 64),
+  source_sha256 TEXT CHECK (
+    source_sha256 IS NULL OR
+    (length(source_sha256) = 64 AND source_sha256 NOT GLOB '*[^0-9a-f]*')
+  ),
   review_status TEXT NOT NULL DEFAULT 'pending' CHECK (review_status IN (
     'pending', 'approved', 'rejected', 'superseded'
   )),
@@ -56,6 +59,9 @@ CREATE TABLE IF NOT EXISTS evidence_sources (
   ),
   CHECK (
     visibility != 'shared' OR rights_status IN ('public_domain', 'open_license', 'permission')
+  ),
+  CHECK (
+    rights_status NOT IN ('open_license', 'permission') OR license_name IS NOT NULL
   ),
   CHECK (
     review_status != 'approved' OR (
