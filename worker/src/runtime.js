@@ -7,7 +7,8 @@
  * }} D1Statement
  */
 /** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
-/** @typedef {{ ASSETS: { fetch(request: Request): Promise<Response> }, DB?: D1Database }} Env */
+/** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
+/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter }} Env */
 
 const SESSION_COOKIE = "__Host-kivora_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -129,6 +130,12 @@ const handleApi = async (request, env, url) => {
   if (!env.DB) return json({ error: "service_unavailable" }, 503);
   if (method !== "GET" && !validOrigin(request, url)) return json({ error: "origin_not_allowed" }, 403);
 
+  if ((path === "/api/identity" || path === "/api/identity/recover") && method === "POST" && env.IDENTITY_LIMITER) {
+    const clientKey = request.headers.get("cf-connecting-ip") || "unknown-client";
+    const limit = await env.IDENTITY_LIMITER.limit({ key: clientKey });
+    if (!limit.success) return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
+  }
+
   if (path === "/api/identity" && method === "POST") {
     const recoveryToken = randomToken();
     const sessionToken = randomToken();
@@ -205,6 +212,10 @@ const handleApi = async (request, env, url) => {
 
   const worker = await authenticate(request, env.DB);
   if (!worker) return json({ error: "unauthorized" }, 401);
+  if (env.WORKER_LIMITER) {
+    const limit = await env.WORKER_LIMITER.limit({ key: String(worker.worker_id) });
+    if (!limit.success) return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
+  }
 
   if (path === "/api/work-sessions" && method === "GET") {
     const result = await env.DB.prepare(
@@ -305,7 +316,7 @@ const worker = {
         return json({ error: "internal_error" }, 500);
       }
     }
-    return env.ASSETS.fetch(request);
+    return env.ASSETS ? env.ASSETS.fetch(request) : json({ error: "not_found" }, 404);
   },
 };
 
