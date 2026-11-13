@@ -39,7 +39,7 @@ describe("KIVORA Worker routes", () => {
         headers: { origin: "https://attacker.test", "content-type": "application/json" },
         body: "{}",
       }),
-      { ASSETS: { fetch: vi.fn() } },
+      { ASSETS: { fetch: vi.fn() }, DB: {} as never },
     );
 
     expect(response.status).toBe(403);
