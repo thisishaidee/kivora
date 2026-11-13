@@ -7,5 +7,13 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kivora",
+      "database_id": "3657a2bf-f4c2-484e-a214-8fdd05435c59",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
