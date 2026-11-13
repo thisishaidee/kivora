@@ -3,7 +3,7 @@ const TRADES=new Set(["carpentry","electrical","plumbing","hvac","mechanical","c
 const TYPES=new Set(["manufacturer_manual","technical_bulletin","service_notice","standard","field_observation","other"]);
 const LANGUAGES=new Set(["en","en-ng","pcm-ng","fr","und"]);
 const text=(v,min,max)=>typeof v==="string"&&v.trim().length>=min&&v.trim().length<=max;
-const validDate=(value)=>{if(typeof value!=="string"||!/^\\d{4}-\\d{2}-\\d{2}$/.test(value))return false;const date=new Date(value+"T00:00:00.000Z");return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===value;};
+const validDate=(value)=>{if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const date=new Date(value+"T00:00:00.000Z");return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===value;};
 /** @param {unknown} input @returns {any} */
 export function parsePrivateEvidenceCapture(input) {
   if(!input||typeof input!=="object"||Array.isArray(input)) return {success:false};
