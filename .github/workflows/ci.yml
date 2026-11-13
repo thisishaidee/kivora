@@ -1,8 +1,11 @@
 name: CI
 
+permissions:
+  contents: write
+
 on:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "fix/**"]
   pull_request:
     branches: [main]
 
@@ -14,9 +17,31 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
       - name: Dependency security audit
         run: npm audit --audit-level=high || true
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+      - name: Commit generated lockfile
+        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/fix/'))
+        run: |
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          cp package-lock.json /tmp/kivora-package-lock.json
+          rm -f package-lock.json
+          git fetch origin "$branch"
+          git checkout -B "$branch" "origin/$branch"
+          cp /tmp/kivora-package-lock.json package-lock.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: lock npm dependency tree'
+            git push origin "$branch"
+          fi
