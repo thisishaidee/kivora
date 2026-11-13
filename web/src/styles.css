@@ -35,3 +35,35 @@ select:focus,textarea:focus{border-color:#65765a;box-shadow:0 0 0 3px #65765a1c}
 .notice{color:#6c5630}
 .footer{display:flex;justify-content:space-between;padding:36px 0 28px;color:#858b81;font-size:9px;letter-spacing:.04em}
 @media(max-width:650px){.page-shell{padding:0 20px}.topbar{height:68px}.topbar-note{max-width:145px;text-align:right;line-height:1.5}.hero{padding:58px 0 42px}.hero h1{font-size:62px}.intro{font-size:14px}.workspace{padding:25px 20px 23px}.workspace-heading h2{font-size:20px}.field-grid{grid-template-columns:1fr;gap:17px}.unit-options{flex-wrap:wrap}.footer{gap:14px;line-height:1.5}.footer span:last-child{text-align:right}}
+
+
+.identity-card{max-width:680px}
+.compact-intro{font-size:13px;margin:14px 0 24px}
+.secondary-action{display:block;margin:14px auto 0;padding:10px;border:0;background:transparent;color:#6b735f;font-size:12px;text-decoration:underline;cursor:pointer}
+.recovery-code{margin:18px 0 12px;padding:18px;border:1px solid #dfe2d9;border-radius:9px;background:#f7f8f5;font-family:"DM Mono",monospace;font-size:12px;line-height:1.8;overflow-wrap:anywhere;user-select:all}
+.recovery-confirm{display:flex;gap:11px;align-items:flex-start;margin:20px 0;color:#5d645a;font-size:12px;line-height:1.6}
+.recovery-confirm input{margin-top:3px;accent-color:#52664b}
+.session-library,.active-session,.account-card{margin-top:22px}
+.session-list{display:flex;flex-direction:column;gap:0}
+.session-item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 0;border-top:1px solid #eceee8}
+.session-item.active{background:#f7f8f5;margin:0 -12px;padding:15px 12px;border-radius:8px}
+.session-open{min-width:0;flex:1;text-align:left;border:0;background:transparent;padding:0;cursor:pointer}
+.session-title{display:block;color:#252922;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.session-meta{display:block;margin-top:6px;color:#858b81;font-size:10px}
+.session-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.text-button{border:0;background:transparent;color:#6a725f;font-size:10px;text-decoration:underline;cursor:pointer;padding:8px}
+.danger-text,.danger-option{color:#965e51}
+.message-list{display:flex;flex-direction:column;gap:12px}
+.message-card{background:#f7f8f5;border:1px solid #eceee8;border-radius:9px;padding:14px 16px}
+.message-role{font-family:"DM Mono",monospace;color:#8a9086;font-size:9px;letter-spacing:.1em}
+.message-card p{margin:8px 0 0;color:#343a32;font-size:13px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.account-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.danger-option{border-color:#eadbd7}
+.global-notice{max-width:780px;margin:14px 0 0}
+@media(max-width:650px){
+  .session-item{align-items:flex-start;flex-direction:column;gap:7px}
+  .session-actions{align-self:flex-end}
+  .account-actions{flex-direction:column;align-items:stretch}
+  .account-actions .unit-option{text-align:center}
+  .recovery-code{font-size:10px;padding:14px}
+}
