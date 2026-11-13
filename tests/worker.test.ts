@@ -363,6 +363,7 @@ describe("KIVORA assessment endpoint", () => {
     expect(evidenceQuery?.sql).toContain("visibility = 'shared'");
     expect(evidenceQuery?.sql).toContain("review_status = 'approved'");
     expect(evidenceQuery?.sql).toContain("rights_status IN");
+    expect(evidenceQuery?.sql).toContain("reviewer_role IN ('qualified_reviewer', 'manufacturer')");
     expect(evidenceQuery?.values).toEqual(["plumbing", "Nigeria", "Acme", "K-100"]);
   });
 
