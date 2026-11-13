@@ -31,7 +31,7 @@ describe("KIVORA Worker routes", () => {
     const db = makeDb({ ok: 1 });
     const response = await worker.fetch(
       new Request("https://kivora.test/api/health"),
-      { ASSETS: { fetch: vi.fn() }, DB: db },
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
     );
 
     expect(response.status).toBe(200);
@@ -66,7 +66,7 @@ describe("KIVORA Worker routes", () => {
         headers: { origin: "https://attacker.test", "content-type": "application/json" },
         body: "{}",
       }),
-      { ASSETS: { fetch: vi.fn() }, DB: db },
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
     );
 
     expect(response.status).toBe(403);
@@ -81,7 +81,7 @@ describe("KIVORA Worker routes", () => {
         method: "POST",
         headers: { origin: "https://kivora.test" },
       }),
-      { ASSETS: { fetch: vi.fn() }, DB: db },
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
     );
     const body = await response.json();
     const cookie = response.headers.get("set-cookie");
@@ -109,7 +109,7 @@ describe("KIVORA Worker routes", () => {
     const db = makeDb(null);
     const response = await worker.fetch(
       new Request("https://kivora.test/api/work-sessions"),
-      { ASSETS: { fetch: vi.fn() }, DB: db },
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
     );
 
     expect(response.status).toBe(401);
