@@ -139,7 +139,15 @@ const TRADE_TERMS: Record<Trade, RegExp> = {
   unsure: /[\s\S]/,
 };
 
-const HIGH_RISK_TRADES = new Set<Trade>(["electrical"]);
+const ELECTRICAL_HIGH_RISK = /\\b(rewire|mains wiring|distribution board|breaker panel|replace breaker|install circuit|repair wiring|exposed conductor|live socket)\\b/i;
+
+const STOP_WORDS = new Set(["the", "and", "for", "with", "from", "this", "that", "your", "what", "how", "into", "near", "when", "where", "work", "task", "part", "model", "product"]);
+const topicMatchesTask = (topic: string, task: string) => {
+  const topicWords = topic.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  const taskWords = new Set((task.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((word) => !STOP_WORDS.has(word)));
+  const meaningful = topicWords.filter((word) => word.length > 2 && !STOP_WORDS.has(word));
+  return meaningful.length > 0 && meaningful.some((word) => taskWords.has(word));
+};
 
 export function assessWorkRequest(
   input: unknown,
@@ -181,6 +189,7 @@ export function assessWorkRequest(
   const applicableEvidence = evidence.filter((source) =>
     source.trade === request.trade &&
     source.reviewed &&
+    topicMatchesTask(source.topic, text) &&
     (source.productModels.length === 0 ||
       (!!request.equipmentModel && source.productModels.some((model) => model.toLowerCase() === request.equipmentModel?.toLowerCase()))),
   );
