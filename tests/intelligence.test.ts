@@ -91,3 +91,35 @@ describe("KIVORA deterministic intelligence gate", () => {
     expect(() => assessWorkRequest(base, [{ id: "not-enough-fields" }])).toThrow();
   });
 });
+
+
+describe("trade risk and evidence relevance", () => {
+  it("does not escalate every ordinary electrical task by trade label alone", () => {
+    const result = assessWorkRequest({
+      trade: "electrical",
+      task: "Explain the difference between a lamp and a light fitting.",
+      jurisdiction: "Nigeria",
+    });
+    expect(result.decision).toBe("clarify");
+    expect(result.escalationRequired).toBe(false);
+  });
+
+  it("does not escalate a normal table-saw question solely because the tool is mentioned", () => {
+    const result = assessWorkRequest({
+      trade: "carpentry",
+      task: "What is a table saw used for?",
+      jurisdiction: "Nigeria",
+    });
+    expect(result.escalationRequired).toBe(false);
+    expect(result.stopWork).toBe(false);
+  });
+
+  it("does not accept reviewed evidence whose topic is unrelated to the task", () => {
+    const result = assessWorkRequest(base, [{
+      ...reviewedEvidence[0],
+      topic: "compressor refrigerant charging",
+    }]);
+    expect(result.decision).toBe("clarify");
+    expect(result.evidenceSources).toHaveLength(0);
+  });
+});
