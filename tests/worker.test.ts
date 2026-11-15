@@ -516,3 +516,130 @@ describe("private evidence source API", () => {
     expect(response.status).toBe(400);
     expect(db.statements.some((statement) => statement.sql.includes("INSERT INTO evidence_sources"))).toBe(false);
   });
+
+
+describe("KIVORA grounded assistant endpoint", () => {
+  const sessionId = "123e4567-e89b-12d3-a456-426614174000";
+  const workerId = "worker-a";
+  const cookie = "__Host-kivora_session=" + "a".repeat(64);
+  const makeAssistDb = (evidenceRows: Record<string, unknown>[] = []) => {
+    const statements: { sql: string; values: unknown[] }[] = [];
+    const db = {
+      prepare: (sql: string) => {
+        const statement = {
+          sql,
+          values: [] as unknown[],
+          bind(...values: unknown[]) { this.values = values; return this; },
+          first: async () => {
+            if (sql.includes("JOIN workers")) return { worker_id: workerId };
+            if (sql.includes("SELECT id, trade FROM work_sessions")) return { id: sessionId, trade: "plumbing" };
+            return null;
+          },
+          all: async () => ({ results: sql.includes("FROM evidence_sources") ? evidenceRows : [] }),
+          run: async () => ({ success: true, meta: { changes: 1 } }),
+        };
+        statements.push(statement);
+        return statement;
+      },
+      batch: async (items: unknown[]) => items.map(() => ({ success: true, results: [], meta: { changes: 1 } })),
+      statements,
+    };
+    return db;
+  };
+
+  it("stores a deterministic safety escalation without calling AI", async () => {
+    const db = makeAssistDb();
+    const run = vi.fn();
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/assist", {
+        method: "POST",
+        headers: { origin: "https://kivora.test", "content-type": "application/json", cookie },
+        body: JSON.stringify({
+          sessionId,
+          trade: "plumbing",
+          task: "I smell gas and suspect a gas leak.",
+          language: "en",
+          units: "metric",
+        }),
+      }),
+      {
+        ASSETS: { fetch: vi.fn() },
+        DB: db as never,
+        AI: { run },
+        AI_ENABLED: "true",
+        AI_LIMITER: { limit: vi.fn().mockResolvedValue({ success: true }) },
+      } as never,
+    );
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.response.status).toBe("escalate");
+    expect(body.assessment.detectedHazards).toContain("gas-leak");
+    expect(run).not.toHaveBeenCalled();
+    expect(db.statements.some(statement => statement.sql.includes("INSERT INTO work_session_messages"))).toBe(true);
+  });
+
+  it("runs the free model only after approved evidence and context pass deterministic checks", async () => {
+    const db = makeAssistDb([{
+      id: "manual-k100",
+      publisher: "Acme",
+      title: "K-100 service manual",
+      source_url: "https://example.com/manual",
+      document_ref: "K100-MANUAL",
+      product_make: "Acme",
+      product_model: "K-100",
+      trade: "plumbing",
+      topic: "cartridge identification",
+      revision_date: null,
+      retrieved_at: 1794729600,
+      jurisdiction: null,
+      page_or_section: "4.2",
+      evidence_note: "The cartridge assembly is shown in section 4.2. Use a 12 mm clearance tool.",
+    }]);
+    const run = vi.fn().mockResolvedValue({
+      response: JSON.stringify({
+        summary: "The reviewed K-100 manual contains a cartridge identification section.",
+        blocks: [{
+          kind: "explanation",
+          content: "The cartridge assembly is shown in section 4.2.",
+          evidenceIds: ["manual-k100"],
+        }],
+        followUpQuestions: [],
+      }),
+    });
+    const limit = vi.fn().mockResolvedValue({ success: true });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/assist", {
+        method: "POST",
+        headers: { origin: "https://kivora.test", "content-type": "application/json", cookie },
+        body: JSON.stringify({
+          sessionId,
+          trade: "plumbing",
+          task: "Identify the cartridge for my kitchen tap.",
+          language: "en",
+          units: "metric",
+          jurisdiction: "Nigeria",
+          involvesEquipment: true,
+          equipmentMake: "Acme",
+          equipmentModel: "K-100",
+          knownFacts: ["This is a water supply tap and the water supply has been isolated."],
+        }),
+      }),
+      {
+        ASSETS: { fetch: vi.fn() },
+        DB: db as never,
+        AI: { run },
+        AI_ENABLED: "true",
+        AI_LIMITER: { limit },
+      } as never,
+    );
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.assessment.decision).toBe("guided");
+    expect(body.response.status).toBe("guided");
+    expect(body.response.citations[0].id).toBe("manual-k100");
+    expect(run).toHaveBeenCalledOnce();
+    expect(run.mock.calls[0][0]).toBe("@cf/zai-org/glm-4.7-flash");
+    expect(limit).toHaveBeenCalledWith({ key: workerId });
+    expect(db.statements.some(statement => statement.sql.includes("INSERT INTO work_session_messages"))).toBe(true);
+  });
+});
