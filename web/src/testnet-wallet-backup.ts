@@ -225,7 +225,7 @@ export async function decryptTestnetWalletBackup(
       // Original v1 encrypted the raw 32-byte seed, not a JSON payload.
       const legacySeed = new Uint8Array(plaintext);
       if (legacySeed.length === 32) {
-        validateSeed(legacySeed);
+        validateLegacySeed(legacySeed);
         return { version: 1, seed: legacySeed, changesetJson: null };
       }
       // Accept the short-lived JSON-wrapped v1 format if one was exported.
