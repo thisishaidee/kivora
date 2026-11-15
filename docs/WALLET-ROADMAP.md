@@ -28,9 +28,11 @@ This roadmap sequences the full requirements in `WALLET-REQUIREMENTS.md`. Each s
 
 ## Stage 2 — On-chain testnet wallet
 - [ ] Select vetted client-side wallet SDK.
-- [ ] Wallet create/import/restore on testnet.
-- [ ] Local signing and backup/recovery UX.
-- [ ] Address generation and QR support.
+- [x] Generate a testnet wallet locally and derive a native SegWit receive address with QR.
+- [x] Export/import a versioned, locally encrypted 32-byte testnet seed backup (AES-256-GCM + PBKDF2-SHA-256).
+- [ ] Verify backup restoration on a separate clean Android browser/device and compare derived addresses.
+- [ ] Design and persist BDK changesets, revealed-address index and chain state; current backup does not include them.
+- [ ] Complete wallet import compatibility, local signing and recovery UX.
 - [ ] UTXO/balance/fee data integration.
 - [ ] Transaction preview and explicit signing confirmation.
 - [ ] Broadcast and confirmation tracking.
