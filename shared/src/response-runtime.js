@@ -79,8 +79,12 @@ export async function composeWorkerAssistantResponse({ request, assessment, ai }
     "Use the worker's requested language and unit system. Do not convert or invent measurements.",
     "Return only a JSON object with keys summary, blocks, followUpQuestions. Each block has kind (explanation, procedure, measurement, or parts), content, and evidenceIds (array). No markdown fences.",
   ].join(" ");
-  const result = await ai.run(MODEL, { messages: [{ role: "system", content: system }, { role: "user", content: JSON.stringify(prompt) }], response_format: { type: "json_object" }, max_tokens: 1400, temperature: 0.1 });
-  const draft = validateDraft(parseModelJson(result), evidence);
-  return empty("guided", draft.summary, assessment, draft.followUpQuestions, draft.blocks, draft.citations);
+  try {
+    const result = await ai.run(MODEL, { messages: [{ role: "system", content: system }, { role: "user", content: JSON.stringify(prompt) }], response_format: { type: "json_object" }, max_tokens: 1400, temperature: 0.1 });
+    const draft = validateDraft(parseModelJson(result), evidence);
+    return empty("guided", draft.summary, assessment, draft.followUpQuestions, draft.blocks, draft.citations);
+  } catch {
+    return empty("unavailable", "A response could not be verified against the approved evidence. No technical guidance was returned.", assessment);
+  }
 }
 export const WORKERS_AI_MODEL = MODEL;
