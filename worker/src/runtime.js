@@ -292,8 +292,8 @@ const handleApi = async (request, env, url) => {
 
     try {
       const request = parseWorkRequest(body);
-      request.language = LANGUAGES.has(body.language) ? body.language : "en";
-      request.units = UNITS.has(body.units) ? body.units : "metric";
+      request.language = typeof body.language === "string" && LANGUAGES.has(body.language) ? body.language : "en";
+      request.units = typeof body.units === "string" && UNITS.has(body.units) ? body.units : "metric";
       const evidenceResult = await env.DB.prepare(
         `SELECT id, publisher, title, source_url, document_ref, product_make,
           product_model, trade, topic, revision_date, retrieved_at,
