@@ -212,7 +212,6 @@ export async function decryptTestnetWalletBackup(
       key,
       ciphertext,
     );
-    const decoded = new TextDecoder("utf-8", { fatal: true }).decode(plaintext);
     if (version === VERSION_V1) {
       // Original v1 encrypted the raw 32-byte seed, not a JSON payload.
       const legacySeed = new Uint8Array(plaintext);
@@ -221,10 +220,12 @@ export async function decryptTestnetWalletBackup(
         return { version: 1, seed: legacySeed, changesetJson: null };
       }
       // Accept the short-lived JSON-wrapped v1 format if one was exported.
-      const value = JSON.parse(decoded) as { seed?: string };
+      const legacyText = new TextDecoder("utf-8", { fatal: true }).decode(plaintext);
+      const value = JSON.parse(legacyText) as { seed?: string };
       const seed = fromBase64(value.seed ?? "", 32);
       return { version: 1, seed, changesetJson: null };
     }
+    const decoded = new TextDecoder("utf-8", { fatal: true }).decode(plaintext);
     const payload = JSON.parse(decoded) as {
       seed?: string;
       changesetJson?: string;
