@@ -41,8 +41,13 @@ export default function WalletPanel() {
       const info = await client.getInfo();
       let balance: number | null = null;
       if (info.methods.includes("get_balance")) {
-        const result = await client.getBalance();
-        balance = Math.round(result.balance / 1000);
+        try {
+          const result = await client.getBalance();
+          balance = Math.round(result.balance / 1000);
+        } catch {
+          // A balance failure should not invalidate an otherwise working connection.
+          balance = null;
+        }
       }
 
       clientRef.current = client;
@@ -109,6 +114,24 @@ export default function WalletPanel() {
     }
   }
 
+  async function shareInvoice() {
+    if (!invoice) return;
+    if (!navigator.share) {
+      setStatus("Sharing is unavailable in this browser. Copy the invoice instead.");
+      return;
+    }
+    try {
+      await navigator.share({
+        title: "KIVORA work payment",
+        text: invoice,
+      });
+      setStatus("Invoice shared.");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setStatus("The invoice could not be shared. You can still copy it.");
+    }
+  }
+
   return (
     <section className="wallet-panel" aria-labelledby="wallet-title">
       <div className="wallet-heading">
@@ -170,7 +193,10 @@ export default function WalletPanel() {
                     <span>Lightning invoice</span>
                     <textarea value={invoice} readOnly rows={3} />
                   </label>
-                  <button className="unit-option selected" type="button" onClick={() => void copyInvoice()}>Copy invoice</button>
+                  <div className="unit-options">
+                    <button className="unit-option selected" type="button" onClick={() => void copyInvoice()}>Copy invoice</button>
+                    <button className="unit-option" type="button" onClick={() => void shareInvoice()}>Share invoice</button>
+                  </div>
                 </div>
               )}
             </div>
