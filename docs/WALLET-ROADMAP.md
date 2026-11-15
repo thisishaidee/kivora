@@ -27,13 +27,13 @@ This roadmap sequences the full requirements in `WALLET-REQUIREMENTS.md`. Each s
 **Exit:** test-wallet send/receive interoperable; payment state verified; no mainnet launch implied.
 
 ## Stage 2 — On-chain testnet wallet
-- [x] Generate a testnet wallet locally and derive a native SegWit receive address with QR.
-- [x] Export/import a versioned, locally encrypted 32-byte testnet seed backup (AES-256-GCM + PBKDF2-SHA-256).
+- [x] Generate a testnet wallet locally and derive a native SegWit receive address with QR.\n- [x] Add 12-word English BIP39 phrase generation, selected-word confirmation and phrase-based restore in the isolated prototype.
+- [x] Preserve legacy 32-byte encrypted backup import and extend v2 encrypted backup to accept 64-byte BIP39-derived seeds (AES-256-GCM + PBKDF2-SHA-256).
 - [x] Document BDK changeset, IndexedDB and recovery design in [BDK-PERSISTENCE-DESIGN.md](./BDK-PERSISTENCE-DESIGN.md).
 - [x] Verify exact pinned 0.4.0 source exposes `Wallet.take_staged()`, `ChangeSet.to_json()`, `ChangeSet.from_json()`, `ChangeSet.merge()` and `Wallet.load()`.
 - [x] Add initial encrypted IndexedDB changeset storage and a seed-based wallet recovery path in PR #27.
 - [ ] Run fresh CI for the new persistence implementation and tests.
-- [ ] Verify backup restoration on a separate clean Android browser/device and compare derived addresses.
+- [ ] Verify 12-word phrase restoration on a separate clean Android browser/device and compare derived addresses.\n- [ ] Verify legacy encrypted backup import and new 64-byte-seed backup restore.
 - [ ] Test IndexedDB concurrency, corruption, quota and unavailable-storage failure paths.
 - [x] Add encrypted full-state backup v2 containing the seed and BDK-native changeset snapshot; preserve v1 seed-only import.
 - [ ] Verify restore on a clean device including revealed-address index and wallet state.
