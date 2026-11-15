@@ -11,7 +11,7 @@ import {
   loadEncryptedChangeset,
   saveEncryptedChangeset,
 } from "./bdk-testnet-persistence";
-import { decryptTestnetWalletBackup, encryptTestnetWalletBackup } from "./testnet-wallet-backup";
+import { decryptTestnetWalletBackup, encryptTestnetWalletBackupV2 } from "./testnet-wallet-backup";
 
 async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Promise<void> {
   const staged = wallet.take_staged();
@@ -98,20 +98,30 @@ export default function TestnetWalletPanel() {
     let restoredWallet: BdkWallet | null = null;
     try {
       const serialized = await backupFile.text();
-      seed = await decryptTestnetWalletBackup(serialized, backupPassword);
+      const backup = await decryptTestnetWalletBackup(serialized, backupPassword);
+      seed = backup.seed;
       const savedChangeset = await loadEncryptedChangeset(seed);
-      const result = savedChangeset
-        ? await restoreBdkTestnetWallet(seed, savedChangeset)
+      const changesetJson = backup.version === 2
+        ? backup.changesetJson
+        : savedChangeset;
+      const result = changesetJson
+        ? await restoreBdkTestnetWallet(seed, changesetJson)
         : await createBdkTestnetWallet(seed);
       restoredWallet = result.wallet;
-      if (!savedChangeset) await persistStagedWalletState(restoredWallet, seed);
+      if (backup.version === 2) {
+        await saveEncryptedChangeset(backup.changesetJson, seed);
+      } else if (!savedChangeset) {
+        await persistStagedWalletState(restoredWallet, seed);
+      }
       walletRef.current = restoredWallet;
       restoredWallet = null;
       walletSeedRef.current = seed.slice();
       setAddress(result.address);
-      setStatus(savedChangeset
-        ? "Wallet restored with its locally saved BDK state."
-        : "Seed backup restored. This browser had no saved chain state, so the first address was re-derived.");
+      setStatus(backup.version === 2
+        ? "Full-state v2 backup restored. Its BDK state is now encrypted in this browser."
+        : changesetJson
+          ? "Legacy v1 seed backup restored with this browser's saved BDK state."
+          : "Legacy v1 seed-only backup restored. No chain or address-index state was included in that older backup.");
       setBackupFile(null);
     } catch (error) {
       restoredWallet?.free();
@@ -128,7 +138,9 @@ export default function TestnetWalletPanel() {
     setBusy(true);
     setStatus("");
     try {
-      const serialized = await encryptTestnetWalletBackup(seed, backupPassword);
+      const changesetJson = await loadEncryptedChangeset(seed);
+      if (!changesetJson) throw new Error("No saved BDK wallet state is available. Export is blocked to avoid creating an incomplete backup.");
+      const serialized = await encryptTestnetWalletBackupV2(seed, changesetJson, backupPassword);
       const blob = new Blob([serialized], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -138,7 +150,7 @@ export default function TestnetWalletPanel() {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-      setStatus("Encrypted seed backup exported. Keep the file and password separately; KIVORA cannot recover either.");
+      setStatus("Encrypted full-state v2 backup exported. Keep the file and password separately; KIVORA cannot recover either.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "The encrypted backup could not be created.");
     } finally {
@@ -227,7 +239,7 @@ export default function TestnetWalletPanel() {
             <button className="unit-option selected" type="button" onClick={() => void copyAddress()}>Copy address</button>
             <button className="unit-option" type="button" onClick={() => void discardWallet()} disabled={busy}>Discard wallet</button>
           </div>
-          <p className="privacy-note">The seed backup is encrypted locally with AES-256-GCM and PBKDF2-SHA-256. It is a KIVORA backup file, not a BIP39 recovery phrase. Keep the password separately: a lost password cannot be reset. No key material is uploaded.</p>
+          <p className="privacy-note">The v2 backup includes the 32-byte derivation seed and BDK changeset, encrypted locally with AES-256-GCM and PBKDF2-SHA-256. It is a KIVORA backup file, not a BIP39 recovery phrase. Keep the password separately: a lost password cannot be reset. No key material is uploaded.</p>
           <p className="privacy-note">The BDK changeset is separately encrypted in this browser using a key derived from the seed. Browser storage is not a backup; export and safely retain the encrypted seed file. This prototype still does not sync balances or send transactions. Do not send coins until clean-device recovery and QR interoperability have been verified.</p>
         </div>
       )}
