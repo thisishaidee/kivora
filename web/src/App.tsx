@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PaymentRequestPreview from "./PaymentRequestPreview";
+import TestnetWalletPanel from "./TestnetWalletPanel";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -784,6 +785,7 @@ export default function App() {
             </div>
           </section>
 
+          <TestnetWalletPanel />
           <PaymentRequestPreview />
         </>
       )}
