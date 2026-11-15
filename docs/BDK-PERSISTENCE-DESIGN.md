@@ -1,6 +1,6 @@
 # KIVORA BDK-WASM Persistence Design
 
-**Status:** design gate for the testnet prototype; persistence is not yet implemented.  
+**Status:** initial implementation added to PR #27; CI, failure-path tests and browser validation are pending.  
 **SDK pinned by the prototype:** `@bitcoindevkit/bdk-wallet-web@0.4.0`.  
 **Verified upstream source commit:** `bitcoindevkit/bdk-wasm@3ee6c6b`.  
 **Network:** Bitcoin testnet only.
@@ -9,13 +9,13 @@
 
 The current encrypted backup contains the 32-byte derivation seed. It recreates the wallet's first address, but it does not preserve BDK's revealed-address indexes, chain position, discovered outputs, transaction graph or transaction history.
 
-The exact 0.4.0 Rust/WASM source has now been inspected. It exposes:
+The exact 0.4.0 Rust/WASM source has been inspected. It exposes:
 - `Wallet.take_staged()` to export pending state changes;
 - `ChangeSet.to_json()` and `ChangeSet.from_json()` for serialization;
 - `ChangeSet.merge(other)` for BDK-native change merging;
 - `Wallet.load(changeset, externalDescriptor, internalDescriptor)` for recovery.
 
-The implementation serializes the BDK changeset through its own SDK method. It must not invent or manually reconstruct the JSON schema. The source uses BDK wallet 3.2.0. The browser build has no direct filesystem access and supports HTTP(S)-based Esplora rather than socket-based Electrum/RPC clients.
+The initial implementation in this PR uses these SDK APIs. It does not invent or manually reconstruct the changeset JSON schema. The source uses BDK wallet 3.2.0. The browser build has no direct filesystem access and supports HTTP(S)-based Esplora rather than socket-based Electrum/RPC clients.
 
 References:
 - Exact pinned package source: https://github.com/bitcoindevkit/bdk-wasm/tree/3ee6c6b
@@ -27,16 +27,16 @@ References:
 
 BDK 3.2.0's `ChangeSet` contains recipient and change descriptors typed as `Descriptor<DescriptorPublicKey>`, plus network, local-chain, transaction-graph, keychain-index and locked-outpoint changes. These are public descriptors rather than private signing keys, but extended public-key and transaction metadata are privacy-sensitive. Encrypt the complete serialized changeset before it enters IndexedDB. Never store a plaintext changeset in browser storage, logs, analytics, requests or the KIVORA Worker.
 
-The private signing descriptors must be re-derived locally from the user's seed during recovery and passed to `Wallet.load()`; do not expect the persisted public changeset alone to restore signing capability.
+The private signing descriptors must be re-derived locally from the user's seed during recovery and passed to `Wallet.load()`; the persisted public changeset alone does not restore signing capability.
 
 ## Data separation
 
 | Data | Location | Secret? | Recovery |
 | --- | --- | --- | --- |
 | 32-byte derivation seed | Browser memory while unlocked; encrypted export file for backup | Yes | User-held encrypted backup + password |
-| Serialized BDK changeset | Encrypted in local IndexedDB only | Public descriptors and financial metadata; privacy-sensitive | Decrypt locally, then pass to BDK |
+| Serialized BDK changeset | AES-GCM ciphertext in local IndexedDB only | Public descriptors and financial metadata; privacy-sensitive | Decrypt locally, then pass to BDK |
 | Private descriptors / signing material | Browser memory only while wallet is unlocked | Yes | Re-derive locally from restored seed |
-| Network and descriptor policy identifiers | Versioned wallet metadata | Not secret, but privacy-sensitive | Validate against backup and BDK changeset |
+| Network and descriptor policy identifiers | Authenticated record metadata | Not secret, but privacy-sensitive | Validate against the fixed testnet policy |
 | Password / derived AES keys | Memory only during crypto operations | Yes | Never stored or transmitted |
 | Session, worker profile, KIVORA D1 | KIVORA backend | Must never contain wallet secrets or BDK changesets | Not a wallet recovery mechanism |
 
@@ -46,26 +46,28 @@ Do not persist raw seed bytes, private descriptors, mnemonic material, passwords
 
 1. Use one IndexedDB database with a schema version and a single prototype wallet record. Multi-wallet storage is out of scope for this spike.
 2. Store only authenticated ciphertext plus format version, fixed `testnet` network identifier, descriptor-policy identifier, SDK/storage format version, random salt, random IV, revision and update metadata.
-3. Derive the local storage encryption key from the seed with HKDF-SHA-256 and a per-record random salt; use AES-256-GCM with authenticated additional data binding the record format, network and descriptor policy. The seed and derived key never enter IndexedDB.
+3. Derive the local storage encryption key from the seed with HKDF-SHA-256 and a per-record random salt; use AES-256-GCM with authenticated additional data binding the record format, network, descriptor policy and revision. The seed and derived key never enter IndexedDB.
 4. Obtain deltas only through `wallet.take_staged()`; serialize with `ChangeSet.to_json()`.
 5. Decrypt the existing changeset in memory, parse with `ChangeSet.from_json()`, and merge deltas using `ChangeSet.merge()`. Validate network and descriptor policy before accepting state.
 6. Handle concurrent writes with optimistic revision checks. Perform the final revision check and ciphertext write in one IndexedDB read-write transaction so stale state cannot overwrite newer state.
 7. Commit each encrypted changeset and metadata update atomically in one IndexedDB transaction.
 8. If IndexedDB is unavailable, blocked, corrupt or quota-limited, fail closed for state-changing wallet actions and explain that the wallet state could not be saved.
-9. Treat browser storage as a cache, not a backup. Browsers can clear site data; the user-held encrypted backup remains the recovery mechanism.
+9. Treat browser storage as a cache, not a backup. Browsers can clear site data; the user-held encrypted seed backup remains the recovery mechanism.
 10. Do not sync wallet state to KIVORA servers. No account recovery service can recreate the user's private key.
 
 ## Recovery and backup versioning
 
 The existing backup format v1 contains only the seed. Do not silently reinterpret it.
 
-Recovery must:
-1. decrypt and validate the seed backup locally;
-2. derive the same BIP84 external and internal private descriptors from that seed;
-3. locate and decrypt the locally persisted changeset using the seed-derived storage key;
-4. parse it with `ChangeSet.from_json()`;
-5. call `Wallet.load(changeset, externalDescriptor, internalDescriptor)`;
-6. verify the returned network is testnet and the descriptor policy matches before displaying wallet state.
+The initial recovery path:
+1. decrypts and validates the seed backup locally;
+2. derives the same BIP84 external and internal private descriptors from that seed;
+3. locates and decrypts the locally persisted changeset using the seed-derived storage key;
+4. parses it with `ChangeSet.from_json()`;
+5. calls `Wallet.load(changeset, externalDescriptor, internalDescriptor)`;
+6. verifies the returned network is testnet before displaying wallet state.
+
+If no local changeset exists (for example, on a clean browser), the prototype re-derives the first address from the seed and creates a new local encrypted changeset. This is not full-state recovery across devices.
 
 A future v2 export should contain format/version identifiers, fixed `testnet` network, descriptor policy and derivation metadata, the 32-byte seed, a validated BDK changeset snapshot and integrity/version checks. Encrypt the complete v2 payload locally with authenticated encryption before download. Use a fresh random salt and IV for every export. Bind format version, network and descriptor policy as authenticated additional data. Reject unsupported versions and networks before constructing a wallet. Preserve v1 import.
 
