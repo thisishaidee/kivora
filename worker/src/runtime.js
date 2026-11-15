@@ -12,6 +12,7 @@
 
 import { assessWorkRequest, parseWorkRequest } from "../../shared/src/intelligence-runtime.js";
 import { parsePrivateEvidenceCapture } from "../../shared/src/evidence-runtime.js";
+import { composeWorkerAssistantResponse } from "../../shared/src/response-runtime.js";
 
 const SESSION_COOKIE = "__Host-kivora_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -276,6 +277,82 @@ const handleApi = async (request, env, url) => {
       return json({ assessment });
     } catch {
       return json({ error: "invalid_assessment_request" }, 400);
+    }
+  }
+
+  if (path === "/api/assist" && method === "POST") {
+    const body = await readJson(request);
+    if (!body) return json({ error: "invalid_assist_request" }, 400);
+    const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
+    if (!/^[0-9a-f-]{36}$/i.test(sessionId)) return json({ error: "invalid_assist_request" }, 400);
+    const session = await env.DB.prepare(
+      "SELECT id, trade FROM work_sessions WHERE id = ? AND worker_id = ? LIMIT 1",
+    ).bind(sessionId, worker.worker_id).first();
+    if (!session || session.trade !== body.trade) return json({ error: "work_session_not_found" }, 404);
+
+    try {
+      const request = parseWorkRequest(body);
+      request.language = LANGUAGES.has(body.language) ? body.language : "en";
+      request.units = UNITS.has(body.units) ? body.units : "metric";
+      const evidenceResult = await env.DB.prepare(
+        `SELECT id, publisher, title, source_url, document_ref, product_make,
+          product_model, trade, topic, revision_date, retrieved_at,
+          jurisdiction, page_or_section, evidence_note
+         FROM evidence_sources
+         WHERE visibility = 'shared' AND review_status = 'approved'
+           AND rights_status IN ('public_domain', 'open_license', 'permission')
+           AND reviewer_role IN ('qualified_reviewer', 'manufacturer')
+           AND trade = ?
+           AND (jurisdiction IS NULL OR jurisdiction = ? COLLATE NOCASE)
+           AND (product_make IS NULL OR product_make = ? COLLATE NOCASE)
+           AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)
+         ORDER BY updated_at DESC LIMIT 100`,
+      ).bind(
+        request.trade,
+        request.jurisdiction ?? "",
+        request.involvesEquipment ? request.equipmentMake ?? "" : "",
+        request.involvesEquipment ? request.equipmentModel ?? "" : "",
+      ).all();
+      const evidence = (evidenceResult.results ?? []).map(source => ({
+        id: String(source.id),
+        publisher: String(source.publisher),
+        title: String(source.title),
+        ...(source.source_url ? { url: String(source.source_url) } : {}),
+        ...(source.document_ref ? { documentId: String(source.document_ref) } : {}),
+        productModels: source.product_model ? [String(source.product_model)] : [],
+        ...(source.product_make ? { productMake: String(source.product_make) } : {}),
+        ...(source.jurisdiction ? { jurisdiction: String(source.jurisdiction) } : {}),
+        trade: String(source.trade),
+        topic: String(source.topic),
+        ...(typeof source.revision_date === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(source.revision_date) ? { revisionDate: source.revision_date } : {}),
+        retrievedAt: new Date(Number(source.retrieved_at) * 1000).toISOString(),
+        ...(source.page_or_section ? { pageOrSection: String(source.page_or_section) } : {}),
+        excerpt: String(source.evidence_note),
+        reviewed: true,
+      }));
+      const assessment = assessWorkRequest(request, evidence);
+      let ai = null;
+      if (assessment.decision === "guided" && env.AI_ENABLED === "true" && env.AI && env.AI_LIMITER) {
+        const aiLimit = await env.AI_LIMITER.limit({ key: String(worker.worker_id) });
+        if (aiLimit.success) ai = env.AI;
+      }
+      const response = await composeWorkerAssistantResponse({ request, assessment, ai });
+      const messageText = [
+        response.summary,
+        ...response.blocks.map(block => block.content),
+        ...response.questions,
+        ...response.citations.map(source => "Source: " + source.publisher + " — " + source.title + (source.pageOrSection ? " (" + source.pageOrSection + ")" : "")),
+      ].join("\\n\\n").slice(0, 18000);
+      const now = nowSeconds();
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO work_session_messages (id, work_session_id, worker_id, role, content, created_at) VALUES (?, ?, ?, 'assistant', ?, ?)")
+          .bind(newId(), sessionId, worker.worker_id, messageText, now),
+        env.DB.prepare("UPDATE work_sessions SET updated_at = ? WHERE id = ? AND worker_id = ?")
+          .bind(now, sessionId, worker.worker_id),
+      ]);
+      return json({ assessment, response });
+    } catch {
+      return json({ error: "assist_unavailable" }, 503);
     }
   }
 
