@@ -13,7 +13,7 @@ A library that can parse Bitcoin addresses or build PSBTs is not automatically a
 
 ## 2. Candidate review
 
-### A. Bitcoin Dev Kit WebAssembly (BDK-WASM / `bitcoindevkit`)
+### A. Bitcoin Dev Kit WebAssembly (BDK-WASM / `@bitcoindevkit/bdk-wallet-web`)
 
 **Potential role:** Embedded on-chain wallet engine in the browser/PWA.
 
@@ -23,7 +23,8 @@ Documented capabilities include UTXO management, coin selection, chain sync/scan
 - Purpose-built Bitcoin wallet engine rather than a collection of address utilities.
 - Browser/WASM target aligns with the current React/Vite PWA.
 - Covers many difficult on-chain wallet functions.
-- BDK project lists bdk-wasm as stable but community-supported, rather than foundation-supported.
+- The official BDK project currently lists bdk-wasm as a community-supported project, not a foundation-supported component.
+- The current browser package is `@bitcoindevkit/bdk-wallet-web` (0.4.0 at the time of this review; pre-1.0). The older `MetaMask/bdk-wasm` repository states that it has moved to the official `bitcoindevkit/bdk-wasm` repository and will no longer be maintained.
 
 **Risks / work required**
 - Community-supported status means maintenance and security ownership need closer review.
@@ -35,7 +36,9 @@ Documented capabilities include UTXO management, coin selection, chain sync/scan
 **Assessment:** Strong candidate for a controlled on-chain testnet prototype, not yet selected for mainnet.
 
 References:
-- https://github.com/MetaMask/bdk-wasm
+- https://github.com/bitcoindevkit/bdk-wasm
+- https://www.npmjs.com/package/@bitcoindevkit/bdk-wallet-web
+- https://github.com/MetaMask/bdk-wasm (historical repository; moved and no longer maintained)
 - https://github.com/bitcoindevkit
 
 ### B. Breez SDK — Spark
@@ -119,7 +122,7 @@ References:
 ## 3. Recommended investigation path
 
 1. Keep PR #22 as a limited NWC connection/receive-invoice proof-of-concept until real Android interoperability is tested.
-2. Build a throwaway, testnet-only BDK-WASM spike to verify wallet creation, testnet address generation, backup/restore, UTXO sync, fee estimation, signing and broadcast in Android Chrome/PWA.
+2. Build a throwaway, testnet-only spike with the current `@bitcoindevkit/bdk-wallet-web` package to verify wallet creation, testnet address generation, backup/restore, UTXO sync, fee estimation, signing and broadcast in Android Chrome/PWA.
 3. In parallel, build a separate Breez SDK Spark testnet spike and document whether the wallet's balance is Spark, Lightning, or base-layer on-chain BTC at each step.
 4. Compare both spikes on: user key control, restore on a clean device, network dependencies, service fees, browser compatibility, Android performance, SDK maintenance, licence, API requirements and operational failure modes.
 5. Select only after reproducible tests and threat-model review. Do not commit either SDK to production dependencies before the decision.
@@ -142,4 +145,4 @@ There is not enough evidence to select one embedded wallet SDK responsibly yet.
 
 **Working hypothesis:** NWC for connected Lightning wallets plus BDK-WASM for a self-custodial on-chain wallet is the most direct fit for KIVORA's explicit requirement for native Bitcoin on-chain functionality. Breez SDK Spark is the most promising alternative for reducing integration complexity, but its Spark/Layer-2 trust and settlement model must be clearly understood.
 
-This is a research conclusion, not a production architecture lock.
+This is a research conclusion, not a production architecture lock. The current package version and repository ownership must be rechecked before each SDK upgrade; no BDK package has been added to KIVORA runtime dependencies.
