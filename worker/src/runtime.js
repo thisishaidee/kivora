@@ -8,7 +8,7 @@
  */
 /** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
-/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter }} Env */
+/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> } }} Env */
 
 import { assessWorkRequest, parseWorkRequest } from "../../shared/src/intelligence-runtime.js";
 import { parsePrivateEvidenceCapture } from "../../shared/src/evidence-runtime.js";
