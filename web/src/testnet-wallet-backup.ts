@@ -107,13 +107,20 @@ export async function encryptTestnetWalletBackup(seed: Uint8Array, password: str
   if (!globalThis.crypto?.subtle || !globalThis.crypto?.getRandomValues) {
     throw new Error("Secure browser cryptography is unavailable. Use a supported HTTPS browser.");
   }
-  const encrypted = await encryptPayload(JSON.stringify({ seed: toBase64(seed) }), password, 1);
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const key = await deriveKey(password, salt);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv, additionalData: additionalData(1), tagLength: 128 },
+    key,
+    seed,
+  );
   const backup: BackupV1 = {
     format: FORMAT,
     version: VERSION_V1,
     network: NETWORK,
-    kdf: encrypted.kdf,
-    cipher: { name: "AES-GCM", iv: encrypted.iv, ciphertext: encrypted.ciphertext },
+    kdf: { name: "PBKDF2", hash: "SHA-256", iterations: ITERATIONS, salt: toBase64(salt) },
+    cipher: { name: "AES-GCM", iv: toBase64(iv), ciphertext: toBase64(new Uint8Array(ciphertext)) },
   };
   return JSON.stringify(backup, null, 2);
 }
