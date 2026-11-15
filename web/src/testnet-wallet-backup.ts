@@ -193,16 +193,19 @@ export async function decryptTestnetWalletBackup(
     candidate.kdf?.name !== "PBKDF2" ||
     candidate.kdf.hash !== "SHA-256" ||
     candidate.kdf.iterations !== ITERATIONS ||
-    candidate.cipher?.name !== "AES-GCM"
+    candidate.cipher?.name !== "AES-GCM" ||
+    typeof candidate.kdf?.salt !== "string" ||
+    typeof candidate.cipher?.iv !== "string" ||
+    typeof candidate.cipher?.ciphertext !== "string"
   ) throw new Error("Unsupported backup format or network.");
 
   if (version === VERSION_V2 && (
     candidate.descriptorPolicy !== "bip84-p2wpkh" || candidate.sdkVersion !== "0.4.0"
   )) throw new Error("Unsupported backup descriptor policy or BDK version.");
 
-  const salt = fromBase64(candidate.kdf.salt, SALT_BYTES);
-  const iv = fromBase64(candidate.cipher.iv, IV_BYTES);
-  const ciphertext = fromBase64(candidate.cipher.ciphertext);
+  const salt = fromBase64(candidate.kdf!.salt!, SALT_BYTES);
+  const iv = fromBase64(candidate.cipher!.iv!, IV_BYTES);
+  const ciphertext = fromBase64(candidate.cipher!.ciphertext!);
   if (ciphertext.length < 48 || ciphertext.length > 3_100_000) throw new Error("Backup ciphertext has an invalid length.");
 
   try {
