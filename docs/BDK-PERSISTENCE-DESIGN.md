@@ -7,7 +7,7 @@
 
 ## Why this stage exists
 
-The current encrypted backup contains the 32-byte derivation seed. It recreates the wallet's first address, but it does not preserve BDK's revealed-address indexes, chain position, discovered outputs, transaction graph or transaction history.
+New wallets use a standard 12-word English BIP39 phrase and derive the standard 64-byte BIP39 seed locally. The optional encrypted backup contains that seed and the BDK changeset. Legacy 32-byte seed backups remain importable. It recreates the wallet's first address, but it does not preserve BDK's revealed-address indexes, chain position, discovered outputs, transaction graph or transaction history.
 
 The exact 0.4.0 Rust/WASM source has been inspected. It exposes:
 - `Wallet.take_staged()` to export pending state changes;
@@ -27,13 +27,13 @@ References:
 
 BDK 3.2.0's `ChangeSet` contains recipient and change descriptors typed as `Descriptor<DescriptorPublicKey>`, plus network, local-chain, transaction-graph, keychain-index and locked-outpoint changes. These are public descriptors rather than private signing keys, but extended public-key and transaction metadata are privacy-sensitive. Encrypt the complete serialized changeset before it enters IndexedDB. Never store a plaintext changeset in browser storage, logs, analytics, requests or the KIVORA Worker.
 
-The private signing descriptors must be re-derived locally from the user's seed during recovery and passed to `Wallet.load()`; the persisted public changeset alone does not restore signing capability.
+The private signing descriptors must be re-derived locally from the user's BIP39-derived seed during recovery and passed to `Wallet.load()`; the persisted public changeset alone does not restore signing capability.
 
 ## Data separation
 
 | Data | Location | Secret? | Recovery |
 | --- | --- | --- | --- |
-| 32-byte derivation seed | Browser memory while unlocked; encrypted export file for backup | Yes | User-held encrypted backup + password |
+| 12-word BIP39 phrase / 64-byte derived seed | Phrase shown locally once for offline recording; derived seed in browser memory while unlocked | Yes | User-held 12-word phrase; optional encrypted backup file |
 | Serialized BDK changeset | AES-GCM ciphertext in local IndexedDB only | Public descriptors and financial metadata; privacy-sensitive | Decrypt locally, then pass to BDK |
 | Private descriptors / signing material | Browser memory only while wallet is unlocked | Yes | Re-derive locally from restored seed |
 | Network and descriptor policy identifiers | Authenticated record metadata | Not secret, but privacy-sensitive | Validate against the fixed testnet policy |
@@ -52,12 +52,12 @@ Do not persist raw seed bytes, private descriptors, mnemonic material, passwords
 6. Handle concurrent writes with optimistic revision checks. Perform the final revision check and ciphertext write in one IndexedDB read-write transaction so stale state cannot overwrite newer state.
 7. Commit each encrypted changeset and metadata update atomically in one IndexedDB transaction.
 8. If IndexedDB is unavailable, blocked, corrupt or quota-limited, fail closed for state-changing wallet actions and explain that the wallet state could not be saved.
-9. Treat browser storage as a cache, not a backup. Browsers can clear site data; the user-held encrypted seed backup remains the recovery mechanism.
+9. Treat browser storage as a cache, not a backup. Browsers can clear site data; the user-held 12-word recovery phrase is the primary recovery mechanism; the encrypted backup is optional.
 10. Do not sync wallet state to KIVORA servers. No account recovery service can recreate the user's private key.
 
 ## Recovery and backup versioning
 
-The existing backup format v1 contains only the seed. Do not silently reinterpret it.
+The existing v1/v2 formats contain the original 32-byte seed. Preserve their import behavior; do not reinterpret old seed bytes as a mnemonic.
 
 The initial recovery path:
 1. decrypts and validates the seed backup locally;
@@ -69,7 +69,7 @@ The initial recovery path:
 
 If no local changeset exists (for example, on a clean browser), the prototype re-derives the first address from the seed and creates a new local encrypted changeset. This is not full-state recovery across devices.
 
-Backup v2 is now implemented in the prototype. It contains format/version identifiers, fixed `testnet` network, descriptor policy, pinned SDK version, the 32-byte seed and the BDK-native changeset JSON snapshot. The complete payload is encrypted locally with AES-256-GCM and PBKDF2-HMAC-SHA-256 (600,000 iterations), with fresh random salt and IV per export and authenticated format/network associated data. The importer rejects unsupported versions, networks, descriptor policies and SDK versions before constructing a wallet. The original v1 raw-seed backup format remains importable; v1 cannot recover a changeset it never contained.
+New wallet creation uses 128-bit entropy to generate a 12-word English BIP39 phrase. The standard BIP39 PBKDF2-HMAC-SHA-512 derivation with an empty optional passphrase produces a 64-byte seed. BDK derives the testnet BIP84 descriptors from that seed. Phrase restoration validates all 12 words and checksum before deriving the same seed locally. Backup v2 accepts both legacy 32-byte seeds and new 64-byte BIP39 seeds, plus the BDK-native changeset JSON snapshot. The complete payload is encrypted locally with AES-256-GCM and PBKDF2-HMAC-SHA-256 (600,000 iterations), with fresh random salt and IV per export and authenticated format/network associated data. The importer rejects unsupported versions, networks, descriptor policies and SDK versions before constructing a wallet. The original v1 raw-seed backup format remains importable; v1 cannot recover a changeset it never contained.
 
 Never include API tokens, provider credentials, wallet connection URIs or user profile data in the backup.
 
