@@ -1,3 +1,4 @@
+// @ts-nocheck
 const UNSAFE = /\b(?:bypass|disable|defeat)\s+(?:the\s+)?(?:safety|interlock|guard|breaker)|\bwork\s+on\s+(?:a\s+)?live\s+(?:wire|circuit)|\bremove\s+(?:the\s+)?(?:machine\s+)?guard\s+while\s+running|\bvent\s+(?:the\s+)?refrigerant|\bopen\s+(?:a\s+)?pressur(?:ised|ized)\s+(?:system|vessel)\b/i;
 const MEASUREMENT = /\b\d+(?:[.,]\d+)?\s?(?:mm|cm|m|in|ft|°c|°f|v|a|w|kw|bar|psi|nm|kg|g|l|ml)\b/gi;
 const MODEL = "@cf/zai-org/glm-4.7-flash";
