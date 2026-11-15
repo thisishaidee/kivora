@@ -22,6 +22,15 @@ type WorkSession = {
   archived_at: number | null;
 };
 type WorkMessage = { id: string; role: string; content: string; created_at: number };
+type AssistantResponse = {
+  status: "clarify" | "escalate" | "guided" | "unavailable";
+  summary: string;
+  blocks: { kind: string; content: string; evidenceIds: string[] }[];
+  questions: string[];
+  citations: { id: string; publisher: string; title: string; url?: string; documentId?: string; pageOrSection?: string }[];
+  compatibilityStatus: "compatible" | "incompatible" | "undetermined";
+  safetyLevel: "routine" | "caution" | "high-risk";
+};
 type EvidenceSource = {
   id: string;
   trade: Trade;
@@ -82,6 +91,7 @@ export default function App() {
   const [equipmentMake, setEquipmentMake] = useState("");
   const [equipmentModel, setEquipmentModel] = useState("");
   const [assessment, setAssessment] = useState<IntelligenceAssessment | null>(null);
+  const [assistantResponse, setAssistantResponse] = useState<AssistantResponse | null>(null);
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [evidenceSources, setEvidenceSources] = useState<EvidenceSource[]>([]);
   const [evidenceType, setEvidenceType] = useState("manufacturer_manual");
@@ -263,6 +273,7 @@ export default function App() {
     setBusy(true);
     setNotice("");
     setAssessment(null);
+    setAssistantResponse(null);
     try {
       const result = await api<{ session: WorkSession }>("/api/work-sessions", {
         method: "POST",
@@ -283,21 +294,40 @@ export default function App() {
       }]);
       await refreshSessions();
       try {
-        const triage = await api<{ assessment: IntelligenceAssessment }>("/api/assess", {
+        const result = await api<{ assessment: IntelligenceAssessment; response: AssistantResponse }>("/api/assist", {
           method: "POST",
           body: JSON.stringify({
+            sessionId: result.session.id,
             trade: validTrade.data,
             task: submittedTask,
+            language: validLanguage.data,
+            units: validUnits.data,
             jurisdiction: jurisdiction.trim() || undefined,
             involvesEquipment,
             equipmentMake: equipmentMake.trim() || undefined,
             equipmentModel: equipmentModel.trim() || undefined,
           }),
         });
-        setAssessment(triage.assessment);
-        setNotice("Your task is saved. Review the assessment before taking action.");
+        setAssessment(result.assessment);
+        setAssistantResponse(result.response);
+        const assistantText = [
+          result.response.summary,
+          ...result.response.blocks.map(block => block.content),
+          ...result.response.questions,
+        ].join("\n\n");
+        setMessages(previous => [...previous, {
+          id: "assistant-response",
+          role: "assistant",
+          content: assistantText,
+          created_at: Math.floor(Date.now() / 1000),
+        }]);
+        setNotice(result.response.status === "guided"
+          ? "KIVORA prepared a response from reviewed evidence. Check its sources before acting."
+          : result.response.status === "unavailable"
+            ? "Your task is saved. AI guidance is not enabled yet; no technical procedure was generated."
+            : "Your task is saved. Review the safety assessment and requested details before taking action.");
       } catch {
-        setNotice("Your task is saved, but the assessment service is unavailable. No technical guidance was generated.");
+        setNotice("Your task is saved, but the assistant service is unavailable. No technical guidance was generated.");
       }
     } catch {
       setNotice("Your task could not be saved. It has not been sent to an AI service.");
@@ -314,6 +344,7 @@ export default function App() {
       setActiveSession(result.session);
       setMessages(result.messages);
       setAssessment(null);
+      setAssistantResponse(null);
     } catch {
       setNotice("That work session could not be opened.");
     } finally {
@@ -568,6 +599,43 @@ export default function App() {
               )}
               {language !== "en" && <p className="privacy-note">Safety assessment wording is currently available in English only. Reviewed Nigerian English, Pidgin and French safety wording is not ready yet.</p>}
               <p className="privacy-note">Compatibility: {assessment.compatibilityStatus}. This is a preliminary deterministic assessment, not an AI answer, complete risk assessment or technical procedure.</p>
+            </section>
+          )}
+
+          {assistantResponse && (
+            <section className="workspace assistant-card" aria-live="polite">
+              <div className="workspace-heading">
+                <div>
+                  <p className="eyebrow">KIVORA RESPONSE</p>
+                  <h2>{assistantResponse.status === "guided" ? "What the reviewed evidence says" : assistantResponse.status === "escalate" ? "Safety comes first" : assistantResponse.status === "clarify" ? "A few things need confirming" : "AI response unavailable"}</h2>
+                </div>
+                <span className="step-label">{assistantResponse.status.toUpperCase()}</span>
+              </div>
+              <p className="assistant-summary">{assistantResponse.summary}</p>
+              {assistantResponse.blocks.map((block, index) => (
+                <article className="assistant-block" key={index}>
+                  <h3>{block.kind === "procedure" ? "Evidence-backed steps" : block.kind === "measurement" ? "Measurements" : block.kind === "parts" ? "Parts and components" : block.kind === "safety" ? "Safety" : "Explanation"}</h3>
+                  <p>{block.content}</p>
+                </article>
+              ))}
+              {assistantResponse.questions.length > 0 && (
+                <div className="assessment-group">
+                  <h3>Follow-up questions</h3>
+                  <ul>{assistantResponse.questions.map((question, index) => <li key={index}>{question}</li>)}</ul>
+                </div>
+              )}
+              {assistantResponse.citations.length > 0 && (
+                <div className="assessment-group">
+                  <h3>Sources used</h3>
+                  <ul>{assistantResponse.citations.map(source => (
+                    <li key={source.id}>
+                      {source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.publisher} — {source.title}</a> : <span>{source.publisher} — {source.title}</span>}
+                      {source.pageOrSection ? " · " + source.pageOrSection : ""}
+                    </li>
+                  ))}</ul>
+                </div>
+              )}
+              <p className="privacy-note">Compatibility remains {assistantResponse.compatibilityStatus}. KIVORA only returns model-generated technical content when its evidence references pass validation; this is not a substitute for professional judgement or a site-specific risk assessment.</p>
             </section>
           )}
 
