@@ -29,9 +29,7 @@ function openDatabase(factory: IDBFactory = indexedDB): Promise<IDBDatabase> {
     const request = factory.open(DATABASE_NAME, DATABASE_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: "id" });
-      }
+      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: "id" });
     };
     request.onsuccess = () => {
       const db = request.result;
@@ -125,8 +123,7 @@ function writeIfRevisionMatches(
     const request = store.get(RECORD_ID);
     request.onsuccess = () => {
       const current = request.result as EncryptedChangesetRecord | undefined;
-      const actualRevision = current?.revision ?? 0;
-      if (actualRevision !== expectedRevision) {
+      if ((current?.revision ?? 0) !== expectedRevision) {
         conflict = true;
         transaction.abort();
         return;
@@ -160,15 +157,10 @@ function validateRecord(record: EncryptedChangesetRecord): void {
     record.salt.byteLength !== 16 ||
     record.iv.byteLength !== 12 ||
     record.ciphertext.byteLength < 16
-  ) {
-    throw new Error("The saved testnet wallet state has an unsupported or invalid format.");
-  }
+  ) throw new Error("The saved testnet wallet state has an unsupported or invalid format.");
 }
 
-/**
- * Persist a BDK ChangeSet JSON delta. The complete accumulated ChangeSet is encrypted
- * before IndexedDB sees it. BDK's own ChangeSet.merge() semantics are used for merging.
- */
+/** Persist a BDK ChangeSet JSON delta. The accumulated state is encrypted before IndexedDB sees it. */
 export async function saveEncryptedChangeset(deltaJson: string, seed: Uint8Array): Promise<void> {
   if (typeof indexedDB === "undefined" || typeof crypto === "undefined" || !crypto.subtle) {
     throw new Error("This browser does not support encrypted local wallet persistence.");
@@ -180,17 +172,12 @@ export async function saveEncryptedChangeset(deltaJson: string, seed: Uint8Array
   for (let attempt = 0; attempt < MAX_WRITE_RETRIES; attempt += 1) {
     const current = await readRecord(db);
     let mergedJson = deltaJson;
-    let salt = crypto.getRandomValues(new Uint8Array(16));
+    const salt = current ? new Uint8Array(current.salt) : crypto.getRandomValues(new Uint8Array(16));
 
     if (current) {
       validateRecord(current);
-      salt = new Uint8Array(current.salt);
       const previousJson = await decryptChangesetPayload(
-        current.ciphertext,
-        seed,
-        salt,
-        new Uint8Array(current.iv),
-        current.revision,
+        current.ciphertext, seed, salt, new Uint8Array(current.iv), current.revision,
       );
       const previous = ChangeSet.from_json(previousJson);
       const delta = ChangeSet.from_json(deltaJson);
@@ -199,7 +186,7 @@ export async function saveEncryptedChangeset(deltaJson: string, seed: Uint8Array
         mergedJson = previous.to_json();
       } finally {
         previous.free();
-        delta.free();
+        // merge() consumes the delta ChangeSet by value; do not free it again.
       }
     }
 
@@ -218,10 +205,8 @@ export async function saveEncryptedChangeset(deltaJson: string, seed: Uint8Array
       ciphertext,
       updatedAt: Date.now(),
     };
-
     if (await writeIfRevisionMatches(db, nextRecord, current?.revision ?? 0)) return;
   }
-
   throw new Error("Wallet state changed in another tab too many times. Retry the operation.");
 }
 
@@ -235,11 +220,7 @@ export async function loadEncryptedChangeset(seed: Uint8Array): Promise<string |
   if (!record) return null;
   validateRecord(record);
   return decryptChangesetPayload(
-    record.ciphertext,
-    seed,
-    new Uint8Array(record.salt),
-    new Uint8Array(record.iv),
-    record.revision,
+    record.ciphertext, seed, new Uint8Array(record.salt), new Uint8Array(record.iv), record.revision,
   );
 }
 
