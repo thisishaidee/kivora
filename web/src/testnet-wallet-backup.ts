@@ -84,7 +84,7 @@ function additionalData(version: number): Uint8Array {
   return encoder.encode(`${FORMAT}:v${version}:${NETWORK}`);
 }
 
-async function encryptPayload(payload: string, password: string, version: 1 | 2): Promise<CipherMetadata & { kdf: KdfMetadata }> {
+async function encryptPayload(payload: string, password: string, version: 1 | 2): Promise<{ kdf: KdfMetadata; iv: string; ciphertext: string }> {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
   const key = await deriveKey(password, salt);
