@@ -35,7 +35,7 @@ This roadmap sequences the full requirements in `WALLET-REQUIREMENTS.md`. Each s
 - [ ] Run fresh CI for the new persistence implementation and tests.
 - [ ] Verify backup restoration on a separate clean Android browser/device and compare derived addresses.
 - [ ] Test IndexedDB concurrency, corruption, quota and unavailable-storage failure paths.
-- [ ] Extend encrypted backup to include validated wallet state (new format version; preserve v1 import).
+- [x] Add encrypted full-state backup v2 containing the seed and BDK-native changeset snapshot; preserve v1 seed-only import.
 - [ ] Verify restore on a clean device including revealed-address index and wallet state.
 - [ ] Testnet Esplora sync, UTXO/balance and transaction discovery.
 - [ ] Transaction preview and explicit local signing confirmation.
