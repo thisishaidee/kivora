@@ -1,6 +1,6 @@
 import type { Wallet as BdkWallet } from "@bitcoindevkit/bdk-wallet-web";
 
-export type WalletCreationStage = "module-load" | "seed-validation" | "descriptor-derivation" | "wallet-create" | "address-derivation";
+export type WalletCreationStage = "module-load" | "seed-validation" | "descriptor-derivation" | "wallet-create" | "wallet-restore" | "address-derivation";
 
 export class WalletCreationError extends Error {
   constructor(readonly stage: WalletCreationStage, message: string, options?: ErrorOptions) {
@@ -15,25 +15,40 @@ export function validateTestnetSeed(seed: Uint8Array): void {
   }
 }
 
+async function loadBdkModule(): Promise<typeof import("@bitcoindevkit/bdk-wallet-web")> {
+  try {
+    return await import("@bitcoindevkit/bdk-wallet-web");
+  } catch (error) {
+    throw new WalletCreationError("module-load", "The Bitcoin WebAssembly module did not load.", { cause: error });
+  }
+}
+
+function getAddress(wallet: BdkWallet, index: number): string {
+  const addressInfo = wallet.peek_address("external", index);
+  try {
+    const addressObject = addressInfo.address;
+    try {
+      const address = addressObject.toString();
+      if (!address.startsWith("tb1")) {
+        throw new Error("BDK returned an address that does not match native testnet SegWit.");
+      }
+      return address;
+    } finally {
+      addressObject.free();
+    }
+  } finally {
+    addressInfo.free();
+  }
+}
+
 /**
  * Creates a temporary testnet-only BDK wallet and derives its first receive address.
  * The caller owns the seed and must clear its byte array after this function returns.
  * No wallet state or key material is sent to KIVORA servers.
  */
 export async function createBdkTestnetWallet(seed: Uint8Array): Promise<{ wallet: BdkWallet; address: string }> {
-  try {
-    validateTestnetSeed(seed);
-  } catch (error) {
-    if (error instanceof WalletCreationError) throw error;
-    throw new WalletCreationError("seed-validation", "Seed validation failed.", { cause: error });
-  }
-
-  let bdk: typeof import("@bitcoindevkit/bdk-wallet-web");
-  try {
-    bdk = await import("@bitcoindevkit/bdk-wallet-web");
-  } catch (error) {
-    throw new WalletCreationError("module-load", "The Bitcoin WebAssembly module did not load.", { cause: error });
-  }
+  validateTestnetSeed(seed);
+  const bdk = await loadBdkModule();
 
   let descriptors: InstanceType<typeof bdk.DescriptorPair> | undefined;
   try {
@@ -51,28 +66,69 @@ export async function createBdkTestnetWallet(seed: Uint8Array): Promise<{ wallet
     }
 
     try {
-      if (wallet.network !== "testnet") {
-        throw new Error("The SDK returned a wallet on an unexpected network.");
-      }
+      if (wallet.network !== "testnet") throw new Error("The SDK returned a wallet on an unexpected network.");
       const addressInfo = wallet.reveal_next_address("external");
+      let address: string;
       try {
         const addressObject = addressInfo.address;
         try {
-          const address = addressObject.toString();
-          if (!address.startsWith("tb1")) {
-            throw new Error("BDK returned an address that does not match native testnet SegWit.");
-          }
-          return { wallet, address };
+          address = addressObject.toString();
+          if (!address.startsWith("tb1")) throw new Error("BDK returned an address that does not match native testnet SegWit.");
         } finally {
           addressObject.free();
         }
       } finally {
         addressInfo.free();
       }
+      return { wallet, address };
     } catch (error) {
       wallet.free();
-      if (error instanceof WalletCreationError) throw error;
       throw new WalletCreationError("address-derivation", error instanceof Error ? error.message : "BDK could not derive a testnet receive address.", { cause: error });
+    }
+  } finally {
+    descriptors?.free();
+  }
+}
+
+/**
+ * Restores a wallet from an encrypted, locally persisted BDK changeset and the user's seed.
+ * The private descriptors are re-derived in memory from the seed; they are never stored in IndexedDB.
+ */
+export async function restoreBdkTestnetWallet(
+  seed: Uint8Array,
+  changesetJson: string,
+): Promise<{ wallet: BdkWallet; address: string }> {
+  validateTestnetSeed(seed);
+  const bdk = await loadBdkModule();
+
+  let descriptors: InstanceType<typeof bdk.DescriptorPair> | undefined;
+  try {
+    try {
+      descriptors = bdk.seed_to_descriptor(seed, "testnet", "p2wpkh");
+    } catch (error) {
+      throw new WalletCreationError("descriptor-derivation", "BDK could not re-derive testnet descriptors from the backup seed.", { cause: error });
+    }
+
+    let changeset: InstanceType<typeof bdk.ChangeSet>;
+    try {
+      changeset = bdk.ChangeSet.from_json(changesetJson);
+    } catch (error) {
+      throw new WalletCreationError("wallet-restore", "The locally saved BDK changeset is invalid.", { cause: error });
+    }
+
+    let wallet: BdkWallet;
+    try {
+      wallet = bdk.Wallet.load(changeset, descriptors.external, descriptors.internal);
+    } catch (error) {
+      throw new WalletCreationError("wallet-restore", "BDK could not restore the wallet from its saved state.", { cause: error });
+    }
+
+    try {
+      if (wallet.network !== "testnet") throw new Error("The restored wallet is not on Bitcoin testnet.");
+      return { wallet, address: getAddress(wallet, 0) };
+    } catch (error) {
+      wallet.free();
+      throw new WalletCreationError("wallet-restore", error instanceof Error ? error.message : "The restored wallet failed validation.", { cause: error });
     }
   } finally {
     descriptors?.free();
