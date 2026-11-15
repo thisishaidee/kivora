@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { Wallet as BdkWallet } from "@bitcoindevkit/bdk-wallet-web";
 import { QRCodeSVG } from "qrcode.react";
-import { createBdkTestnetWallet } from "./bdk-testnet-wallet";
+import { createBdkTestnetWallet, describeWalletCreationError } from "./bdk-testnet-wallet";
 
 export default function TestnetWalletPanel() {
   const walletRef = useRef<BdkWallet | null>(null);
   const [address, setAddress] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+  const [diagnostic, setDiagnostic] = useState("");
 
   useEffect(() => () => {
     walletRef.current?.free();
@@ -17,17 +18,28 @@ export default function TestnetWalletPanel() {
   async function createWallet() {
     setBusy(true);
     setStatus("");
+    setDiagnostic("");
     setAddress("");
     walletRef.current?.free();
     walletRef.current = null;
-    const seed = crypto.getRandomValues(new Uint8Array(32));
+
+    if (!globalThis.crypto?.getRandomValues) {
+      setStatus("This browser does not provide a secure random-number generator.");
+      setBusy(false);
+      return;
+    }
+
+    const seed = globalThis.crypto.getRandomValues(new Uint8Array(32));
     try {
       const result = await createBdkTestnetWallet(seed);
       walletRef.current = result.wallet;
       setAddress(result.address);
       setStatus("Temporary testnet wallet created locally in this browser session.");
-    } catch {
-      setStatus("The testnet wallet could not be created in this browser. No wallet was saved.");
+    } catch (error) {
+      const detail = describeWalletCreationError(error);
+      console.error("KIVORA testnet wallet initialization failed:", error);
+      setStatus("The temporary testnet wallet could not be created.");
+      setDiagnostic(detail);
     } finally {
       seed.fill(0);
       setBusy(false);
@@ -48,6 +60,7 @@ export default function TestnetWalletPanel() {
     walletRef.current?.free();
     walletRef.current = null;
     setAddress("");
+    setDiagnostic("");
     setStatus("Temporary testnet wallet discarded.");
   }
 
@@ -84,6 +97,7 @@ export default function TestnetWalletPanel() {
         </div>
       )}
       {status && <p className="notice" role="status">{status}</p>}
+      {diagnostic && <p className="privacy-note" role="status">Diagnostic: {diagnostic}</p>}
     </section>
   );
 }
