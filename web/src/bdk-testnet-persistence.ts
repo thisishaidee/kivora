@@ -25,7 +25,7 @@ let databasePromise: Promise<IDBDatabase> | undefined;
 
 function openDatabase(factory: IDBFactory = indexedDB): Promise<IDBDatabase> {
   if (databasePromise) return databasePromise;
-  databasePromise = new Promise((resolve, reject) => {
+  const pending = new Promise<IDBDatabase>((resolve, reject) => {
     const request = factory.open(DATABASE_NAME, DATABASE_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -42,7 +42,8 @@ function openDatabase(factory: IDBFactory = indexedDB): Promise<IDBDatabase> {
     databasePromise = undefined;
     throw error;
   });
-  return databasePromise;
+  databasePromise = pending;
+  return pending;
 }
 
 function additionalData(revision: number): Uint8Array {
