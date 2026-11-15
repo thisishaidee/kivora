@@ -92,3 +92,25 @@ select:focus,textarea:focus,input:not([type="checkbox"]):focus{border-color:#657
 .assistant-block h3{font-size:12px;letter-spacing:.02em;margin:0 0 8px}
 .assistant-block p{font-size:13px;line-height:1.75;color:#5f665c;margin:0;white-space:pre-wrap}
 .assistant-card a{color:#4f6344;text-decoration:underline;text-underline-offset:3px}
+
+
+.payment-preview{margin-top:22px}
+.payment-intro{max-width:620px;margin:-12px 0 22px}
+.payment-form{display:flex;flex-direction:column;gap:14px}
+.payment-form textarea{resize:vertical;min-height:86px;line-height:1.6;font-family:"DM Mono",monospace;font-size:11px}
+.payment-form .submit-button{margin-top:0}
+.payment-form .submit-button:disabled{opacity:.45;cursor:not-allowed}
+.payment-error{margin:16px 0 0;color:#965e51;font-size:12px}
+.payment-result{margin-top:22px;padding-top:18px;border-top:1px solid #eceee8}
+.payment-result-heading{display:flex;align-items:center;justify-content:space-between}
+.payment-tag,.payment-network{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.08em;color:#687360}
+.payment-network{color:#8a9086}
+.payment-details{display:flex;flex-direction:column;gap:13px;margin:18px 0}
+.payment-details div{display:grid;grid-template-columns:105px minmax(0,1fr);gap:12px}
+.payment-details dt{font-size:11px;color:#858b81}
+.payment-details dd{margin:0;font-size:12px;color:#343a32;overflow-wrap:anywhere}
+.payment-value{font-family:"DM Mono",monospace;font-size:10px!important;line-height:1.7;overflow-wrap:anywhere}
+.payment-alternative{margin-top:20px;padding:15px;background:#f7f8f5;border-radius:8px}
+.payment-alternative .eyebrow{margin:0 0 8px}
+.payment-alternative .unit-option{margin-top:8px}
+@media(max-width:650px){.payment-details div{grid-template-columns:1fr;gap:5px}}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PaymentRequestPreview from "./PaymentRequestPreview";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -782,6 +783,8 @@ export default function App() {
               <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete identity and all data</button>
             </div>
           </section>
+
+          <PaymentRequestPreview />
         </>
       )}
 
