@@ -70,6 +70,22 @@ Required design review before selection:
 
 Keys must remain client-side. Backend may provide chain data and broadcast signed transactions, but must not sign or reconstruct private keys.
 
+## 3.1 Testnet backup prototype (not production-ready)
+
+The BDK testnet spike uses a 32-byte random derivation seed with the existing `seed_to_descriptor` helper. Its first recovery milestone exports that same seed only as a user-downloaded encrypted JSON file:
+- AES-256-GCM with a fresh 96-bit IV and 128-bit authentication tag.
+- PBKDF2-HMAC-SHA-256 with a fresh 128-bit salt and 600,000 iterations to derive the encryption key.
+- Versioned format binds the ciphertext to the KIVORA backup identifier and the `testnet` network using authenticated additional data.
+- Password is required to export and restore; it is never sent to the backend or stored by the app.
+- The encrypted file is generated and decrypted locally. No seed, descriptor or password is uploaded or persisted by KIVORA.
+- This is a raw-seed encrypted backup, not a BIP39 mnemonic and not a generic BIP39 import/export format.
+
+Important limits:
+- The active seed remains in page memory while this prototype is open so the user can export a backup. Clearing a JavaScript byte array is best-effort and does not prove secure erasure of copies or WASM memory.
+- The backup preserves the derivation seed and deterministic first receive address only. It does not yet preserve BDK changesets, revealed-address index, chain scan state, UTXOs or transaction history.
+- The current prototype must not receive funds. A clean-device restore test, chain-state persistence design and full wallet review are still required before testnet funds are accepted.
+- A lost backup password cannot be reset by KIVORA. Users must keep the encrypted file and password separately.
+
 ## 4. On-chain transaction flow
 
 1. Client requests balance/UTXO and fee data for the selected network.
