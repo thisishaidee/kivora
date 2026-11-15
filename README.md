@@ -33,6 +33,17 @@ These are initial fields, not a limit on future expansion. One shared workflow a
 6. **Accessible by design.** Prioritise mobile workflows, voice and text, with graceful fallbacks for unreliable connectivity.
 7. **Wallet-optional core access.** Bitcoin/Lightning is required for the current hackathon submission, but ordinary worker access to KIVORA must not require a wallet.
 
+## Bitcoin Wallet
+
+The Bitcoin Wallet is a general-purpose, wallet-optional product direction. Its full requirements, non-custodial technical architecture and staged delivery plan are documented here:
+
+- [Wallet requirements](docs/WALLET-REQUIREMENTS.md)
+- [Wallet architecture](docs/WALLET-ARCHITECTURE.md)
+- [Wallet delivery roadmap](docs/WALLET-ROADMAP.md)
+- [Wallet SDK evaluation](docs/WALLET-SDK-EVALUATION.md)
+
+These documents do not enable mainnet or real-fund functionality. Testnet interoperability, security review and explicit release gates remain mandatory.
+
 ## Project documents
 
 - [Product requirements](docs/PRD.md)
