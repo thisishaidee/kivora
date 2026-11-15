@@ -7,9 +7,9 @@ This roadmap sequences the full requirements in `WALLET-REQUIREMENTS.md`. Each s
 - [x] Separate Lightning, on-chain, payment orchestration and business records.
 - [x] Define no-custody/private-key boundaries.
 - [x] Define backend-only payment verification and entitlement invariants.
-- [ ] Select and document on-chain wallet SDK after licence/security/maintenance review.
+- [ ] Complete SDK licence, security and maintenance review.
 - [ ] Threat model and data-flow review.
-- [ ] Define testnet provider strategy.
+- [ ] Select and document a testnet provider strategy.
 
 **Exit:** architecture and dependencies reviewed; no real funds.
 
@@ -27,18 +27,20 @@ This roadmap sequences the full requirements in `WALLET-REQUIREMENTS.md`. Each s
 **Exit:** test-wallet send/receive interoperable; payment state verified; no mainnet launch implied.
 
 ## Stage 2 — On-chain testnet wallet
-- [ ] Select vetted client-side wallet SDK.
 - [x] Generate a testnet wallet locally and derive a native SegWit receive address with QR.
 - [x] Export/import a versioned, locally encrypted 32-byte testnet seed backup (AES-256-GCM + PBKDF2-SHA-256).
+- [x] Document the BDK changeset, IndexedDB and recovery design in [BDK-PERSISTENCE-DESIGN.md](./BDK-PERSISTENCE-DESIGN.md).
 - [ ] Verify backup restoration on a separate clean Android browser/device and compare derived addresses.
-- [ ] Design and persist BDK changesets, revealed-address index and chain state; current backup does not include them.
-- [ ] Complete wallet import compatibility, local signing and recovery UX.
-- [ ] UTXO/balance/fee data integration.
-- [ ] Transaction preview and explicit signing confirmation.
+- [ ] Implement changeset serialization/merge using the exact pinned 0.4.0 WASM bindings.
+- [ ] Implement atomic IndexedDB persistence and reload recovery.
+- [ ] Extend encrypted backup to include validated wallet state (new format version; preserve v1 import).
+- [ ] Verify restore on a clean device including revealed-address index and wallet state.
+- [ ] Testnet Esplora sync, UTXO/balance and transaction discovery.
+- [ ] Transaction preview and explicit local signing confirmation.
 - [ ] Broadcast and confirmation tracking.
 - [ ] Failure, stale quote, conflict, offline and restore tests.
 
-**Exit:** end-to-end testnet send/receive and restore verified on Android.
+**Exit:** end-to-end testnet send/receive and full-state restore verified on Android.
 
 ## Stage 3 — General wallet and worker payments
 - [ ] Unified wallet dashboard with separate Lightning/on-chain balances.
