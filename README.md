@@ -41,6 +41,7 @@ The Bitcoin Wallet is a general-purpose, wallet-optional product direction. Its 
 - [Wallet architecture](docs/WALLET-ARCHITECTURE.md)
 - [Wallet delivery roadmap](docs/WALLET-ROADMAP.md)
 - [Wallet SDK evaluation](docs/WALLET-SDK-EVALUATION.md)
+- [BDK testnet spike](docs/BDK_TESTNET_SPIKE.md)
 
 These documents do not enable mainnet or real-fund functionality. Testnet interoperability, security review and explicit release gates remain mandatory.
 

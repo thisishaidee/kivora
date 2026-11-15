@@ -114,3 +114,19 @@ select:focus,textarea:focus,input:not([type="checkbox"]):focus{border-color:#657
 .payment-alternative .eyebrow{margin:0 0 8px}
 .payment-alternative .unit-option{margin-top:8px}
 @media(max-width:650px){.payment-details div{grid-template-columns:1fr;gap:5px}}
+
+
+.testnet-wallet{margin-top:22px}
+.testnet-intro{max-width:640px;margin:-12px 0 22px}
+.testnet-result{margin-top:20px;padding-top:20px;border-top:1px solid #eceee8}
+.testnet-qr{display:grid;place-items:center;width:100%;max-width:260px;margin:0 auto 20px;padding:16px;background:#fff;border:1px solid #eceee8;border-radius:10px}
+.testnet-address-label{margin-bottom:8px}
+.testnet-address{font-family:"DM Mono",monospace;font-size:11px;line-height:1.7;overflow-wrap:anywhere;color:#343a32}
+.testnet-result .unit-options{margin-top:14px}
+
+.backup-controls{display:flex;flex-direction:column;gap:13px;margin-top:22px;padding-top:18px;border-top:1px solid #eceee8}
+.backup-controls .eyebrow{margin:0}
+.backup-controls .field{gap:7px}
+.backup-controls input[type="file"]{font-size:11px;padding:10px}
+.backup-controls .unit-option,.backup-controls .submit-button{align-self:stretch;margin-top:0}
+.backup-controls .submit-button:disabled,.backup-controls .unit-option:disabled{opacity:.45;cursor:not-allowed}

@@ -13,7 +13,9 @@
   "dependencies": {
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@bitcoindevkit/bdk-wallet-web": "0.4.0",
+    "qrcode.react": "4.2.0"
   },
   "devDependencies": {
     "@types/react": "19.1.8",
@@ -22,6 +24,7 @@
     "typescript": "5.8.3",
     "vite": "6.4.6",
     "vitest": "5.1.0",
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "vite-plugin-wasm": "3.6.0"
   }
 }
