@@ -15,6 +15,16 @@
       "simple": { "limit": 120, "period": 60 }
     }
   ],
+  "ai": {
+    "binding": "AI"
+  },
+  "ratelimits": [
+    {
+      "name": "AI_LIMITER",
+      "namespace_id": "2026111501",
+      "simple": { "limit": 5, "period": 60 }
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
