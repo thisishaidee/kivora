@@ -294,7 +294,7 @@ export default function App() {
       }]);
       await refreshSessions();
       try {
-        const result = await api<{ assessment: IntelligenceAssessment; response: AssistantResponse }>("/api/assist", {
+        const assistantResult = await api<{ assessment: IntelligenceAssessment; response: AssistantResponse }>("/api/assist", {
           method: "POST",
           body: JSON.stringify({
             sessionId: result.session.id,
@@ -308,12 +308,12 @@ export default function App() {
             equipmentModel: equipmentModel.trim() || undefined,
           }),
         });
-        setAssessment(result.assessment);
-        setAssistantResponse(result.response);
+        setAssessment(assistantResult.assessment);
+        setAssistantResponse(assistantResult.response);
         const assistantText = [
-          result.response.summary,
-          ...result.response.blocks.map(block => block.content),
-          ...result.response.questions,
+          assistantResult.response.summary,
+          ...assistantResult.response.blocks.map(block => block.content),
+          ...assistantResult.response.questions,
         ].join("\n\n");
         setMessages(previous => [...previous, {
           id: "assistant-response",
@@ -321,9 +321,9 @@ export default function App() {
           content: assistantText,
           created_at: Math.floor(Date.now() / 1000),
         }]);
-        setNotice(result.response.status === "guided"
+        setNotice(assistantResult.response.status === "guided"
           ? "KIVORA prepared a response from reviewed evidence. Check its sources before acting."
-          : result.response.status === "unavailable"
+          : assistantResult.response.status === "unavailable"
             ? "Your task is saved. AI guidance is not enabled yet; no technical procedure was generated."
             : "Your task is saved. Review the safety assessment and requested details before taking action.");
       } catch {
