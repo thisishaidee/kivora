@@ -6,6 +6,7 @@ export type PaymentRequest =
       invoice: string;
       amountSats: null;
       source: "lightning-invoice";
+      invoiceValidation: "requires-wallet-adapter";
     }
   | {
       kind: "onchain";
@@ -17,6 +18,7 @@ export type PaymentRequest =
       lightningInvoice: string | null;
       source: "bitcoin-uri";
       addressValidation: "requires-wallet-adapter";
+      invoiceValidation: "requires-wallet-adapter" | null;
     };
 
 export type PaymentRequestErrorCode =
@@ -43,7 +45,6 @@ const MAX_MONEY_SATS = 2_100_000_000_000_000;
 const MAX_INVOICE_LENGTH = 4096;
 
 function parseBtcAmount(value: string): number {
-  // Decimal notation only: no signs, exponent notation, or more than 8 decimals.
   if (!/^(?:0|[1-9]\d*)(?:\.\d{1,8})?$/.test(value)) {
     throw new PaymentRequestError("invalid_amount");
   }
@@ -85,13 +86,15 @@ function parseLightningInvoice(invoice: string): PaymentRequest {
     invoice: normalized,
     amountSats: null,
     source: "lightning-invoice",
+    invoiceValidation: "requires-wallet-adapter",
   };
 }
 
 /**
  * Parses a Bitcoin payment request for display and review only.
- * It never validates an address checksum, verifies an invoice signature,
- * fetches a quote, signs, broadcasts, or initiates a payment.
+ * This format-level parser does not verify address checksums or invoice
+ * signatures. A wallet adapter must perform those checks before payment.
+ * It never fetches a quote, signs, broadcasts, or initiates a payment.
  */
 export function parseBitcoinPaymentRequest(input: string): PaymentRequest {
   const raw = input.trim();
@@ -110,25 +113,24 @@ export function parseBitcoinPaymentRequest(input: string): PaymentRequest {
   const network = inferAddressNetwork(rawAddress);
   if (!network) throw new PaymentRequestError("invalid_address_format");
 
-  const params = new URLSearchParams(queryIndex === -1 ? "" : withoutScheme.slice(queryIndex + 1));
+  const rawQuery = queryIndex === -1 ? "" : withoutScheme.slice(queryIndex + 1);
+  if (/%(?![0-9a-f]{2})/i.test(rawQuery)) throw new PaymentRequestError("malformed_uri");
+  const params = new URLSearchParams(rawQuery);
   const seen = new Set<string>();
   for (const [key] of params) {
     if (seen.has(key)) throw new PaymentRequestError("duplicate_parameter");
     seen.add(key);
-    if (key.startsWith("req-") && key !== "req-lightning") {
-      throw new PaymentRequestError("unsupported_required_parameter");
-    }
+    if (key.startsWith("req-")) throw new PaymentRequestError("unsupported_required_parameter");
   }
 
   const amountValue = params.get("amount");
   const amountSats = amountValue === null ? null : parseBtcAmount(amountValue);
   const lightningInvoice = params.get("lightning");
-  if (lightningInvoice && network !== "mainnet" && network !== "testnet") {
-    throw new PaymentRequestError("network_mismatch");
-  }
+  let invoiceValidation: "requires-wallet-adapter" | null = null;
   if (lightningInvoice) {
     const parsedInvoice = parseLightningInvoice(lightningInvoice);
     if (parsedInvoice.network !== network) throw new PaymentRequestError("network_mismatch");
+    invoiceValidation = "requires-wallet-adapter";
   }
 
   return {
@@ -141,5 +143,6 @@ export function parseBitcoinPaymentRequest(input: string): PaymentRequest {
     lightningInvoice,
     source: "bitcoin-uri",
     addressValidation: "requires-wallet-adapter",
+    invoiceValidation,
   };
 }

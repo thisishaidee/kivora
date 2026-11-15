@@ -25,12 +25,13 @@ describe("Bitcoin payment request parser", () => {
     });
   });
 
-  it("parses a Lightning invoice as a separate payment rail", () => {
+  it("parses a Lightning invoice as a separate rail without claiming signature validation", () => {
     expect(parseBitcoinPaymentRequest("lnbc2500n1example")).toMatchObject({
       kind: "lightning",
       network: "mainnet",
       amountSats: null,
       source: "lightning-invoice",
+      invoiceValidation: "requires-wallet-adapter",
     });
   });
 
@@ -49,9 +50,14 @@ describe("Bitcoin payment request parser", () => {
     expect(() => parseBitcoinPaymentRequest(`bitcoin:${MAINNET_ADDRESS}?amount=21000000.00000001`)).toThrowError("amount_out_of_range");
   });
 
-  it("rejects duplicate and unknown required parameters", () => {
+  it("rejects duplicate parameters and unsupported required parameters", () => {
     expect(() => parseBitcoinPaymentRequest(`bitcoin:${MAINNET_ADDRESS}?amount=1&amount=2`)).toThrowError("duplicate_parameter");
     expect(() => parseBitcoinPaymentRequest(`bitcoin:${MAINNET_ADDRESS}?req-future=1`)).toThrowError("unsupported_required_parameter");
+    expect(() => parseBitcoinPaymentRequest(`bitcoin:${MAINNET_ADDRESS}?req-lightning=1`)).toThrowError("unsupported_required_parameter");
+  });
+
+  it("rejects malformed percent escapes", () => {
+    expect(() => parseBitcoinPaymentRequest(`bitcoin:${MAINNET_ADDRESS}?label=bad%2`)).toThrowError("malformed_uri");
   });
 
   it("rejects a Lightning invoice whose network conflicts with the address", () => {
