@@ -29,10 +29,11 @@ This roadmap sequences the full requirements in `WALLET-REQUIREMENTS.md`. Each s
 ## Stage 2 — On-chain testnet wallet
 - [x] Generate a testnet wallet locally and derive a native SegWit receive address with QR.
 - [x] Export/import a versioned, locally encrypted 32-byte testnet seed backup (AES-256-GCM + PBKDF2-SHA-256).
-- [x] Document the BDK changeset, IndexedDB and recovery design in [BDK-PERSISTENCE-DESIGN.md](./BDK-PERSISTENCE-DESIGN.md).
+- [x] Document BDK changeset, IndexedDB and recovery design in [BDK-PERSISTENCE-DESIGN.md](./BDK-PERSISTENCE-DESIGN.md).
+- [x] Verify exact pinned 0.4.0 source exposes `Wallet.take_staged()`, `ChangeSet.to_json()`, `ChangeSet.from_json()`, `ChangeSet.merge()` and `Wallet.load()`.
 - [ ] Verify backup restoration on a separate clean Android browser/device and compare derived addresses.
-- [ ] Implement changeset serialization/merge using the exact pinned 0.4.0 WASM bindings.
-- [ ] Implement atomic IndexedDB persistence and reload recovery.
+- [ ] Implement encrypted changeset persistence and optimistic revision checks in IndexedDB.
+- [ ] Implement wallet reload recovery using seed-derived private descriptors plus persisted BDK changeset.
 - [ ] Extend encrypted backup to include validated wallet state (new format version; preserve v1 import).
 - [ ] Verify restore on a clean device including revealed-address index and wallet state.
 - [ ] Testnet Esplora sync, UTXO/balance and transaction discovery.
