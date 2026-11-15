@@ -50,6 +50,11 @@ Breez describes Spark SDK as non-custodial and supports JavaScript, React Native
 - External signer and recovery features may fit user-controlled key requirements.
 - One integration may support several payment formats.
 
+**Additional implementation facts**
+- The official JavaScript/WASM getting-started guide requires an SDK API key.
+- The basic initialization path accepts a mnemonic seed and configures a storage directory; the WASM web guide documents IndexedDB-backed SDK storage.
+- The SDK also advertises passkey onboarding/restore and external-signer support. These alternatives need direct code-level review; do not assume the basic mnemonic path and passkey/external-signer paths have identical trust properties.
+
 **Risks / work required**
 - Must distinguish Spark balances/transactions from Bitcoin base-layer UTXOs and Lightning channel balances in the interface and ledger.
 - Review the exact key custody/signing model, recovery, unilateral exit and service dependencies.
@@ -60,6 +65,8 @@ Breez describes Spark SDK as non-custodial and supports JavaScript, React Native
 **Assessment:** Worth a sandbox proof-of-concept against the separate BDK + NWC approach. Not selected until testnet and trust-model review.
 
 References:
+- https://sdk-doc-spark.breez.technology/guide/getting_started.html
+- https://sdk-doc-spark.breez.technology/guide/initializing.html
 - https://sdk-doc-spark.breez.technology/
 - https://breez.technology/sdk/
 - https://github.com/breez/spark-sdk
