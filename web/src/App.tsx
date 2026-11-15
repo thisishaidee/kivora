@@ -785,10 +785,11 @@ export default function App() {
             </div>
           </section>
 
-          <TestnetWalletPanel />
-          <PaymentRequestPreview />
         </>
       )}
+
+      <TestnetWalletPanel />
+      <PaymentRequestPreview />
 
       {notice && identityState === "ready" && <p className="notice global-notice" role="status">{notice}</p>}
 
