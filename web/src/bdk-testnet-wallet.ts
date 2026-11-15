@@ -109,7 +109,7 @@ export async function restoreBdkTestnetWallet(
       throw new WalletCreationError("descriptor-derivation", "BDK could not re-derive testnet descriptors from the backup seed.", { cause: error });
     }
 
-    let changeset: InstanceType<typeof bdk.ChangeSet>;
+    let changeset: ReturnType<typeof bdk.ChangeSet.from_json>;
     try {
       changeset = bdk.ChangeSet.from_json(changesetJson);
     } catch (error) {
