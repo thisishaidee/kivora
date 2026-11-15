@@ -1,8 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import type { Wallet as BdkWallet } from "@bitcoindevkit/bdk-wallet-web";
 import { QRCodeSVG } from "qrcode.react";
-import { createBdkTestnetWallet, describeWalletCreationError } from "./bdk-testnet-wallet";
+import {
+  createBdkTestnetWallet,
+  describeWalletCreationError,
+  restoreBdkTestnetWallet,
+} from "./bdk-testnet-wallet";
+import {
+  deleteEncryptedChangeset,
+  loadEncryptedChangeset,
+  saveEncryptedChangeset,
+} from "./bdk-testnet-persistence";
 import { decryptTestnetWalletBackup, encryptTestnetWalletBackup } from "./testnet-wallet-backup";
+
+async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Promise<void> {
+  const staged = wallet.take_staged();
+  if (!staged) throw new Error("BDK did not return the wallet changes needed for safe local recovery.");
+  try {
+    await saveEncryptedChangeset(staged.to_json(), seed);
+  } finally {
+    staged.free();
+  }
+}
 
 export default function TestnetWalletPanel() {
   const walletRef = useRef<BdkWallet | null>(null);
@@ -42,16 +61,22 @@ export default function TestnetWalletPanel() {
     }
 
     const seed = globalThis.crypto.getRandomValues(new Uint8Array(32));
+    let createdWallet: BdkWallet | null = null;
     try {
+      await deleteEncryptedChangeset();
       const result = await createBdkTestnetWallet(seed);
-      walletRef.current = result.wallet;
+      createdWallet = result.wallet;
+      await persistStagedWalletState(createdWallet, seed);
+      walletRef.current = createdWallet;
+      createdWallet = null;
       walletSeedRef.current = seed.slice();
       setAddress(result.address);
-      setStatus("Testnet wallet created locally. Export an encrypted backup before using its address.");
+      setStatus("Testnet wallet created locally. Its BDK state is encrypted in this browser. Export a backup before relying on it.");
     } catch (error) {
+      createdWallet?.free();
       const detail = describeWalletCreationError(error);
       console.error("KIVORA testnet wallet initialization failed:", error);
-      setStatus("The testnet wallet could not be created.");
+      setStatus("The testnet wallet could not be created and safely saved.");
       setDiagnostic(detail);
     } finally {
       seed.fill(0);
@@ -70,16 +95,26 @@ export default function TestnetWalletPanel() {
     clearWallet();
 
     let seed: Uint8Array | null = null;
+    let restoredWallet: BdkWallet | null = null;
     try {
       const serialized = await backupFile.text();
       seed = await decryptTestnetWalletBackup(serialized, backupPassword);
-      const result = await createBdkTestnetWallet(seed);
-      walletRef.current = result.wallet;
+      const savedChangeset = await loadEncryptedChangeset(seed);
+      const result = savedChangeset
+        ? await restoreBdkTestnetWallet(seed, savedChangeset)
+        : await createBdkTestnetWallet(seed);
+      restoredWallet = result.wallet;
+      if (!savedChangeset) await persistStagedWalletState(restoredWallet, seed);
+      walletRef.current = restoredWallet;
+      restoredWallet = null;
       walletSeedRef.current = seed.slice();
       setAddress(result.address);
-      setStatus("Testnet wallet restored locally. Its first receive address should match the original backup.");
+      setStatus(savedChangeset
+        ? "Wallet restored with its locally saved BDK state."
+        : "Seed backup restored. This browser had no saved chain state, so the first address was re-derived.");
       setBackupFile(null);
     } catch (error) {
+      restoredWallet?.free();
       setStatus(error instanceof Error ? error.message : "The wallet backup could not be restored.");
     } finally {
       seed?.fill(0);
@@ -103,7 +138,7 @@ export default function TestnetWalletPanel() {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-      setStatus("Encrypted backup exported. Keep the file and password separately; KIVORA cannot recover either.");
+      setStatus("Encrypted seed backup exported. Keep the file and password separately; KIVORA cannot recover either.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "The encrypted backup could not be created.");
     } finally {
@@ -121,10 +156,21 @@ export default function TestnetWalletPanel() {
     }
   }
 
-  function discardWallet() {
-    clearWallet();
-    setDiagnostic("");
-    setStatus("Wallet discarded from this page session.");
+  async function discardWallet() {
+    setBusy(true);
+    try {
+      await deleteEncryptedChangeset();
+      clearWallet();
+      setDiagnostic("");
+      setStatus("Wallet and its encrypted local state were discarded. Your exported backup file is unaffected.");
+    } catch (error) {
+      clearWallet();
+      setStatus(error instanceof Error
+        ? `Wallet cleared from memory, but local state could not be deleted: ${error.message}`
+        : "Wallet cleared from memory, but local state could not be deleted.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -137,8 +183,8 @@ export default function TestnetWalletPanel() {
         <span className="step-label">TESTNET ONLY</span>
       </div>
       <p className="privacy-note testnet-intro">
-        This is an experimental testnet wallet. It creates keys and derives addresses locally.
-        It does not sync balances, send transactions or preserve blockchain state. Do not use it for real BTC.
+        This is an experimental testnet wallet. Keys and addresses are derived locally, and BDK wallet state is encrypted before local browser storage.
+        It does not sync balances or send transactions. Do not use it for real BTC.
       </p>
       {!address ? (
         <>
@@ -179,10 +225,10 @@ export default function TestnetWalletPanel() {
           </div>
           <div className="unit-options">
             <button className="unit-option selected" type="button" onClick={() => void copyAddress()}>Copy address</button>
-            <button className="unit-option" type="button" onClick={discardWallet}>Discard wallet</button>
+            <button className="unit-option" type="button" onClick={() => void discardWallet()} disabled={busy}>Discard wallet</button>
           </div>
-          <p className="privacy-note">The backup is encrypted on this device with AES-256-GCM and PBKDF2-SHA-256. It is a KIVORA backup file, not a BIP39 recovery phrase. Keep the password separately: a lost password cannot be reset. No key material is uploaded.</p>
-          <p className="privacy-note">This prototype does not yet preserve BDK chain state or transaction history. Do not send coins to it until a separate-device restore and the remaining wallet safety tests pass.</p>
+          <p className="privacy-note">The seed backup is encrypted locally with AES-256-GCM and PBKDF2-SHA-256. It is a KIVORA backup file, not a BIP39 recovery phrase. Keep the password separately: a lost password cannot be reset. No key material is uploaded.</p>
+          <p className="privacy-note">The BDK changeset is separately encrypted in this browser using a key derived from the seed. Browser storage is not a backup; export and safely retain the encrypted seed file. This prototype still does not sync balances or send transactions. Do not send coins until clean-device recovery and QR interoperability have been verified.</p>
         </div>
       )}
       {status && <p className="notice" role="status">{status}</p>}
