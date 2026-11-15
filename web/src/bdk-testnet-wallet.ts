@@ -11,7 +11,7 @@ export class WalletCreationError extends Error {
 
 export function validateTestnetSeed(seed: Uint8Array): void {
   if (seed.length < 16 || seed.length > 64) {
-    throw new WalletCreationError("seed-validation", "The temporary seed length is invalid.");
+    throw new WalletCreationError("seed-validation", "A BDK seed must contain between 16 and 64 bytes.");
   }
 }
 
