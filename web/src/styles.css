@@ -123,3 +123,10 @@ select:focus,textarea:focus,input:not([type="checkbox"]):focus{border-color:#657
 .testnet-address-label{margin-bottom:8px}
 .testnet-address{font-family:"DM Mono",monospace;font-size:11px;line-height:1.7;overflow-wrap:anywhere;color:#343a32}
 .testnet-result .unit-options{margin-top:14px}
+
+.backup-controls{display:flex;flex-direction:column;gap:13px;margin-top:22px;padding-top:18px;border-top:1px solid #eceee8}
+.backup-controls .eyebrow{margin:0}
+.backup-controls .field{gap:7px}
+.backup-controls input[type="file"]{font-size:11px;padding:10px}
+.backup-controls .unit-option,.backup-controls .submit-button{align-self:stretch;margin-top:0}
+.backup-controls .submit-button:disabled,.backup-controls .unit-option:disabled{opacity:.45;cursor:not-allowed}
