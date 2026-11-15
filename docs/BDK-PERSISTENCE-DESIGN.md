@@ -1,6 +1,6 @@
 # KIVORA BDK-WASM Persistence Design
 
-**Status:** initial implementation added to PR #27; CI, failure-path tests and browser validation are pending.  
+**Status:** encrypted IndexedDB changeset storage and encrypted full-state backup v2 are implemented in PR #27; fresh CI and browser recovery validation are pending.  
 **SDK pinned by the prototype:** `@bitcoindevkit/bdk-wallet-web@0.4.0`.  
 **Verified upstream source commit:** `bitcoindevkit/bdk-wasm@3ee6c6b`.  
 **Network:** Bitcoin testnet only.
@@ -69,7 +69,7 @@ The initial recovery path:
 
 If no local changeset exists (for example, on a clean browser), the prototype re-derives the first address from the seed and creates a new local encrypted changeset. This is not full-state recovery across devices.
 
-A future v2 export should contain format/version identifiers, fixed `testnet` network, descriptor policy and derivation metadata, the 32-byte seed, a validated BDK changeset snapshot and integrity/version checks. Encrypt the complete v2 payload locally with authenticated encryption before download. Use a fresh random salt and IV for every export. Bind format version, network and descriptor policy as authenticated additional data. Reject unsupported versions and networks before constructing a wallet. Preserve v1 import.
+Backup v2 is now implemented in the prototype. It contains format/version identifiers, fixed `testnet` network, descriptor policy, pinned SDK version, the 32-byte seed and the BDK-native changeset JSON snapshot. The complete payload is encrypted locally with AES-256-GCM and PBKDF2-HMAC-SHA-256 (600,000 iterations), with fresh random salt and IV per export and authenticated format/network associated data. The importer rejects unsupported versions, networks, descriptor policies and SDK versions before constructing a wallet. The original v1 raw-seed backup format remains importable; v1 cannot recover a changeset it never contained.
 
 Never include API tokens, provider credentials, wallet connection URIs or user profile data in the backup.
 
@@ -89,8 +89,8 @@ Never include API tokens, provider credentials, wallet connection URIs or user p
 - Wrong seed cannot decrypt the IndexedDB changeset; tampered ciphertext and metadata are rejected.
 - IndexedDB atomicity, optimistic revision conflict, blocked upgrades, unavailable storage, quota failure and corrupted records.
 - Reload in the same browser after backup restore preserves the same revealed-address index.
-- Export/import on a separate clean browser restores the same descriptor policy, revealed-address index and wallet state.
-- Backup v1 remains importable; malformed, wrong-password, unsupported-version and wrong-network backups are rejected.
+- Export/import on a separate clean browser restores the same descriptor policy, revealed-address index and wallet state (not yet browser-verified).
+- Backup v1 remains importable; v2 full-state export/import round-trip, malformed, wrong-password, unsupported-version and wrong-network backups are covered by tests (fresh CI pending).
 - Restore followed by a fresh Esplora sync reconstructs the same wallet view without duplicating transactions.
 - No seed, private descriptor, password or derived key appears in IndexedDB, requests, logs or telemetry.
 
