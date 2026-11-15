@@ -39,3 +39,6 @@ Allowed block kinds are explanation, procedure, measurement, and parts. Safety i
 - The current lexical safety and measurement checks are guardrails, not proof that every sentence is factually correct. The model output still requires ongoing evaluation and worker validation.
 - Nigerian English, Pidgin and French outputs need reviewed language and trade-specific terminology validation before broad use.
 - No continuous conversation turn-taking or image/audio inputs are connected yet.
+
+
+Preview build marker: 2026-11-15. Production deployment remains disabled.
