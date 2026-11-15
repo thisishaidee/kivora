@@ -15,7 +15,8 @@
     "react-dom": "19.1.0",
     "zod": "4.6.7",
     "@bitcoindevkit/bdk-wallet-web": "0.4.0",
-    "qrcode.react": "4.2.0"
+    "qrcode.react": "4.2.0",
+    "@scure/bip39": "1.6.0"
   },
   "devDependencies": {
     "@types/react": "19.1.8",
