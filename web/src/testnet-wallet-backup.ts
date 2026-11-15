@@ -176,7 +176,15 @@ export async function decryptTestnetWalletBackup(
   try { backup = JSON.parse(serialized); } catch { throw new Error("This file is not a valid KIVORA wallet backup."); }
   if (!backup || typeof backup !== "object") throw new Error("This file is not a valid KIVORA wallet backup.");
 
-  const candidate = backup as Partial<BackupV1 & BackupV2>;
+  const candidate = backup as {
+    format?: string;
+    version?: number;
+    network?: string;
+    descriptorPolicy?: string;
+    sdkVersion?: string;
+    kdf?: Partial<KdfMetadata>;
+    cipher?: Partial<CipherMetadata>;
+  };
   const version = candidate.version;
   if (
     candidate.format !== FORMAT ||
