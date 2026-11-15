@@ -59,8 +59,14 @@ function validatePassword(password: string): void {
   }
 }
 
-function validateSeed(seed: Uint8Array): void {
-  if (seed.length !== 32) throw new Error("This backup format requires the 32-byte KIVORA testnet wallet seed.");
+function validateLegacySeed(seed: Uint8Array): void {
+  if (seed.length !== 32) throw new Error("This legacy backup format requires the original 32-byte KIVORA testnet wallet seed.");
+}
+
+function validateWalletSeed(seed: Uint8Array): void {
+  if (seed.length !== 32 && seed.length !== 64) {
+    throw new Error("This backup requires a supported 32-byte legacy or 64-byte BIP39-derived wallet seed.");
+  }
 }
 
 async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
@@ -102,7 +108,7 @@ async function encryptPayload(payload: string, password: string, version: 1 | 2)
 
 /** Creates a v1-compatible seed-only backup. Kept for compatibility tests and old-file support. */
 export async function encryptTestnetWalletBackup(seed: Uint8Array, password: string): Promise<string> {
-  validateSeed(seed);
+  validateLegacySeed(seed);
   validatePassword(password);
   if (!globalThis.crypto?.subtle || !globalThis.crypto?.getRandomValues) {
     throw new Error("Secure browser cryptography is unavailable. Use a supported HTTPS browser.");
@@ -131,7 +137,7 @@ export async function encryptTestnetWalletBackupV2(
   changesetJson: string,
   password: string,
 ): Promise<string> {
-  validateSeed(seed);
+  validateWalletSeed(seed);
   validatePassword(password);
   if (!changesetJson.trim() || changesetJson.length > 3_000_000) {
     throw new Error("The BDK wallet state is empty or too large to back up.");
@@ -245,7 +251,9 @@ export async function decryptTestnetWalletBackup(
     ) throw new Error("Backup wallet state metadata is invalid.");
     const changeset = JSON.parse(payload.changesetJson) as unknown;
     if (!changeset || typeof changeset !== "object") throw new Error("Backup BDK changeset is invalid.");
-    return { version: 2, seed: fromBase64(payload.seed ?? "", 32), changesetJson: payload.changesetJson };
+    const seed = fromBase64(payload.seed ?? "");
+    validateWalletSeed(seed);
+    return { version: 2, seed, changesetJson: payload.changesetJson };
   } catch (error) {
     if (error instanceof Error && error.message.includes("metadata is invalid")) throw error;
     if (error instanceof Error && error.message.includes("changeset is invalid")) throw error;
