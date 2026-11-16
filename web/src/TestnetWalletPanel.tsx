@@ -284,7 +284,12 @@ export default function TestnetWalletPanel() {
           <p className="eyebrow">YOUR 12-WORD RECOVERY PHRASE</p>
           <p className="privacy-note">Write these words down offline, in this exact order. KIVORA uses no additional BIP39 passphrase. Anyone with these words can control the wallet. Do not screenshot them, share them, or paste them into a chat. KIVORA cannot recover a lost phrase.</p>
           <ol className="recovery-words">
-            {phraseWords.map((word, index) => <li key={index}>{word}</li>)}
+            {phraseWords.map((word, index) => (
+              <li key={index}>
+                <span className="recovery-word-index" aria-hidden="true">{index + 1}</span>
+                <span className="recovery-word-text">{word}</span>
+              </li>
+            ))}
           </ol>
           <p className="eyebrow">VERIFY YOUR BACKUP</p>
           <p className="privacy-note">Enter the requested words from your written copy to confirm you saved them correctly.</p>
