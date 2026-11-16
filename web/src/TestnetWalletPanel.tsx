@@ -210,7 +210,7 @@ export default function TestnetWalletPanel() {
       </div>
       <p className="privacy-note testnet-intro">
         Experimental testnet wallet. A standard 12-word English BIP39 phrase derives the wallet locally. No seed phrase or private key is sent to KIVORA servers.
-        It does not sync balances or send transactions. Do not use it for real BTC.
+        It can check the displayed receive address on Bitcoin testnet. It cannot send transactions. Do not use it for real BTC.
       </p>
       {!address ? (
         <>
