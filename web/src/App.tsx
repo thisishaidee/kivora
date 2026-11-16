@@ -111,6 +111,9 @@ export default function App() {
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [messages, setMessages] = useState<WorkMessage[]>([]);
   const [followUpText, setFollowUpText] = useState("");
+  const [verificationOutcome, setVerificationOutcome] = useState("not_tried");
+  const [verificationNotes, setVerificationNotes] = useState("");
+  const [verificationSaved, setVerificationSaved] = useState(false);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -328,6 +331,7 @@ export default function App() {
         });
         setAssessment(assistantResult.assessment);
         setAssistantResponse(assistantResult.response);
+        setVerificationSaved(false);
         const assistantText = [
           assistantResult.response.summary,
           ...assistantResult.response.blocks.map(block => block.content),
@@ -354,6 +358,26 @@ export default function App() {
     }
   }
 
+  async function submitVerification(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeSession || verificationSaved) return;
+    const outcomeLabels: Record<string, string> = { not_tried: "Not tried yet", resolved: "The issue appears resolved", unchanged: "The issue remains", unexpected: "I observed a different result", expert: "I need qualified help" };
+    const outcome = outcomeLabels[verificationOutcome];
+    if (!outcome) return;
+    const content = ["WORKER OBSERVATION — NOT INDEPENDENTLY VERIFIED", "Outcome: " + outcome, verificationNotes.trim() ? "Notes: " + verificationNotes.trim() : ""].filter(Boolean).join("\n");
+    setBusy(true);
+    setNotice("");
+    try {
+      await api("/api/work-sessions/" + activeSession.id + "/messages", { method: "POST", body: JSON.stringify({ content }) });
+      const now = Math.floor(Date.now() / 1000);
+      setMessages(previous => [...previous, { id: "verification-" + now, role: "worker", content, created_at: now }]);
+      setVerificationSaved(true);
+      setNotice("Your observation was saved to this private work session. It has not been treated as verified technical evidence.");
+      await refreshSessions();
+    } catch {
+      setNotice("Your observation could not be saved. Please try again.");
+    } finally { setBusy(false); }
+  }
   async function submitFollowUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeSession || !followUpText.trim()) return;
@@ -380,6 +404,7 @@ export default function App() {
       setFollowUpText("");
       setAssessment(assistantResult.assessment);
       setAssistantResponse(assistantResult.response);
+      setVerificationSaved(false);
       await refreshSessions();
       setNotice(assistantResult.response.status === "guided" ? "KIVORA checked your update against reviewed evidence." : assistantResult.response.status === "unavailable" ? "Your update is saved. AI inference is currently disabled; no technical procedure was generated." : "Your update is saved. Review the latest assessment and requested details before acting.");
     } catch {
@@ -404,6 +429,7 @@ export default function App() {
       setEquipmentModel(equipmentDetails?.[2].trim() !== "unknown" ? equipmentDetails?.[2].trim() ?? "" : "");
       setAssessment(null);
       setAssistantResponse(null);
+      setVerificationSaved(false);
     } catch {
       setNotice("That work session could not be opened.");
     } finally {
@@ -714,6 +740,30 @@ export default function App() {
                     </li>
                   ))}</ul>
                 </div>
+              )}
+              {assistantResponse.status === "guided" && activeSession && (
+                <form onSubmit={(event) => void submitVerification(event)} className="verification-form">
+                  <p className="eyebrow">CLOSE THE LOOP</p>
+                  <h3>What happened when you checked this?</h3>
+                  <p className="privacy-note">Record what you observed. This stays in your private work history and is not automatically treated as verified technical knowledge.</p>
+                  <label className="field">
+                    <span>Your outcome</span>
+                    <select value={verificationOutcome} onChange={(event) => setVerificationOutcome(event.target.value)} disabled={verificationSaved}>
+                      <option value="not_tried">I have not tried it yet</option>
+                      <option value="resolved">The issue appears resolved</option>
+                      <option value="unchanged">The issue remains</option>
+                      <option value="unexpected">I observed a different result</option>
+                      <option value="expert">I need qualified help</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>What did you observe? (optional)</span>
+                    <textarea value={verificationNotes} onChange={(event) => setVerificationNotes(event.target.value)} rows={2} maxLength={1000} placeholder="Describe the result, what changed or what still needs checking." disabled={verificationSaved} />
+                  </label>
+                  <button className="submit-button" type="submit" disabled={busy || verificationSaved}>
+                    {verificationSaved ? "Observation saved" : busy ? "Saving…" : "Save work observation"}
+                  </button>
+                </form>
               )}
               <p className="privacy-note">Compatibility remains {assistantResponse.compatibilityStatus}. KIVORA only returns model-generated technical content when its evidence references pass validation; this is not a substitute for professional judgement or a site-specific risk assessment.</p>
             </section>
