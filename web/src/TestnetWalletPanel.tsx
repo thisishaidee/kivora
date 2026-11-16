@@ -11,7 +11,6 @@ import {
   loadEncryptedChangeset,
   saveEncryptedChangeset,
 } from "./bdk-testnet-persistence";
-import { decryptTestnetWalletBackup, encryptTestnetWalletBackupV2 } from "./testnet-wallet-backup";
 import { createRecoveryPhrase, recoveryPhraseToSeed } from "./bip39-recovery";
 
 async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Promise<void> {
@@ -28,8 +27,6 @@ export default function TestnetWalletPanel() {
   const walletRef = useRef<BdkWallet | null>(null);
   const walletSeedRef = useRef<Uint8Array | null>(null);
   const [address, setAddress] = useState("");
-  const [backupPassword, setBackupPassword] = useState("");
-  const [backupFile, setBackupFile] = useState<File | null>(null);
   const [recoveryPhrase, setRecoveryPhrase] = useState("");
   const [recoveryInput, setRecoveryInput] = useState("");
   const [verificationWords, setVerificationWords] = useState(["", "", ""]);
@@ -136,76 +133,6 @@ export default function TestnetWalletPanel() {
     }
   }
 
-  async function restoreWallet() {
-    if (!backupFile) {
-      setStatus("Choose a KIVORA wallet backup file first.");
-      return;
-    }
-    setBusy(true);
-    setStatus("");
-    setDiagnostic("");
-    clearWallet();
-
-    let seed: Uint8Array | null = null;
-    let restoredWallet: BdkWallet | null = null;
-    try {
-      const serialized = await backupFile.text();
-      const backup = await decryptTestnetWalletBackup(serialized, backupPassword);
-      seed = backup.seed;
-      const savedChangeset = await loadEncryptedChangeset(seed);
-      const changesetJson = backup.version === 2 ? backup.changesetJson : savedChangeset;
-      const result = changesetJson
-        ? await restoreBdkTestnetWallet(seed, changesetJson)
-        : await createBdkTestnetWallet(seed);
-      restoredWallet = result.wallet;
-      if (backup.version === 2) {
-        await saveEncryptedChangeset(backup.changesetJson, seed);
-      } else if (!savedChangeset) {
-        await persistStagedWalletState(restoredWallet, seed);
-      }
-      walletRef.current = restoredWallet;
-      restoredWallet = null;
-      walletSeedRef.current = seed.slice();
-      setAddress(result.address);
-      setStatus(backup.version === 2
-        ? "Full-state v2 backup restored. Its BDK state is now encrypted in this browser."
-        : "Legacy v1 seed backup restored. Legacy backups do not contain a portable BDK state snapshot.");
-      setBackupFile(null);
-    } catch (error) {
-      restoredWallet?.free();
-      setStatus(error instanceof Error ? error.message : "The wallet backup could not be restored.");
-    } finally {
-      seed?.fill(0);
-      setBusy(false);
-    }
-  }
-
-  async function exportBackup() {
-    const seed = walletSeedRef.current;
-    if (!seed) return;
-    setBusy(true);
-    setStatus("");
-    try {
-      const changesetJson = await loadEncryptedChangeset(seed);
-      if (!changesetJson) throw new Error("No saved BDK wallet state is available. Export is blocked to avoid creating an incomplete backup.");
-      const serialized = await encryptTestnetWalletBackupV2(seed, changesetJson, backupPassword);
-      const blob = new Blob([serialized], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "kivora-testnet-wallet-backup.json";
-      document.body.append(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-      setStatus("Encrypted full-state backup exported. Keep the file and password separately; KIVORA cannot recover either.");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "The encrypted backup could not be created.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function copyAddress() {
     if (!address) return;
     try {
@@ -224,7 +151,7 @@ export default function TestnetWalletPanel() {
       setRecoveryPhrase("");
       setShowPhrase(false);
       setDiagnostic("");
-      setStatus("Wallet and its encrypted local state were discarded. Your exported backup file is unaffected.");
+      setStatus("Wallet and its encrypted local state were discarded.");
     } catch (error) {
       clearWallet();
       setStatus(error instanceof Error
@@ -264,20 +191,6 @@ export default function TestnetWalletPanel() {
               {busy ? "Restoring…" : "Restore with recovery phrase"}
             </button>
           </div>
-          <div className="backup-controls">
-            <p className="eyebrow">OR RESTORE FROM OPTIONAL ENCRYPTED BACKUP</p>
-            <label className="field">
-              <span>Backup file</span>
-              <input type="file" accept=".json,application/json" onChange={(event) => setBackupFile(event.target.files?.[0] ?? null)} disabled={busy} />
-            </label>
-            <label className="field">
-              <span>Backup password</span>
-              <input type="password" autoComplete="current-password" value={backupPassword} onChange={(event) => setBackupPassword(event.target.value)} placeholder="At least 12 characters" disabled={busy} />
-            </label>
-            <button className="unit-option" type="button" onClick={() => void restoreWallet()} disabled={busy || !backupFile || backupPassword.length < 12}>
-              {busy ? "Restoring…" : "Restore encrypted backup"}
-            </button>
-          </div>
         </>
       ) : showPhrase ? (
         <div className="testnet-result">
@@ -308,20 +221,10 @@ export default function TestnetWalletPanel() {
           </div>
           <p className="eyebrow testnet-address-label">BITCOIN TESTNET RECEIVE ADDRESS</p>
           <p className="testnet-address">{address}</p>
-          <div className="backup-controls">
-            <label className="field">
-              <span>Set a strong optional backup password</span>
-              <input type="password" autoComplete="new-password" value={backupPassword} onChange={(event) => setBackupPassword(event.target.value)} placeholder="At least 12 characters" disabled={busy} />
-            </label>
-            <button className="submit-button" type="button" onClick={() => void exportBackup()} disabled={busy || backupPassword.length < 12}>
-              {busy ? "Preparing backup…" : "Export optional encrypted backup"}
-            </button>
-          </div>
           <div className="unit-options">
             <button className="unit-option selected" type="button" onClick={() => void copyAddress()}>Copy address</button>
             <button className="unit-option" type="button" onClick={() => void discardWallet()} disabled={busy}>Discard wallet</button>
           </div>
-          <p className="privacy-note">Your 12-word BIP39 phrase is the primary recovery method. The optional v2 backup contains the 64-byte BIP39-derived seed and BDK changeset, encrypted locally with AES-256-GCM and PBKDF2-SHA-256. Keep the password separately.</p>
           <p className="privacy-note">The BDK state is also encrypted in this browser. Browser storage is not a backup. This prototype still does not sync balances or send transactions. Do not send coins until clean-device recovery and QR interoperability have been verified.</p>
         </div>
       )}
