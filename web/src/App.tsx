@@ -217,7 +217,7 @@ export default function App() {
     try {
       const result = await api<{ worker: { id: string }; recovery_code: string }>("/api/identity/recover", {
         method: "POST",
-        body: JSON.stringify({ recovery_code: recoveryInput.trim() }),
+        body: JSON.stringify({ recovery_code: recoveryInput.replace(/\s+/g, "") }),
       });
       setWorkerId(result.worker.id);
       setRecoveryCode(result.recovery_code);
