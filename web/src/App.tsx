@@ -278,7 +278,7 @@ export default function App() {
       availableTools.trim() ? `Available tools: ${availableTools.trim()}` : "",
       constraints.trim() ? `Constraints: ${constraints.trim()}` : "",
     ].filter(Boolean);
-    const sessionDescription = [submittedTask, ...knownFacts].join("\n\n");
+    const sessionDescription = [submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : "", involvesEquipment ? "Equipment details: make=" + (equipmentMake.trim() || "unknown") + "; model=" + (equipmentModel.trim() || "unknown") : ""].filter(Boolean).join("\n\n");
     if (!validTrade.success || !validLanguage.success || !validUnits.success || !submittedTask) {
       setNotice("Add a job description and check your preferences.");
       return;
@@ -365,7 +365,10 @@ export default function App() {
     try {
       await api("/api/work-sessions/" + activeSession.id + "/messages", { method: "POST", body: JSON.stringify({ content: message }) });
       const priorWorkerContext = messages.filter(item => item.role === "worker").slice(-5).map(item => item.content);
+      const savedContext = priorWorkerContext.join("\n");
       const combinedTask = [...priorWorkerContext, message].join("\n\n").slice(-3900);
+      const savedJurisdiction = savedContext.match(/Work jurisdiction: ([^\\n]+)/i)?.[1]?.trim();
+      const savedEquipment = savedContext.match(/Equipment details: make=([^;\\n]+); model=([^\\n]+)/i);
       const assistantResult = await api<{ assessment: IntelligenceAssessment; response: AssistantResponse }>("/api/assist", {
         method: "POST",
         body: JSON.stringify({ sessionId: activeSession.id, trade: activeSession.trade, task: combinedTask, language: activeSession.language, units: activeSession.unit_system, jurisdiction: jurisdiction.trim() || undefined, involvesEquipment, equipmentMake: equipmentMake.trim() || undefined, equipmentModel: equipmentModel.trim() || undefined }),
