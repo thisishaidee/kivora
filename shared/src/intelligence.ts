@@ -75,7 +75,7 @@ const HAZARD_RULES: HazardRule[] = [
   },
   {
     id: "gas-leak",
-    pattern: /\b(gas leak|smell of gas|leaking gas|lpg leak|propane leak|natural gas leak)\b/i,
+    pattern: /\b(gas leak|smell(?:ing)?(?:\\s+of)?\\s+gas|leaking gas|lpg leak|propane leak|natural gas leak)\b/i,
     level: "high-risk",
     stopWork: true,
     instruction: "Stop work, avoid flames and electrical switching, leave the affected area, and contact the local gas emergency service or a qualified gas professional from a safe location.",
