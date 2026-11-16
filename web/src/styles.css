@@ -143,3 +143,9 @@ select:focus,textarea:focus,input:not([type="checkbox"]):focus{border-color:#657
 .testnet-wallet .unit-option:not(:disabled){background:#20231f;border-color:#20231f;color:#fff}
 .testnet-wallet .unit-option:not(:disabled):hover{background:#3b4437;border-color:#3b4437}
 .testnet-wallet .unit-option:disabled{background:#f1f2ee;border-color:#e3e5de;color:#a0a59b}
+
+.wallet-preflight{margin:1rem 0 1.25rem;padding:1rem 1.1rem;border:1px solid #dfe2d9;border-radius:12px;background:#f7f8f4}
+.wallet-preflight h3{margin:.35rem 0 .65rem;font-size:1.05rem;font-weight:650;color:#20231f}
+.wallet-preflight ul{margin:.5rem 0 .75rem;padding-left:1.2rem;color:#41463e;font-size:.88rem;line-height:1.55}
+.wallet-preflight li+li{margin-top:.35rem}
+.wallet-preflight .privacy-note{margin:.65rem 0 0}
