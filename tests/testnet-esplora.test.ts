@@ -47,7 +47,7 @@ describe("testnet Esplora address snapshot", () => {
       timestamp: 1_700_000_000,
     });
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls.every(([url]) => String(url).startsWith("https://blockstream.info/testnet/api/"))).toBe(true);
+    expect(fetchMock.mock.calls.every(([url]) => String(url).startsWith("/api/testnet/"))).toBe(true);
   });
 
   it("rejects non-testnet or malformed addresses before making requests", async () => {
