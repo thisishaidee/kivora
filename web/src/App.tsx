@@ -87,6 +87,10 @@ export default function App() {
   const [language, setLanguage] = useState<Language>("en");
   const [units, setUnits] = useState<UnitSystem>("metric");
   const [task, setTask] = useState("");
+  const [measurements, setMeasurements] = useState("");
+  const [materials, setMaterials] = useState("");
+  const [availableTools, setAvailableTools] = useState("");
+  const [constraints, setConstraints] = useState("");
   const [jurisdiction, setJurisdiction] = useState("");
   const [involvesEquipment, setInvolvesEquipment] = useState(false);
   const [equipmentMake, setEquipmentMake] = useState("");
@@ -267,6 +271,13 @@ export default function App() {
     const validLanguage = languageSchema.safeParse(language);
     const validUnits = unitSystemSchema.safeParse(units);
     const submittedTask = task.trim();
+    const knownFacts = [
+      measurements.trim() ? `Measurements: ${measurements.trim()}` : "",
+      materials.trim() ? `Materials: ${materials.trim()}` : "",
+      availableTools.trim() ? `Available tools: ${availableTools.trim()}` : "",
+      constraints.trim() ? `Constraints: ${constraints.trim()}` : "",
+    ].filter(Boolean);
+    const sessionDescription = [submittedTask, ...knownFacts].join("\\n\\n");
     if (!validTrade.success || !validLanguage.success || !validUnits.success || !submittedTask) {
       setNotice("Add a job description and check your preferences.");
       return;
@@ -282,15 +293,19 @@ export default function App() {
           trade: validTrade.data,
           language: validLanguage.data,
           units: validUnits.data,
-          task: submittedTask,
+          task: sessionDescription,
         }),
       });
       setTask("");
+      setMeasurements("");
+      setMaterials("");
+      setAvailableTools("");
+      setConstraints("");
       setActiveSession(result.session);
       setMessages([{
         id: "initial-task",
         role: "worker",
-        content: submittedTask,
+        content: sessionDescription,
         created_at: result.session.created_at,
       }]);
       await refreshSessions();
@@ -301,6 +316,7 @@ export default function App() {
             sessionId: result.session.id,
             trade: validTrade.data,
             task: submittedTask,
+            knownFacts,
             language: validLanguage.data,
             units: validUnits.data,
             jurisdiction: jurisdiction.trim() || undefined,
@@ -564,10 +580,31 @@ export default function App() {
                 <textarea value={task} onChange={(event) => setTask(event.target.value)} placeholder="What are you trying to do? What have you noticed? Include a product or model number if you have one." rows={5} />
               </label>
 
+              <div className="intake-context">
+                <p className="eyebrow">JOB CONTEXT · OPTIONAL BUT USEFUL</p>
+                <p className="privacy-note">A few practical details help KIVORA distinguish your actual job from a general question. Add only what you know; you can leave anything blank.</p>
+                <label className="field">
+                  <span>Measurements and dimensions</span>
+                  <textarea value={measurements} onChange={(event) => setMeasurements(event.target.value)} rows={2} maxLength={1200} placeholder="For example: opening width, depth, thickness, pipe diameter or observed readings. Include units." />
+                </label>
+                <label className="field">
+                  <span>Materials or components involved</span>
+                  <textarea value={materials} onChange={(event) => setMaterials(event.target.value)} rows={2} maxLength={1200} placeholder="For example: MDF, plywood, copper pipe, PVC fitting, hinge type or component label." />
+                </label>
+                <label className="field">
+                  <span>Tools and equipment available</span>
+                  <textarea value={availableTools} onChange={(event) => setAvailableTools(event.target.value)} rows={2} maxLength={1200} placeholder="What tools can you actually use for this job?" />
+                </label>
+                <label className="field">
+                  <span>Constraints or what you have already tried</span>
+                  <textarea value={constraints} onChange={(event) => setConstraints(event.target.value)} rows={2} maxLength={1200} placeholder="Access, time, space, budget, parts available, previous attempts or anything that limits the work." />
+                </label>
+              </div>
+
               <button className="submit-button" type="submit" disabled={busy || !task.trim()}>
                 {busy ? "Saving…" : "Save work session"} <span aria-hidden="true">↗</span>
               </button>
-              <p className="privacy-note">Your task is stored in your private workspace. Avoid passwords, access codes and customer personal details. AI guidance is not connected yet.</p>
+              <p className="privacy-note">Your task is stored in your private workspace. Avoid passwords, access codes and customer personal details. AI inference is currently disabled while the evidence and cost controls are being validated.</p>
             </form>
           </section>
 
