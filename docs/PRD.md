@@ -1,56 +1,53 @@
 # KIVORA Product Requirements
 
+> **Source of truth:** The current product definition, user journeys, screen map, launch priorities and product boundaries are maintained in [PRODUCT-BLUEPRINT.md](PRODUCT-BLUEPRINT.md). This PRD retains the underlying multi-trade, evidence, safety and validation requirements; where older job-first wording conflicts with the blueprint, the blueprint takes precedence.
+
 **Tagline:** Know what to do next.  
-**Category:** AI-powered practical intelligence for skilled workers.  
-**Status:** Working product specification; validation is ongoing.
+**Category:** AI-powered practical intelligence for skilled workers.
 
-## Problem
+## Product purpose
 
-Skilled workers encounter unfamiliar products, components, materials, techniques and faults. Finding information is only part of the challenge: workers need to know which information applies to their actual job, what context is missing, what risks matter and what can safely happen next.
+KIVORA helps skilled workers understand more, discover better ways of working, make informed decisions, develop their skills and solve unfamiliar practical problems. Workers can return to KIVORA even when they do not have an immediate job or fault to solve.
 
-## Product direction
-
-KIVORA helps workers move from uncertainty to informed action using practical context, technical evidence and trade-specific intelligence.
-
-It is not merely a repair chatbot, generic AI assistant, manual-search tool or one-trade app. It should understand the job, gather missing context, retrieve applicable technical evidence, assess requirements and risks, and provide understandable next steps with clear limitations.
+KIVORA Intelligence is the primary product. Consultation, research, reasoning and guidance work together in one experience. Discovery supports learning; professional identity helps personalize the product; community is secondary; wallet functionality is optional.
 
 ## Multi-trade scope
 
-KIVORA must support multiple skilled-worker fields from the outset:
-
+KIVORA supports multiple skilled-worker fields from the outset:
 1. Carpentry and furniture making
-2. Electrical work
-3. Plumbing
-4. HVAC and refrigeration
-5. Mechanical and equipment repair
-6. Construction and installation
+2. Upholstery and interior-related work
+3. Electrical work
+4. Plumbing
+5. HVAC and refrigeration
+6. Mechanical and equipment repair
+7. Construction and installation
 
-These are initial fields, not a permanent limit. Furniture and cabinet hardware may be one validation scenario, but must not define the product.
+A shared intelligence workflow must not imply shared technical conclusions. Each trade needs its own terminology, knowledge, standards, safety policies and verification requirements. A worker may have multiple trades.
 
-A shared intelligence workflow must not imply shared technical conclusions. Each trade needs its own terminology, knowledge, standards, safety policies and verification requirements.
+## Consultation and research
 
-## Core workflow
+Workers ask questions naturally. KIVORA determines whether a direct answer, source retrieval, deeper research, comparison or targeted clarification is appropriate. Users do not need to select a separate research mode.
 
-1. Understand the task and work situation.
-2. Classify the trade and task.
-3. Identify relevant products, components, materials or equipment.
-4. Ask targeted questions to gather missing context.
-5. Retrieve technical sources and relevant passages.
-6. Evaluate source reliability, recency, model match and applicability.
-7. Assess requirements, compatibility and risks.
-8. Apply the relevant trade-specific safety gate.
-9. Generate practical next steps and explain why they apply.
-10. Guide suitable checkpoints.
-11. Verify only what the available evidence can support.
-12. Capture outcomes separately from unverified hypotheses.
+The system should:
+- Understand the question and intended outcome.
+- Research manufacturer documentation and credible technical sources when useful.
+- Inspect source content, applicability, date and limitations.
+- Distinguish source-backed facts, worker observations, AI analysis/hypotheses and unknowns.
+- Present understandable explanations, useful comparisons and practical next steps.
+- Cite real sources and never fabricate references, specifications, prices or standards.
+- Support multiple independent conversations under one personal account; a conversation is not assumed to be a job or workspace.
+- Ask only for context necessary to answer accurately or safely.
 
-## Input requirements
+## Text, image and voice
 
-Text, voice and images should work together in one work session. Voice is a first-class requirement, not a separate intelligence path. Voice and text must share the same context, evidence and safety engine.
+Text and images are supported input directions. Voice is a first-class product requirement:
+- Spoken output for KIVORA responses, with play/pause/resume/replay and playback speed.
+- Voice input with a visible, editable transcript before processing.
+- Voice and text share the same context, evidence and safety pipeline.
+- Text remains available if speech services fail.
+- Speech providers must be benchmarked for technical terminology, Nigerian English and other target languages, latency, privacy and cost.
 
-Initial voice experience: push-to-talk, visible/editable transcripts and spoken responses. Continuous hands-free conversation and live camera assistance can follow after the core workflow is reliable. Text fallback is required when speech services fail or connectivity is poor.
-
-## Evidence and trust
+## Evidence and safety
 
 KIVORA must distinguish:
 - Manufacturer-confirmed facts and instructions.
@@ -58,47 +55,35 @@ KIVORA must distinguish:
 - Other credible technical references.
 - Worker-provided observations and measurements.
 - AI-generated hypotheses or interpretations.
+- Reviewed outcomes.
 
-Never fabricate sources, citations, product models, specifications, measurements or standards. A similar document is not proof that it applies to the identified model or job. User-submitted outcomes are not automatically authoritative; provenance and review are required before reuse as trusted knowledge.
+Never fabricate sources, citations, product models, specifications, measurements or standards. Similar-model documentation is a lead, not proof of exact applicability.
 
-## Safety
+High-risk areas include electrical systems, gas, pressurised equipment, heavy machinery, structural modifications, hazardous materials, vehicle safety and battery/power systems. Deterministic trade-specific safety controls must constrain generation and response validation. A disclaimer alone is not a safety system.
 
-High-risk areas include electrical systems, gas, pressurised equipment, heavy machinery, structural modifications, hazardous materials, vehicle safety and battery/power systems.
+## Professional identity and community
 
-The product must recognise hazards, ask relevant safety questions, avoid dangerous procedural guidance when context or qualification is insufficient, recommend qualified help when appropriate, and escalate when critical information is missing. Generic reasoning must never bypass trade-specific safety rules. A disclaimer alone is not a safety system.
+Professional profiles may include multiple trades, skills, interests, experience and voluntarily shared projects/contributions. Private consultations remain private by default.
 
-## Candidate MVP scenarios
+Community is a secondary feature for practical tips, projects, questions and discoveries. Community posts are user-generated and must not automatically become trusted technical evidence. Popularity is not proof of correctness.
 
-- **Carpentry:** identify an unfamiliar cabinet fitting, establish door/cabinet context, retrieve manufacturer installation information and compare it with the project.
-- **Plumbing:** assess an unfamiliar pipe connection, establish material, dimensions and pressure requirements, and ask for missing information before recommending a procedure.
-- **Electrical:** bounded, safe fault investigation and escalation without unsafe repair instructions.
-- **HVAC:** identify equipment and symptoms, retrieve applicable manufacturer information and suggest only permitted next diagnostic steps.
+## Wallet and payments
 
-Carpentry and plumbing are candidates for deeper end-to-end demonstrations. Electrical and HVAC should remain bounded by safety constraints. These scenarios do not narrow the product's multi-trade scope.
-
-## MVP acceptance criteria
-
-- Mobile-first text and image input; voice input/output in the planned initial experience.
-- Appropriate trade/task classification.
-- Targeted follow-up questions instead of guessing when critical information is missing.
-- Retrieval of a real technical source and relevant passage.
-- Clear explanation of source applicability or uncertainty.
-- Compatibility result of compatible, incompatible or undetermined.
-- Trade-specific safety controls and escalation.
-- Understandable next steps with supporting evidence.
-- Explicit confidence limits and honest verification.
-- Worker observations kept separate from verified technical knowledge.
-
-## Deferred
-
-Defer full-depth knowledge coverage for every trade, 3D reconstruction, live video co-pilot, compliance certification, expert marketplace, rewards/reputation systems, large knowledge graph infrastructure and broad multilingual rollout until core reliability is demonstrated.
-
-## Bitcoin and payments
-
-Bitcoin/Lightning integration is a hackathon-related requirement and optional supporting capability, not a prerequisite for ordinary AI use. Potential later uses include expert payments or rewards for reviewed contributions. No simulated balances or payment confirmations; entitlements must follow verified payment events. Wallet and payment design remain undecided.
+Bitcoin/Lightning is optional and never a prerequisite for account creation, consultation, discovery or community. Payment entitlements require independently verified backend events. No mainnet or real-fund functionality is enabled by this product definition.
 
 ## Validation
 
-Interview workers about actual recent jobs, not just whether they like the concept. Explore unfamiliar tasks, current workarounds, trusted sources, verification methods, time/material costs, frequency, AI trust, connectivity, language, device constraints and willingness to pay.
+Interview workers about actual recent tasks and learning behaviour. Test whether KIVORA helps with unfamiliar machines, materials, tools, techniques and practical problems. Evaluate source relevance, factual correctness, safety, usefulness, voice quality, latency, mobile usability, return use and cost per consultation.
 
-Current market research provides context but does not yet prove problem frequency or willingness to pay.
+## MVP acceptance principles
+
+- A visitor can understand KIVORA from a public homepage before signing up.
+- A signed-in user lands on Home without creating a workspace.
+- A user can start multiple independent consultations under one account.
+- The AI can answer directly or research when appropriate without a separate research mode.
+- Technical claims show real sources and limitations.
+- Clarification is progressive, not a compulsory job-intake form.
+- Results can be read and listened to.
+- Trade-specific safety controls remain active.
+- Wallet is not required for AI access.
+- Unimplemented capabilities are clearly labelled and never simulated as working.
