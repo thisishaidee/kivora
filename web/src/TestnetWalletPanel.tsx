@@ -177,8 +177,20 @@ export default function TestnetWalletPanel() {
       </p>
       {!address ? (
         <>
+          <div className="wallet-preflight">
+            <p className="eyebrow">BEFORE YOU CREATE A WALLET</p>
+            <h3>Protect your recovery phrase</h3>
+            <ul>
+              <li>KIVORA will generate a new 12-word recovery phrase on this device.</li>
+              <li>Write all 12 words down offline, in the exact order, and keep them private.</li>
+              <li>Anyone with the phrase can control this wallet. Never share it or save it in a screenshot.</li>
+              <li>If you lose the phrase, KIVORA cannot recover the wallet for you.</li>
+              <li>This is a Bitcoin testnet prototype. It cannot currently show a live balance or send Bitcoin.</li>
+            </ul>
+            <p className="privacy-note">Your phrase is shown once during setup. You will be asked to verify selected words before the wallet is ready.</p>
+          </div>
           <button className="submit-button" type="button" onClick={() => void createWallet()} disabled={busy}>
-            <span>{busy ? "Creating testnet wallet…" : "Create testnet wallet"}</span>
+            <span>{busy ? "Creating testnet wallet…" : "I understand — create testnet wallet"}</span>
             <span aria-hidden="true">↗</span>
           </button>
           <div className="backup-controls">
