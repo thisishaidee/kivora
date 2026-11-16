@@ -12,6 +12,7 @@ import {
   saveEncryptedChangeset,
 } from "./bdk-testnet-persistence";
 import { createRecoveryPhrase, recoveryPhraseToSeed } from "./bip39-recovery";
+import { fetchTestnetAddressSnapshot, formatSats, type AddressSnapshot } from "./testnet-esplora";
 
 async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Promise<void> {
   const staged = wallet.take_staged();
@@ -34,6 +35,9 @@ export default function TestnetWalletPanel() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [diagnostic, setDiagnostic] = useState("");
+  const [snapshot, setSnapshot] = useState<AddressSnapshot | null>(null);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncError, setSyncError] = useState("");
 
   const phraseWords = recoveryPhrase ? recoveryPhrase.split(" ") : [];
   const verificationPositions = [2, 7, 11];
@@ -44,6 +48,8 @@ export default function TestnetWalletPanel() {
     walletSeedRef.current?.fill(0);
     walletSeedRef.current = null;
     setAddress("");
+    setSnapshot(null);
+    setSyncError("");
   }
 
   useEffect(() => () => {
@@ -52,6 +58,23 @@ export default function TestnetWalletPanel() {
     walletSeedRef.current?.fill(0);
     walletSeedRef.current = null;
   }, []);
+
+  useEffect(() => {
+    if (!address || showPhrase) return;
+    const controller = new AbortController();
+    setSyncBusy(true);
+    setSyncError("");
+    void fetchTestnetAddressSnapshot(address, controller.signal)
+      .then((result) => setSnapshot(result))
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setSyncError(error instanceof Error ? error.message : "Could not load testnet address activity.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSyncBusy(false);
+      });
+    return () => controller.abort();
+  }, [address, showPhrase]);
 
   async function createWallet() {
     setBusy(true);
@@ -130,6 +153,20 @@ export default function TestnetWalletPanel() {
     } finally {
       seed?.fill(0);
       setBusy(false);
+    }
+  }
+
+  async function refreshAddressActivity() {
+    if (!address || syncBusy) return;
+    setSyncBusy(true);
+    setSyncError("");
+    try {
+      const result = await fetchTestnetAddressSnapshot(address);
+      setSnapshot(result);
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Could not load testnet address activity.");
+    } finally {
+      setSyncBusy(false);
     }
   }
 
@@ -235,9 +272,44 @@ export default function TestnetWalletPanel() {
           <p className="testnet-address">{address}</p>
           <div className="unit-options">
             <button className="unit-option selected" type="button" onClick={() => void copyAddress()}>Copy address</button>
-            <button className="unit-option" type="button" onClick={() => void discardWallet()} disabled={busy}>Discard wallet</button>
+            <button className="unit-option" type="button" onClick={() => void discardWallet()} disabled={busy || syncBusy}>Discard wallet</button>
           </div>
-          <p className="privacy-note">The BDK state is also encrypted in this browser. Browser storage is not a backup. This prototype still does not sync balances or send transactions. Do not send coins until clean-device recovery and QR interoperability have been verified.</p>
+          <div className="wallet-chain-panel">
+            <div className="wallet-chain-heading">
+              <div>
+                <p className="eyebrow">TESTNET ADDRESS BALANCE</p>
+                <h3>{snapshot ? `${formatSats(snapshot.totalSats)} sats` : "Balance not yet loaded"}</h3>
+              </div>
+              <span className="step-label">READ ONLY</span>
+            </div>
+            {snapshot && <div className="wallet-balance-breakdown">
+              <span>Confirmed <strong>{formatSats(snapshot.confirmedSats)} sats</strong></span>
+              <span>Unconfirmed <strong>{formatSats(snapshot.unconfirmedSats)} sats</strong></span>
+            </div>}
+            <button className="unit-option wallet-refresh" type="button" onClick={() => void refreshAddressActivity()} disabled={syncBusy}>
+              {syncBusy ? "Checking testnet…" : "Refresh balance & activity"}
+            </button>
+            {syncError && <p className="wallet-sync-error" role="alert">{syncError}</p>}
+            {snapshot && <p className="privacy-note">Updated {new Date(snapshot.fetchedAt).toLocaleTimeString()} · {snapshot.transactionCount} transactions reported for this address</p>}
+            <div className="wallet-activity">
+              <p className="eyebrow">RECENT ACTIVITY · THIS ADDRESS ONLY</p>
+              {!snapshot && syncBusy && <p className="privacy-note">Connecting to the Bitcoin testnet explorer…</p>}
+              {snapshot && snapshot.transactions.length === 0 && <p className="privacy-note">No transactions found for this receive address yet.</p>}
+              {snapshot?.transactions.map((tx) => <div className="wallet-transaction" key={tx.txid}>
+                <div className="wallet-transaction-main">
+                  <strong>{tx.direction === "incoming" ? "Received" : tx.direction === "outgoing" ? "Sent" : "Wallet activity"}</strong>
+                  <span>{tx.confirmed ? `${tx.confirmations} confirmations` : "Unconfirmed"}</span>
+                </div>
+                <div className="wallet-transaction-amount">
+                  <strong>{tx.netSats > 0 ? "+" : ""}{formatSats(tx.netSats)} sats</strong>
+                  <span>{tx.timestamp ? new Date(tx.timestamp * 1000).toLocaleString() : "Awaiting confirmation"}</span>
+                </div>
+                <a href={`https://blockstream.info/testnet/tx/${tx.txid}`} target="_blank" rel="noreferrer">View transaction</a>
+              </div>)}
+              {snapshot && snapshot.transactionCount > snapshot.transactions.length && <p className="privacy-note">Showing the latest {snapshot.transactions.length} transactions returned by the explorer. Older activity is not loaded yet.</p>}
+            </div>
+          </div>
+          <p className="privacy-note">This is a read-only balance and activity check for the displayed receive address, not a full scan of every address in the wallet. The BDK state remains encrypted in this browser. No seed or private key is sent to the explorer. Sending is not enabled.</p>
         </div>
       )}
       {status && <p className="notice" role="status">{status}</p>}
