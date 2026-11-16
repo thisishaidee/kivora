@@ -83,6 +83,7 @@ export default function App() {
   const [recoveryInput, setRecoveryInput] = useState("");
   const [recoverySaved, setRecoverySaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [investigationType, setInvestigationType] = useState<"job" | "machine" | "research">("job");
   const [trade, setTrade] = useState<Trade>("carpentry");
   const [language, setLanguage] = useState<Language>("en");
   const [units, setUnits] = useState<UnitSystem>("metric");
@@ -281,7 +282,9 @@ export default function App() {
       availableTools.trim() ? `Available tools: ${availableTools.trim()}` : "",
       constraints.trim() ? `Constraints: ${constraints.trim()}` : "",
     ].filter(Boolean);
-    const sessionDescription = [submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : "", involvesEquipment ? "Equipment details: make=" + (equipmentMake.trim() || "unknown") + "; model=" + (equipmentModel.trim() || "unknown") : ""].filter(Boolean).join("\n\n");
+    const equipmentInvolved = involvesEquipment || investigationType === "machine";
+    const investigationLabels = { job: "Work on a job", machine: "Understand a machine or product", research: "Explore a topic" };
+    const sessionDescription = ["Investigation: " + investigationLabels[investigationType], submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : "", equipmentInvolved ? "Equipment involved: yes" : ""].filter(Boolean).join("\n\n");
     if (!validTrade.success || !validLanguage.success || !validUnits.success || !submittedTask) {
       setNotice("Add a job description and check your preferences.");
       return;
@@ -324,9 +327,7 @@ export default function App() {
             language: validLanguage.data,
             units: validUnits.data,
             jurisdiction: jurisdiction.trim() || undefined,
-            involvesEquipment,
-            equipmentMake: equipmentMake.trim() || undefined,
-            equipmentModel: equipmentModel.trim() || undefined,
+            involvesEquipment: equipmentInvolved,
           }),
         });
         setAssessment(assistantResult.assessment);
@@ -394,9 +395,10 @@ export default function App() {
       const savedJurisdiction = savedContext.split("\n").find(line => line.startsWith("Work jurisdiction: "))?.slice("Work jurisdiction: ".length).trim();
       const equipmentLine = savedContext.split("\n").find(line => line.startsWith("Equipment details: "));
       const savedEquipment = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
+      const savedEquipmentFlag = savedContext.includes("Equipment involved: yes");
       const assistantResult = await api<{ assessment: IntelligenceAssessment; response: AssistantResponse }>("/api/assist", {
         method: "POST",
-        body: JSON.stringify({ sessionId: activeSession.id, trade: activeSession.trade, task: combinedTask, language: activeSession.language, units: activeSession.unit_system, jurisdiction: jurisdiction.trim() || savedJurisdiction || undefined, involvesEquipment: involvesEquipment || Boolean(savedEquipment), equipmentMake: equipmentMake.trim() || (savedEquipment?.[1].trim() !== "unknown" ? savedEquipment?.[1].trim() : undefined), equipmentModel: equipmentModel.trim() || (savedEquipment?.[2].trim() !== "unknown" ? savedEquipment?.[2].trim() : undefined) }),
+        body: JSON.stringify({ sessionId: activeSession.id, trade: activeSession.trade, task: combinedTask, language: activeSession.language, units: activeSession.unit_system, jurisdiction: jurisdiction.trim() || savedJurisdiction || undefined, involvesEquipment: involvesEquipment || savedEquipmentFlag || Boolean(savedEquipment), equipmentMake: equipmentMake.trim() || (savedEquipment?.[1].trim() !== "unknown" ? savedEquipment?.[1].trim() : undefined), equipmentModel: equipmentModel.trim() || (savedEquipment?.[2].trim() !== "unknown" ? savedEquipment?.[2].trim() : undefined) }),
       });
       const assistantText = [assistantResult.response.summary, ...assistantResult.response.blocks.map(block => block.content), ...assistantResult.response.questions].join("\n\n");
       const now = Math.floor(Date.now() / 1000);
@@ -420,11 +422,14 @@ export default function App() {
       setActiveSession(result.session);
       setMessages(result.messages);
       const firstWorkerMessage = result.messages.find(message => message.role === "worker")?.content ?? "";
+      const investigationLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Investigation: "));
+      const investigationValue = investigationLine?.slice("Investigation: ".length);
+      setInvestigationType(investigationValue === "Understand a machine or product" ? "machine" : investigationValue === "Explore a topic" ? "research" : "job");
       const jurisdictionLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Work jurisdiction: "));
       const equipmentLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Equipment details: "));
       const equipmentDetails = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
       setJurisdiction(jurisdictionLine?.slice("Work jurisdiction: ".length).trim() ?? "");
-      setInvolvesEquipment(Boolean(equipmentDetails));
+      setInvolvesEquipment(firstWorkerMessage.includes("Equipment involved: yes") || Boolean(equipmentDetails));
       setEquipmentMake(equipmentDetails?.[1].trim() !== "unknown" ? equipmentDetails?.[1].trim() ?? "" : "");
       setEquipmentModel(equipmentDetails?.[2].trim() !== "unknown" ? equipmentDetails?.[2].trim() ?? "" : "");
       setAssessment(null);
@@ -592,12 +597,17 @@ export default function App() {
             <div className="workspace-heading">
               <div>
                 <p className="eyebrow">WORKSPACE</p>
-                <h2 id="start-title">What are you working on?</h2>
+                <h2 id="start-title">What would you like to look into?</h2>
               </div>
               <span className="step-label">01 / START</span>
             </div>
 
             <form onSubmit={(event) => void handleSubmit(event)}>
+              <div className="investigation-picker" role="group" aria-label="Choose what you want to do">
+                <button type="button" className={investigationType === "job" ? "investigation-choice selected" : "investigation-choice"} onClick={() => setInvestigationType("job")}><strong>Work on a job</strong><span>Get help with a task or problem</span></button>
+                <button type="button" className={investigationType === "machine" ? "investigation-choice selected" : "investigation-choice"} onClick={() => { setInvestigationType("machine"); setInvolvesEquipment(true); }}><strong>Understand a machine</strong><span>Learn how equipment or a product works</span></button>
+                <button type="button" className={investigationType === "research" ? "investigation-choice selected" : "investigation-choice"} onClick={() => setInvestigationType("research")}><strong>Explore a topic</strong><span>Research a new idea or unfamiliar material</span></button>
+              </div>
               <div className="field-grid">
                 <label className="field">
                   <span>Your trade</span>
@@ -628,24 +638,12 @@ export default function App() {
 
               <label className="recovery-confirm">
                 <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
-                <span>This job involves a specific machine, appliance, tool or product</span>
+                <span>This also involves a machine, appliance, tool or product</span>
               </label>
-              {involvesEquipment && (
-                <div className="field-grid">
-                  <label className="field">
-                    <span>Manufacturer / make</span>
-                    <input value={equipmentMake} onChange={(event) => setEquipmentMake(event.target.value)} placeholder="Brand or manufacturer" />
-                  </label>
-                  <label className="field">
-                    <span>Exact model</span>
-                    <input value={equipmentModel} onChange={(event) => setEquipmentModel(event.target.value)} placeholder="Model number" />
-                  </label>
-                </div>
-              )}
 
               <label className="field task-field">
-                <span>Describe the job, product or problem</span>
-                <textarea value={task} onChange={(event) => setTask(event.target.value)} placeholder="What are you trying to do? What have you noticed? Include a product or model number if you have one." rows={5} maxLength={2000} />
+                <span>{investigationType === "machine" ? "What would you like to understand about it?" : investigationType === "research" ? "What would you like to explore?" : "Describe the job, product or problem"}</span>
+                <textarea value={task} onChange={(event) => setTask(event.target.value)} placeholder={investigationType === "machine" ? "Tell us what the machine or product is, what it does, what you want to learn or what seems unfamiliar. You can add its make or model later if you find it." : investigationType === "research" ? "Describe the material, component, technique, product or idea you want to understand." : "What are you trying to do? What have you noticed? Include any details you already know."} rows={5} maxLength={2000} />
               </label>
 
               <div className="intake-context">
@@ -670,7 +668,7 @@ export default function App() {
               </div>
 
               <button className="submit-button" type="submit" disabled={busy || !task.trim()}>
-                {busy ? "Saving…" : "Save work session"} <span aria-hidden="true">↗</span>
+                {busy ? "Saving…" : investigationType === "machine" ? "Start machine investigation" : investigationType === "research" ? "Start research" : "Start work session"} <span aria-hidden="true">↗</span>
               </button>
               <p className="privacy-note">Your task is stored in your private workspace. Avoid passwords, access codes and customer personal details. AI inference is currently disabled while the evidence and cost controls are being validated.</p>
             </form>
@@ -850,14 +848,14 @@ export default function App() {
             <div className="workspace-heading">
               <div>
                 <p className="eyebrow">YOUR PRIVATE HISTORY</p>
-                <h2>Work sessions</h2>
+                <h2>Your investigations</h2>
               </div>
               <button className="text-button" type="button" onClick={() => setShowArchived((value) => !value)}>
                 {showArchived ? "Hide archived" : "Show archived"}
               </button>
             </div>
             {visibleSessions.length === 0 ? (
-              <p className="privacy-note">Your saved work sessions will appear here.</p>
+              <p className="privacy-note">Each investigation is saved separately here. Start another one whenever you need to look into a different job, machine, product or idea. They all stay in this one private workspace.</p>
             ) : (
               <div className="session-list">
                 {visibleSessions.map((session) => (
@@ -880,7 +878,7 @@ export default function App() {
             <section className="workspace active-session">
               <div className="workspace-heading">
                 <div>
-                  <p className="eyebrow">SAVED WORK SESSION</p>
+                  <p className="eyebrow">SAVED INVESTIGATION</p>
                   <h2>{activeSession.title}</h2>
                 </div>
                 <button className="text-button" type="button" onClick={() => { setActiveSession(null); setMessages([]); }}>Close</button>
@@ -895,11 +893,11 @@ export default function App() {
               </div>
               <form onSubmit={(event) => void submitFollowUp(event)} className="follow-up-form">
                 <label className="field">
-                  <span>Continue this work session</span>
-                  <textarea value={followUpText} onChange={(event) => setFollowUpText(event.target.value)} rows={3} maxLength={2000} placeholder="Add a measurement, answer a question, describe what changed or explain what you tried next." />
+                  <span>Continue this investigation</span>
+                  <textarea value={followUpText} onChange={(event) => setFollowUpText(event.target.value)} rows={3} maxLength={2000} placeholder="Ask another question, add a measurement, describe what changed or explore another part of this subject." />
                 </label>
                 <button className="submit-button" type="submit" disabled={busy || !followUpText.trim()}>
-                  {busy ? "Checking…" : "Send update"} <span aria-hidden="true">↗</span>
+                  {busy ? "Checking…" : "Continue investigation"} <span aria-hidden="true">↗</span>
                 </button>
               </form>
               <p className="privacy-note">Your latest worker updates are checked together with the work-session context. Missing reviewed evidence still prevents unsupported technical procedures.</p>
