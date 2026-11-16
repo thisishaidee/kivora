@@ -99,7 +99,7 @@ export async function fetchTestnetAddressSnapshot(
   address: string,
   signal?: AbortSignal,
 ): Promise<AddressSnapshot> {
-  if (!/^tb1[02-9ac-hj-np-z]{20,}$/i.test(address)) {
+  if (!/^tb1[02-9a-hj-np-z]{20,87}$/i.test(address)) {
     throw new Error("This is not a supported Bitcoin testnet SegWit receive address.");
   }
   const encoded = encodeURIComponent(address);
