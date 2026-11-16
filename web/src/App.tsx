@@ -389,7 +389,8 @@ export default function App() {
     setAssistantResponse(null);
     try {
       await api("/api/work-sessions/" + activeSession.id + "/messages", { method: "POST", body: JSON.stringify({ content: message }) });
-      const priorWorkerContext = messages.filter(item => item.role === "worker").slice(-5).map(item => item.content);
+      const workerMessages = messages.filter(item => item.role === "worker").map(item => item.content);
+      const priorWorkerContext = workerMessages.length > 5 ? [workerMessages[0], ...workerMessages.slice(-4)] : workerMessages;
       const savedContext = priorWorkerContext.join("\n");
       const combinedTask = [...priorWorkerContext, message].join("\n\n").slice(-3900);
       const savedJurisdiction = savedContext.split("\n").find(line => line.startsWith("Work jurisdiction: "))?.slice("Work jurisdiction: ".length).trim();
@@ -558,11 +559,11 @@ export default function App() {
       {identityState === "recovery" && (
         <section className="workspace identity-card">
           <p className="eyebrow">RESTORE ACCESS</p>
-          <h2>Enter your recovery code.</h2>
+          <h2>Restore your workspace.</h2>
           <form onSubmit={(event) => void restoreIdentity(event)}>
             <label className="field">
-              <span>64-character recovery code</span>
-              <textarea value={recoveryInput} onChange={(event) => setRecoveryInput(event.target.value)} rows={3} autoComplete="off" spellCheck={false} placeholder="Paste your saved recovery code" />
+              <span>Workspace recovery key</span>
+              <input value={recoveryInput} onChange={(event) => setRecoveryInput(event.target.value)} autoComplete="off" spellCheck={false} placeholder="Paste your saved recovery key" />
             </label>
             <button className="submit-button" type="submit" disabled={busy || !recoveryInput.trim()}>
               {busy ? "Restoring…" : "Restore workspace"} <span aria-hidden="true">↗</span>
@@ -577,12 +578,12 @@ export default function App() {
         <section className="workspace identity-card">
           <p className="eyebrow">SAVE THIS ONCE</p>
           <h2>Your recovery code.</h2>
-          <p className="wallet-copy">This is the only way to restore this anonymous workspace on another device. KIVORA stores only a hash. If you lose this code and your current browser session, your workspace cannot be recovered.</p>
-          <div className="recovery-code">{recoveryCode}</div>
-          <button className="unit-option selected" type="button" onClick={() => void copyRecoveryCode()}>{copied ? "Copied" : "Copy recovery code"}</button>
+          <p className="wallet-copy">Save this key somewhere private, such as a password manager or a secure note. You can use it to get back into this same workspace if you change phones or lose access to this browser. KIVORA cannot see or recreate it. Anyone with the key may be able to access your workspace, so do not share it.</p>
+          <div className="recovery-code">{recoveryCode.match(/.{1,8}/g)?.join(" ") ?? recoveryCode}</div>
+          <button className="unit-option selected" type="button" onClick={() => void copyRecoveryCode()}>{copied ? "Copied" : "Copy recovery key"}</button>
           <label className="recovery-confirm">
             <input type="checkbox" checked={recoverySaved} onChange={(event) => setRecoverySaved(event.target.checked)} />
-            <span>I have saved this code somewhere private and can retrieve it later.</span>
+            <span>I have saved this key somewhere private and can retrieve it later.</span>
           </label>
           <button className="submit-button" type="button" onClick={() => void finishRecoverySetup()} disabled={!recoverySaved}>
             Continue to workspace <span aria-hidden="true">↗</span>
@@ -605,12 +606,12 @@ export default function App() {
             <form onSubmit={(event) => void handleSubmit(event)}>
               <div className="investigation-picker" role="group" aria-label="Choose what you want to do">
                 <button type="button" className={investigationType === "job" ? "investigation-choice selected" : "investigation-choice"} onClick={() => setInvestigationType("job")}><strong>Work on a job</strong><span>Get help with a task or problem</span></button>
-                <button type="button" className={investigationType === "machine" ? "investigation-choice selected" : "investigation-choice"} onClick={() => { setInvestigationType("machine"); setInvolvesEquipment(true); }}><strong>Understand a machine</strong><span>Learn how equipment or a product works</span></button>
-                <button type="button" className={investigationType === "research" ? "investigation-choice selected" : "investigation-choice"} onClick={() => setInvestigationType("research")}><strong>Explore a topic</strong><span>Research a new idea or unfamiliar material</span></button>
+                <button type="button" className={investigationType === "machine" ? "investigation-choice selected" : "investigation-choice"} onClick={() => { setInvestigationType("machine"); setTrade("unsure"); setInvolvesEquipment(true); }}><strong>Understand a machine</strong><span>Learn how equipment or a product works</span></button>
+                <button type="button" className={investigationType === "research" ? "investigation-choice selected" : "investigation-choice"} onClick={() => { setInvestigationType("research"); setTrade("unsure"); }}><strong>Explore a topic</strong><span>Research a new idea or unfamiliar material</span></button>
               </div>
               <div className="field-grid">
                 <label className="field">
-                  <span>Your trade</span>
+                  <span>Trade or area (if known)</span>
                   <select value={trade} onChange={(event) => setTrade(event.target.value as Trade)}>
                     {trades.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                   </select>
