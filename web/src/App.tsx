@@ -394,6 +394,14 @@ export default function App() {
       const result = await api<{ session: WorkSession; messages: WorkMessage[] }>(`/api/work-sessions/${id}`);
       setActiveSession(result.session);
       setMessages(result.messages);
+      const firstWorkerMessage = result.messages.find(message => message.role === "worker")?.content ?? "";
+      const jurisdictionLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Work jurisdiction: "));
+      const equipmentLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Equipment details: "));
+      const equipmentDetails = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
+      setJurisdiction(jurisdictionLine?.slice("Work jurisdiction: ".length).trim() ?? "");
+      setInvolvesEquipment(Boolean(equipmentDetails));
+      setEquipmentMake(equipmentDetails?.[1].trim() !== "unknown" ? equipmentDetails?.[1].trim() ?? "" : "");
+      setEquipmentModel(equipmentDetails?.[2].trim() !== "unknown" ? equipmentDetails?.[2].trim() ?? "" : "");
       setAssessment(null);
       setAssistantResponse(null);
     } catch {
