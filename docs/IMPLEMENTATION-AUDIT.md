@@ -77,3 +77,17 @@ The immediate correction is product architecture and UX: account-based access, p
 ## Confidence and limits
 
 This audit is grounded in the current main-branch README/PRD/architecture/decision/implementation documents and descriptions/files of open PRs #22, #27–#31. It does not certify production behaviour, deployed database state, provider billing, or every branch's latest code. Re-run CI and Android end-to-end checks on the exact branch head before release decisions.
+
+
+## Direct code inspection — consultation UI branch
+
+The application source in `feat/multi-investigation-workspace` was inspected directly (`web/src/App.tsx`, 50,280 characters; `web/src/styles.css`, 10,625 characters):
+
+- The identity state machine is `checking | welcome | recovery | recovery-code | ready`. The first interaction creates an anonymous worker identity and recovery code rather than a verified email/phone account.
+- The ready state renders a section labelled **WORKSPACE** and asks "What would you like to look into?" with three options: work on a job, understand a machine/product, explore a topic.
+- Although the choices broaden the entry point, the submit handler still requires a task description and valid trade/language/unit preferences. It creates a work session and encodes the selected type as an investigation. Thus the UI remains a structured intake flow rather than a free-form consultation-first experience.
+- The response presentation includes **INITIAL WORK ASSESSMENT** and **KIVORA RESPONSE**. The response schema is oriented around clarify/escalate/guided/unavailable, compatibility status, safety level, blocks and citations. This is useful safety/evidence scaffolding, but it is not yet a general research agent or a full consultation UX.
+- The inspected application component contains no voice/audio playback or speech input implementation.
+- The inspected stylesheet uses DM Sans, DM Mono and Playfair Display from Google Fonts and a restrained warm-neutral palette. The existing visual direction can be evaluated and selectively retained; it should not dictate the new information architecture.
+
+The code inspection confirms the key product mismatch: changing the three entry labels did not remove the underlying required work-intake model. The redesign must start from an open consultation composer and only request trade/task details progressively when they matter.
