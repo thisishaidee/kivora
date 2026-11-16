@@ -637,10 +637,12 @@ export default function App() {
                 <input value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} placeholder="Country or jurisdiction (for example, Nigeria)" />
               </label>
 
-              <label className="recovery-confirm">
-                <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
-                <span>This also involves a machine, appliance, tool or product</span>
-              </label>
+              {investigationType !== "machine" && (
+                <label className="recovery-confirm">
+                  <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
+                  <span>This also involves a machine, appliance, tool or product</span>
+                </label>
+              )}
 
               <label className="field task-field">
                 <span>{investigationType === "machine" ? "What would you like to understand about it?" : investigationType === "research" ? "What would you like to explore?" : "Describe the job, product or problem"}</span>
