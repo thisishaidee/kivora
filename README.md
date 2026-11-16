@@ -4,39 +4,43 @@
 
 KIVORA is an AI-powered practical intelligence platform for skilled workers. It helps workers understand unfamiliar products, materials, components, equipment and techniques; investigate practical problems; and make better technical decisions using relevant evidence, practical context and trade-specific intelligence.
 
-## Product principle
+## Product direction
 
-KIVORA helps skilled workers move from uncertainty to informed action. It should establish what the worker is trying to do, identify what is known and missing, find applicable technical evidence, account for trade-specific safety requirements, and explain suitable next steps.
+The canonical, current product direction is documented in:
+- [KIVORA Product Blueprint](docs/PRODUCT-BLUEPRINT.md)
+- [Existing Implementation Audit](docs/IMPLEMENTATION-AUDIT.md)
 
-KIVORA is not a generic repair chatbot, a manual-search wrapper, or a single-trade assistant.
+KIVORA is a place skilled workers can return to for consultation, research, learning and practical discovery, even when they do not have an immediate job to solve. KIVORA Intelligence is the primary product. Research is integrated into consultation when useful, and results should be available as readable text and spoken audio.
+
+The product starts with a public homepage and personal accounts, not workspace creation. Discovery supports the core intelligence experience. Community is secondary. Wallet access is optional and never required for ordinary AI use.
 
 ## Multi-trade scope
 
-The platform is designed for multiple skilled trades from the outset:
+The platform is designed for multiple skilled-worker fields from the outset:
 
 - Carpentry and furniture making
+- Upholstery and interior-related work
 - Electrical work
 - Plumbing
 - HVAC and refrigeration
 - Mechanical and equipment repair
 - Construction and installation
 
-These are initial fields, not a limit on future expansion. One shared workflow and intelligence foundation must use separate trade-specific technical knowledge, standards, terminology and safety policies.
+These are initial fields, not a limit on future expansion. One shared intelligence foundation must use separate trade-specific technical knowledge, standards, terminology and safety policies.
 
 ## Product principles
 
-1. **Context before conclusions.** Ask for critical missing details instead of guessing.
+1. **Useful before elaborate.** Let workers ask naturally; do not force a job form or workspace before they can get help.
 2. **Evidence before confidence.** Prefer applicable manufacturer information and credible technical sources; show provenance and limitations.
 3. **Safety is part of reasoning.** Trade-specific safety controls must constrain guidance.
 4. **Uncertainty must be visible.** Distinguish confirmed facts, observations, hypotheses and unknowns.
 5. **Verification must be honest.** Never claim a result is verified beyond the evidence available.
 6. **Accessible by design.** Prioritise mobile workflows, voice and text, with graceful fallbacks for unreliable connectivity.
-7. **Wallet-optional core access.** Bitcoin/Lightning is required for the current hackathon submission, but ordinary worker access to KIVORA must not require a wallet.
+7. **Wallet-optional core access.** Bitcoin/Lightning must never be required for ordinary worker access to KIVORA.
 
 ## Bitcoin Wallet
 
-The Bitcoin Wallet is a general-purpose, wallet-optional product direction. Its full requirements, non-custodial technical architecture and staged delivery plan are documented here:
-
+The Bitcoin Wallet is an optional, separately staged product capability. Its requirements and security boundaries are documented in:
 - [Wallet requirements](docs/WALLET-REQUIREMENTS.md)
 - [Wallet architecture](docs/WALLET-ARCHITECTURE.md)
 - [Wallet delivery roadmap](docs/WALLET-ROADMAP.md)
@@ -46,6 +50,8 @@ These documents do not enable mainnet or real-fund functionality. Testnet intero
 
 ## Project documents
 
+- [Product blueprint](docs/PRODUCT-BLUEPRINT.md)
+- [Implementation audit](docs/IMPLEMENTATION-AUDIT.md)
 - [Product requirements](docs/PRD.md)
 - [Architecture proposal](docs/ARCHITECTURE.md)
 - [Decision log](docs/DECISIONS.md)
@@ -57,7 +63,9 @@ These documents do not enable mainnet or real-fund functionality. Testnet intero
 
 ## Current implementation
 
-The repository now contains a mobile-first React/Vite interface, shared TypeScript/Zod contracts, a Cloudflare Worker health route, shell-only service-worker caching, and initial automated tests. It is a development foundation, not yet a functioning AI assistant or production service.
+The repository contains a mobile-first React/Vite application, shared TypeScript/Zod contracts, Cloudflare Worker/Pages functionality, private session foundations and automated tests. The implementation audit describes what is implemented, what remains unverified and what needs redesign.
+
+It is a development foundation, not yet a functioning end-to-end research-capable AI product. Do not imply that AI inference, reviewed evidence retrieval, voice services, or account authentication are working until implemented and tested.
 
 ### Local development
 
@@ -71,10 +79,6 @@ Requires Node.js 22 or newer.
     npm run typecheck
     npm run test
     npm run build
-
-## Current limitations
-
-Worker identity and private work-session endpoints are implemented on the current feature branch and the D1 schema is provisioned in Cloudflare. The branch still needs CI, Worker deployment and end-to-end browser verification. AI providers, evidence retrieval, image understanding, voice input/output, compatibility assessment and trade-specific safety enforcement are not yet implemented. The optional NWC wallet integration is being developed separately. See the implementation plan for the sequence and deployment gates.
 
 ## Security
 
