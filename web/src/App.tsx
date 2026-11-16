@@ -110,6 +110,7 @@ export default function App() {
   const [evidenceSection, setEvidenceSection] = useState("");
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [messages, setMessages] = useState<WorkMessage[]>([]);
+  const [followUpText, setFollowUpText] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -353,6 +354,35 @@ export default function App() {
     }
   }
 
+  async function submitFollowUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeSession || !followUpText.trim()) return;
+    const message = followUpText.trim();
+    setBusy(true);
+    setNotice("");
+    setAssessment(null);
+    setAssistantResponse(null);
+    try {
+      await api("/api/work-sessions/" + activeSession.id + "/messages", { method: "POST", body: JSON.stringify({ content: message }) });
+      const priorWorkerContext = messages.filter(item => item.role === "worker").slice(-5).map(item => item.content);
+      const combinedTask = [...priorWorkerContext, message].join("\n\n").slice(-3900);
+      const assistantResult = await api<{ assessment: IntelligenceAssessment; response: AssistantResponse }>("/api/assist", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: activeSession.id, trade: activeSession.trade, task: combinedTask, language: activeSession.language, units: activeSession.unit_system, jurisdiction: jurisdiction.trim() || undefined, involvesEquipment, equipmentMake: equipmentMake.trim() || undefined, equipmentModel: equipmentModel.trim() || undefined }),
+      });
+      const assistantText = [assistantResult.response.summary, ...assistantResult.response.blocks.map(block => block.content), ...assistantResult.response.questions].join("\n\n");
+      const now = Math.floor(Date.now() / 1000);
+      setMessages(previous => [...previous, { id: "worker-" + now, role: "worker", content: message, created_at: now }, { id: "assistant-" + now, role: "assistant", content: assistantText, created_at: now }]);
+      setFollowUpText("");
+      setAssessment(assistantResult.assessment);
+      setAssistantResponse(assistantResult.response);
+      await refreshSessions();
+      setNotice(assistantResult.response.status === "guided" ? "KIVORA checked your update against reviewed evidence." : assistantResult.response.status === "unavailable" ? "Your update is saved. AI inference is currently disabled; no technical procedure was generated." : "Your update is saved. Review the latest assessment and requested details before acting.");
+    } catch {
+      setNotice("Your update could not be fully processed. Check the saved work session before retrying.");
+      try { const result = await api<{ session: WorkSession; messages: WorkMessage[] }>("/api/work-sessions/" + activeSession.id); setMessages(result.messages); } catch { /* Keep current local history visible. */ }
+    } finally { setBusy(false); }
+  }
   async function openSession(id: string) {
     setBusy(true);
     setNotice("");
@@ -801,7 +831,16 @@ export default function App() {
                   </article>
                 ))}
               </div>
-              <p className="privacy-note">This is your saved task history. KIVORA's evidence-backed AI response workflow is still being built.</p>
+              <form onSubmit={(event) => void submitFollowUp(event)} className="follow-up-form">
+                <label className="field">
+                  <span>Continue this work session</span>
+                  <textarea value={followUpText} onChange={(event) => setFollowUpText(event.target.value)} rows={3} maxLength={2000} placeholder="Add a measurement, answer a question, describe what changed or explain what you tried next." />
+                </label>
+                <button className="submit-button" type="submit" disabled={busy || !followUpText.trim()}>
+                  {busy ? "Checking…" : "Send update"} <span aria-hidden="true">↗</span>
+                </button>
+              </form>
+              <p className="privacy-note">Your latest worker updates are checked together with the work-session context. Missing reviewed evidence still prevents unsupported technical procedures.</p>
             </section>
           )}
 
