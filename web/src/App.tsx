@@ -545,12 +545,12 @@ export default function App() {
         <section className="workspace identity-card">
           <p className="eyebrow">PRIVATE BY DEFAULT</p>
           <h2>Start your own workspace.</h2>
-          <p className="intro compact-intro">Your work sessions belong to you. Create an anonymous worker identity or restore one with its recovery code. No email or wallet is required.</p>
+          <p className="intro compact-intro">Your work stays in one private workspace. You can start a new investigation whenever you need one. No email, Bitcoin wallet or Web3 knowledge is required. On this device, KIVORA can keep you signed in; use your recovery key if you need to return from another device or browser.</p>
           <button className="submit-button" type="button" onClick={() => void createIdentity()} disabled={busy}>
-            {busy ? "Creating…" : "Create private workspace"} <span aria-hidden="true">↗</span>
+            {busy ? "Creating…" : "Create my workspace"} <span aria-hidden="true">↗</span>
           </button>
           <button className="secondary-action" type="button" onClick={() => { setIdentityState("recovery"); setNotice(""); }}>
-            Restore an existing workspace
+            I already have a workspace
           </button>
           {notice && <p className="notice" role="status">{notice}</p>}
         </section>
