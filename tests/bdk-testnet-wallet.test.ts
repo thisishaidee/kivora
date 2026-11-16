@@ -6,6 +6,10 @@ describe("BDK testnet seed boundary", () => {
     expect(() => validateTestnetSeed(new Uint8Array(32))).not.toThrow();
   });
 
+  it("accepts the 64-byte seed produced by BIP39", () => {
+    expect(() => validateTestnetSeed(new Uint8Array(64))).not.toThrow();
+  });
+
   it("rejects seeds shorter than 16 bytes", () => {
     expect(() => validateTestnetSeed(new Uint8Array(15))).toThrow("between 16 and 64 bytes");
   });

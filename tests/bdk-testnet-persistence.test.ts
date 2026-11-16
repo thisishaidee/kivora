@@ -21,6 +21,12 @@ describe("encrypted BDK changeset payload", () => {
     await expect(decryptChangesetPayload(ciphertext, seed, salt, iv, 1)).resolves.toBe(payload);
   });
 
+  it("supports a 64-byte BIP39-derived seed", async () => {
+    const bip39Seed = new Uint8Array(64).fill(23);
+    const ciphertext = await encryptChangesetPayload("BIP39 wallet metadata", bip39Seed, salt, iv, 1);
+    await expect(decryptChangesetPayload(ciphertext, bip39Seed, salt, iv, 1)).resolves.toBe("BIP39 wallet metadata");
+  });
+
   it("rejects a different seed", async () => {
     const ciphertext = await encryptChangesetPayload("private wallet metadata", seed, salt, iv, 1);
     const wrongSeed = new Uint8Array(32).fill(18);
@@ -39,7 +45,7 @@ describe("encrypted BDK changeset payload", () => {
     await expect(decryptChangesetPayload(ciphertext, seed, salt, iv, 2)).rejects.toThrow();
   });
 
-  it("rejects seeds that are not exactly 32 bytes", async () => {
+  it("rejects unsupported seed lengths", async () => {
     await expect(
       encryptChangesetPayload("state", new Uint8Array(31), salt, iv, 1),
     ).rejects.toThrow("seed is invalid");

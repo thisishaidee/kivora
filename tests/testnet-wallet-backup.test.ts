@@ -7,6 +7,7 @@ import {
 
 const password = "correct horse battery staple";
 const seed = Uint8Array.from({ length: 32 }, (_, index) => index + 1);
+const bip39Seed = Uint8Array.from({ length: 64 }, (_, index) => index + 1);
 const changeset = JSON.stringify({
   network: "testnet",
   descriptors: { external: "wpkh([abcd/84'/1'/0']xpub.../0/*)" },
@@ -39,6 +40,14 @@ describe("encrypted testnet wallet backup", () => {
     expect(restored.changesetJson).toBe(changeset);
   });
 
+  it("round-trips a 64-byte BIP39-derived seed in a v2 backup", async () => {
+    const backup = await encryptTestnetWalletBackupV2(bip39Seed, changeset, password);
+    const restored = await decryptTestnetWalletBackup(backup, password);
+    expect(restored.version).toBe(2);
+    expect(restored.seed).toHaveLength(64);
+    expect(Array.from(restored.seed)).toEqual(Array.from(bip39Seed));
+  });
+
   it("uses a fresh salt and IV for each v2 backup", async () => {
     const first = JSON.parse(await encryptTestnetWalletBackupV2(seed, changeset, password));
     const second = JSON.parse(await encryptTestnetWalletBackupV2(seed, changeset, password));
@@ -65,9 +74,9 @@ describe("encrypted testnet wallet backup", () => {
     await expect(decryptTestnetWalletBackup(JSON.stringify(backup), password)).rejects.toThrow("descriptor policy or BDK version");
   });
 
-  it("rejects weak passwords, non-32-byte seeds and invalid changesets", async () => {
+  it("rejects weak passwords, unsupported seed lengths and invalid changesets", async () => {
     await expect(encryptTestnetWalletBackup(seed, "short")).rejects.toThrow("at least 12");
-    await expect(encryptTestnetWalletBackupV2(new Uint8Array(16), changeset, password)).rejects.toThrow("32-byte");
+    await expect(encryptTestnetWalletBackupV2(new Uint8Array(16), changeset, password)).rejects.toThrow("supported 32-byte legacy or 64-byte BIP39-derived");
     await expect(encryptTestnetWalletBackupV2(seed, "not json", password)).rejects.toThrow("not valid JSON");
   });
 });

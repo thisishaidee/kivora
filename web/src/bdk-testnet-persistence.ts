@@ -53,7 +53,7 @@ function additionalData(revision: number): Uint8Array {
 }
 
 async function deriveStorageKey(seed: Uint8Array, salt: Uint8Array, cryptoApi: Crypto): Promise<CryptoKey> {
-  if (seed.length !== 32) throw new Error("The wallet seed is invalid.");
+  if (seed.length !== 32 && seed.length !== 64) throw new Error("The wallet seed is invalid.");
   const material = await cryptoApi.subtle.importKey("raw", seed, "HKDF", false, ["deriveKey"]);
   return cryptoApi.subtle.deriveKey(
     {
@@ -166,7 +166,7 @@ export async function saveEncryptedChangeset(deltaJson: string, seed: Uint8Array
   if (typeof indexedDB === "undefined" || typeof crypto === "undefined" || !crypto.subtle) {
     throw new Error("This browser does not support encrypted local wallet persistence.");
   }
-  if (seed.length !== 32 || !deltaJson.trim()) throw new Error("Wallet state or seed is invalid.");
+  if ((seed.length !== 32 && seed.length !== 64) || !deltaJson.trim()) throw new Error("Wallet state or seed is invalid.");
 
   const { ChangeSet } = await import("@bitcoindevkit/bdk-wallet-web");
   const db = await openDatabase();
