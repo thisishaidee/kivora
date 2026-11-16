@@ -1,4 +1,4 @@
-export const TESTNET_ESPLORA_API = "https://blockstream.info/testnet/api";
+export const TESTNET_ESPLORA_API = "/api/testnet";
 
 export interface EsploraAddressStats {
   funded_txo_sum: number;
