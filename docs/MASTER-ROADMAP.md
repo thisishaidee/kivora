@@ -31,9 +31,9 @@ Execution sequence:
 8. **Field validation** — test representative jobs across all six trades and measure usefulness, unsupported claims, safety outcomes and time-to-next-step.
 
 Immediate implementation work:
-- Complete and verify structured context intake and follow-up turns (PR #30).
+- Complete and verify structured context intake, follow-up turns and worker observations (PR #30; CI and preview build passed; Android validation pending).
 - Audit how follow-up context is preserved and reloaded across devices.
-- Design an explicit response-to-verification interaction; do not imply task completion merely because a response was generated.
+- Response-to-verification interaction is implemented in PR #30 for evidence-grounded responses; Android validation and evidence-backed response availability remain pending.
 - Establish the reviewed evidence ingestion and approval workflow before expecting routine guided answers.
 - Keep AI inference disabled until the account billing boundary and actual free/paid usage controls are verified and explicitly authorised.
 
@@ -120,7 +120,7 @@ A Cloudflare build passing npm run build verifies the configured TypeScript/buil
 | Private worker identity and work sessions | Implemented on main | Continue workflow validation |
 | Deterministic multi-trade triage | Implemented on main | Expand scenario tests |
 | Grounded assistant endpoint | Implemented; inference disabled | Reviewed corpus and billing approval |
-| Structured intake and follow-up turns | PR #30, preview build in progress | Latest preview build, CI tests and Android validation |
+| Structured intake, follow-up turns and worker observations | PR #30; CI passed (93 tests) and preview deployed | Android workflow validation; then merge |
 | Product/business blueprint | PR #29 | Align with PRD and implementation |
 | Lightning wallet | PR #22 | Android NWC interoperability |
 | BDK testnet wallet | PR #27 | Dependency integration and recovery review |
