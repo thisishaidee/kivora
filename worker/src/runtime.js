@@ -8,7 +8,7 @@
  */
 /** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
-/** @typedef {{ put(key: string, value: ReadableStream<Uint8Array>, options?: Record<string, unknown>): Promise<unknown>, get(key: string): Promise<{ body: ReadableStream<Uint8Array>, httpMetadata?: { contentType?: string } } | null>, delete(keys: string | string[]): Promise<void> }} R2Bucket */
+/** @typedef {{ put(key: string, value: ReadableStream<Uint8Array>, options?: Record<string, unknown>): Promise<unknown>, get(key: string, options?: { range?: { offset: number, length?: number } }): Promise<{ body: ReadableStream<Uint8Array>, size: number, httpMetadata?: { contentType?: string } } | null>, delete(keys: string | string[]): Promise<void> }} R2Bucket */
 /** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> } }} Env */
 
 import { assessWorkRequest, parseWorkRequest } from "../../shared/src/intelligence-runtime.js";
@@ -659,16 +659,55 @@ const handleApi = async (request, env, url) => {
       if (!env.MEDIA_BUCKET || !["uploaded", "ready", "processing"].includes(String(media.status))) {
         return json({ error: "media_not_available" }, 404);
       }
+      const rangeHeader = request.headers.get("range");
       const object = await env.MEDIA_BUCKET.get(String(media.object_key));
       if (!object) return json({ error: "media_not_found" }, 404);
+      const totalSize = Number(object.size);
+      const headers = {
+        "content-type": String(media.mime_type),
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+        "content-disposition": "inline",
+        "referrer-policy": "no-referrer",
+        "accept-ranges": "bytes",
+      };
+      if (rangeHeader) {
+        const match = /^bytes=(\\d*)-(\\d*)$/.exec(rangeHeader.trim());
+        if (!match || (!match[1] && !match[2]) || !Number.isSafeInteger(totalSize) || totalSize <= 0) {
+          return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${totalSize}` } });
+        }
+        let offset;
+        let length;
+        if (!match[1]) {
+          const suffixLength = Number(match[2]);
+          if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) {
+            return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${totalSize}` } });
+          }
+          length = Math.min(suffixLength, totalSize);
+          offset = totalSize - length;
+        } else {
+          offset = Number(match[1]);
+          const requestedEnd = match[2] ? Number(match[2]) : totalSize - 1;
+          if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(requestedEnd) || offset >= totalSize || requestedEnd < offset) {
+            return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${totalSize}` } });
+          }
+          const end = Math.min(requestedEnd, totalSize - 1);
+          length = end - offset + 1;
+        }
+        const rangedObject = await env.MEDIA_BUCKET.get(String(media.object_key), { range: { offset, length } });
+        if (!rangedObject) return json({ error: "media_not_found" }, 404);
+        const end = offset + length - 1;
+        return new Response(rangedObject.body, {
+          status: 206,
+          headers: {
+            ...headers,
+            "content-length": String(length),
+            "content-range": `bytes ${offset}-${end}/${totalSize}`,
+          },
+        });
+      }
       return new Response(object.body, {
-        headers: {
-          "content-type": String(media.mime_type),
-          "cache-control": "private, no-store",
-          "x-content-type-options": "nosniff",
-          "content-disposition": "inline",
-          "referrer-policy": "no-referrer",
-        },
+        headers: { ...headers, "content-length": String(totalSize) },
       });
     }
     if (method === "DELETE") {
