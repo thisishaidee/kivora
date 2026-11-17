@@ -282,8 +282,7 @@ export default function App() {
       availableTools.trim() ? `Available tools: ${availableTools.trim()}` : "",
       constraints.trim() ? `Constraints: ${constraints.trim()}` : "",
     ].filter(Boolean);
-    const equipmentInvolved = involvesEquipment;
-    const sessionDescription = ["Question: " + submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : "", equipmentInvolved ? "Equipment involved: yes" : "", equipmentInvolved && (equipmentMake.trim() || equipmentModel.trim()) ? "Equipment details: make=" + (equipmentMake.trim() || "unknown") + "; model=" + (equipmentModel.trim() || "unknown") : ""].filter(Boolean).join("\n\n");
+    const sessionDescription = ["Question: " + submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : ""].filter(Boolean).join("\n\n");
     if (!validTrade.success || !validLanguage.success || !validUnits.success || !submittedTask) {
       setNotice("Add a job description and check your preferences.");
       return;
@@ -326,7 +325,6 @@ export default function App() {
             language: validLanguage.data,
             units: validUnits.data,
             jurisdiction: jurisdiction.trim() || undefined,
-            involvesEquipment: equipmentInvolved,
           }),
         });
         setAssessment(assistantResult.assessment);
@@ -627,22 +625,7 @@ export default function App() {
                   <span>Country or jurisdiction (optional)</span>
                   <input value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} placeholder="For example, Nigeria" />
                 </label>
-                <label className="recovery-confirm">
-                  <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
-                  <span>This question involves a machine, appliance, tool or product</span>
-                </label>
-                {involvesEquipment && (
-                  <div className="field-grid">
-                    <label className="field">
-                      <span>Make (if known)</span>
-                      <input value={equipmentMake} onChange={(event) => setEquipmentMake(event.target.value)} placeholder="Manufacturer" />
-                    </label>
-                    <label className="field">
-                      <span>Exact model (if known)</span>
-                      <input value={equipmentModel} onChange={(event) => setEquipmentModel(event.target.value)} placeholder="Model number" />
-                    </label>
-                  </div>
-                )}
+                <p className="privacy-note">If a specific product or machine matters to your question, KIVORA can ask for its manufacturer or exact model later in the conversation.</p>
                 <label className="field">
                   <span>Measurements and dimensions</span>
                   <textarea value={measurements} onChange={(event) => setMeasurements(event.target.value)} rows={2} maxLength={450} placeholder="For example: opening width, depth, thickness, pipe diameter or observed readings. Include units." />
