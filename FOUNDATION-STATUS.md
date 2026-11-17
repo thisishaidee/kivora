@@ -2,7 +2,7 @@
 
 ## Implemented
 
-- Mobile-first React/Vite interface.
+- Responsive React/Vite interface foundations for phones, tablets, laptops and desktops.
 - Six skilled-worker fields plus multiple/unsure.
 - English, Nigerian English, Nigerian Pidgin and French preferences.
 - Metric and imperial measurement preference.
@@ -36,10 +36,13 @@
 
 - AI model/provider integration or technical-source retrieval.
 - Trade-specific evidence applicability and safety enforcement.
-- Voice input/output or image understanding.
+- Browser-native spoken playback for preview answers.
+- Authenticated, feature-gated private image/video upload API and media metadata schema; disabled until private object storage and tested analysis are configured.
+- Speech input, image/video understanding, video frame extraction and audio transcription.
 - Live NWC wallet interoperability test on Android.
 - Outgoing Lightning payments.
 - Public application hosting and static asset deployment.
+- Physical-device/browser QA across iPhone, Android, tablet and desktop.
 - Real-browser end-to-end verification against the deployed Worker.
 
 The work-session flow saves task descriptions privately, but does not yet provide guided AI assistance. Do not present KIVORA as a functioning AI assistant until that workflow is implemented and tested.
