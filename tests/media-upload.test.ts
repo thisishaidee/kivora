@@ -206,4 +206,38 @@ describe("private conversation media uploads", () => {
     expect(stored).toEqual([0xff, 0xd8, 0xff]);
     expect(db.statements.some(s => s.sql.includes("SET status = 'uploaded'"))).toBe(true);
   });
+  it("serves private video byte ranges for browser playback and seeking", async () => {
+    const db = makeDb({
+      media: {
+        id: mediaId,
+        object_key: "private/worker-a/" + sessionId + "/" + mediaId,
+        media_kind: "video",
+        mime_type: "video/mp4",
+        status: "uploaded",
+      },
+    });
+    const bytes = new Uint8Array([10, 20, 30, 40, 50, 60]);
+    const get = vi.fn(async (_key: string, options?: { range?: { offset: number; length?: number } }) => {
+      const selected = options?.range
+        ? bytes.slice(options.range.offset, options.range.offset + (options.range.length ?? bytes.length))
+        : bytes;
+      return { body: new Response(selected).body!, size: bytes.length };
+    });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/media/" + mediaId, {
+        headers: { cookie, range: "bytes=1-3" },
+      }),
+      {
+        ASSETS: { fetch: vi.fn() },
+        DB: db as never,
+        MEDIA_BUCKET: { put: vi.fn(), get, delete: vi.fn() },
+      } as never,
+    );
+    expect(response.status).toBe(206);
+    expect(response.headers.get("content-range")).toBe("bytes 1-3/6");
+    expect(response.headers.get("accept-ranges")).toBe("bytes");
+    expect(Array.from(new Uint8Array(await response.arrayBuffer()))).toEqual([20, 30, 40]);
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
 });
