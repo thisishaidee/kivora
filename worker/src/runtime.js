@@ -505,25 +505,35 @@ const handleApi = async (request, env, url) => {
       "SELECT id FROM work_sessions WHERE id = ? AND worker_id = ? LIMIT 1",
     ).bind(sessionId, worker.worker_id).first();
     if (!ownedSession) return json({ error: "work_session_not_found" }, 404);
-    const quota = await env.DB.prepare(
-      "SELECT COALESCE(SUM(byte_size), 0) AS used_bytes FROM conversation_media WHERE owner_worker_id = ? AND status IN ('intent', 'uploaded', 'validating', 'ready', 'processing') AND (status != 'intent' OR upload_expires_at > ?)",
-    ).bind(worker.worker_id, nowSeconds()).first();
-    const sessionCount = await env.DB.prepare(
-      "SELECT COUNT(*) AS media_count FROM conversation_media WHERE owner_worker_id = ? AND work_session_id = ? AND status != 'deleted' AND (status != 'intent' OR upload_expires_at > ?)",
-    ).bind(worker.worker_id, sessionId, nowSeconds()).first();
-    if (Number(quota?.used_bytes ?? 0) + byteSize > 100 * 1024 * 1024) {
-      return json({ error: "worker_media_quota_exceeded" }, 413);
-    }
-    if (Number(sessionCount?.media_count ?? 0) >= 10) {
-      return json({ error: "conversation_media_limit_exceeded" }, 413);
-    }
     const id = newId();
     const now = nowSeconds();
     const objectKey = "private/" + worker.worker_id + "/" + sessionId + "/" + id;
-    await env.DB.prepare(
-      "INSERT INTO conversation_media (id, work_session_id, owner_worker_id, object_key, media_kind, mime_type, byte_size, caption, status, created_at, updated_at, upload_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'intent', ?, ?, ?)",
-    ).bind(id, sessionId, worker.worker_id, objectKey, mediaKind, mimeType,
-      byteSize, caption || null, now, now, now + MEDIA_UPLOAD_TTL_SECONDS).run();
+    const intent = await env.DB.prepare(
+      `INSERT INTO conversation_media (
+        id, work_session_id, owner_worker_id, object_key, media_kind, mime_type,
+        byte_size, caption, status, created_at, updated_at, upload_expires_at
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, 'intent', ?, ?, ?
+      WHERE (
+        SELECT COALESCE(SUM(byte_size), 0) FROM conversation_media
+        WHERE owner_worker_id = ?
+          AND status IN ('intent', 'uploaded', 'validating', 'ready', 'processing')
+          AND (status != 'intent' OR upload_expires_at > ?)
+      ) + ? <= ?
+      AND (
+        SELECT COUNT(*) FROM conversation_media
+        WHERE owner_worker_id = ? AND work_session_id = ? AND status != 'deleted'
+          AND (status != 'intent' OR upload_expires_at > ?)
+      ) < ?`,
+    ).bind(
+      id, sessionId, worker.worker_id, objectKey, mediaKind, mimeType,
+      byteSize, caption || null, now, now, now + MEDIA_UPLOAD_TTL_SECONDS,
+      worker.worker_id, now, byteSize, 100 * 1024 * 1024,
+      worker.worker_id, sessionId, now, 10,
+    ).run();
+    if ((intent.meta?.changes ?? 0) !== 1) {
+      return json({ error: "media_quota_or_conversation_limit_exceeded" }, 413);
+    }
     return json({
       media: { id, mediaKind, mimeType, byteSize, status: "intent", uploadExpiresAt: now + MEDIA_UPLOAD_TTL_SECONDS },
       uploadPath: "/api/media/" + id + "/content",
