@@ -84,7 +84,6 @@ export default function App() {
   const [recoveryInput, setRecoveryInput] = useState("");
   const [recoverySaved, setRecoverySaved] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [investigationType, setInvestigationType] = useState<"job" | "machine" | "research">("job");
   const [trade, setTrade] = useState<Trade>("unsure");
   const [language, setLanguage] = useState<Language>("en");
   const [units, setUnits] = useState<UnitSystem>("metric");
@@ -283,9 +282,8 @@ export default function App() {
       availableTools.trim() ? `Available tools: ${availableTools.trim()}` : "",
       constraints.trim() ? `Constraints: ${constraints.trim()}` : "",
     ].filter(Boolean);
-    const equipmentInvolved = involvesEquipment || investigationType === "machine";
-    const investigationLabels = { job: "Work on a job", machine: "Understand a machine or product", research: "Explore a topic" };
-    const sessionDescription = ["Investigation: " + investigationLabels[investigationType], submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : "", equipmentInvolved ? "Equipment involved: yes" : ""].filter(Boolean).join("\n\n");
+    const equipmentInvolved = involvesEquipment;
+    const sessionDescription = ["Question: " + submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : "", equipmentInvolved ? "Equipment involved: yes" : "", equipmentInvolved && (equipmentMake.trim() || equipmentModel.trim()) ? "Equipment details: make=" + (equipmentMake.trim() || "unknown") + "; model=" + (equipmentModel.trim() || "unknown") : ""].filter(Boolean).join("\n\n");
     if (!validTrade.success || !validLanguage.success || !validUnits.success || !submittedTask) {
       setNotice("Add a job description and check your preferences.");
       return;
@@ -424,9 +422,6 @@ export default function App() {
       setActiveSession(result.session);
       setMessages(result.messages);
       const firstWorkerMessage = result.messages.find(message => message.role === "worker")?.content ?? "";
-      const investigationLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Investigation: "));
-      const investigationValue = investigationLine?.slice("Investigation: ".length);
-      setInvestigationType(investigationValue === "Understand a machine or product" ? "machine" : investigationValue === "Explore a topic" ? "research" : "job");
       const jurisdictionLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Work jurisdiction: "));
       const equipmentLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Equipment details: "));
       const equipmentDetails = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
@@ -604,7 +599,48 @@ export default function App() {
               <details className="intake-context">
                 <summary>+ Add details (optional)</summary>
                 <p className="eyebrow">CONTEXT THAT MAY HELP</p>
-                <p className="privacy-note">A few practical details help KIVORA distinguish your actual job from a general question. Add only what you know; you can leave anything blank.</p>
+                <p className="privacy-note">Add only what you know. None of these details is required to ask KIVORA.</p>
+                <div className="field-grid">
+                  <label className="field">
+                    <span>Trade or area (optional)</span>
+                    <select value={trade} onChange={(event) => setTrade(event.target.value as Trade)}>
+                      {trades.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Response language</span>
+                    <select value={language} onChange={(event) => setLanguage(event.target.value as Language)}>
+                      {languages.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <fieldset className="units-field">
+                  <legend>Measurement units</legend>
+                  <div className="unit-options">
+                    <button type="button" className={units === "metric" ? "unit-option selected" : "unit-option"} onClick={() => setUnits("metric")}>Metric · mm, cm, m</button>
+                    <button type="button" className={units === "imperial" ? "unit-option selected" : "unit-option"} onClick={() => setUnits("imperial")}>Imperial · in, ft</button>
+                  </div>
+                </fieldset>
+                <label className="field">
+                  <span>Country or jurisdiction (optional)</span>
+                  <input value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} placeholder="For example, Nigeria" />
+                </label>
+                <label className="recovery-confirm">
+                  <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
+                  <span>This question involves a machine, appliance, tool or product</span>
+                </label>
+                {involvesEquipment && (
+                  <div className="field-grid">
+                    <label className="field">
+                      <span>Make (if known)</span>
+                      <input value={equipmentMake} onChange={(event) => setEquipmentMake(event.target.value)} placeholder="Manufacturer" />
+                    </label>
+                    <label className="field">
+                      <span>Exact model (if known)</span>
+                      <input value={equipmentModel} onChange={(event) => setEquipmentModel(event.target.value)} placeholder="Model number" />
+                    </label>
+                  </div>
+                )}
                 <label className="field">
                   <span>Measurements and dimensions</span>
                   <textarea value={measurements} onChange={(event) => setMeasurements(event.target.value)} rows={2} maxLength={450} placeholder="For example: opening width, depth, thickness, pipe diameter or observed readings. Include units." />
