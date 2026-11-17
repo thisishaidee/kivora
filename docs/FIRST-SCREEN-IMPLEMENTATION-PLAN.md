@@ -9,7 +9,7 @@
 The current application branch has:
 - An anonymous identity/recovery-code flow.
 - Owner-scoped private work-session CRUD and message history.
-- A React/Vite mobile-first UI.
+- A responsive React/Vite UI for phones, tablets and desktop browsers.
 - Deterministic trade and hazard assessment.
 - A response contract with clarify/escalate/guided/unavailable states and source citations.
 - A disabled AI inference path and no confirmed end-to-end research provider.
@@ -89,7 +89,7 @@ Keep the UI independent from the model vendor:
 1. Compare TTS candidates on Nigerian English, trade terminology, model numbers, units, latency and price.
 2. Implement play/pause/resume/replay and speed.
 3. Ensure audio is generated only from the visible response.
-4. Test audio playback on Android Chrome and installed PWA.
+4. Test audio playback on supported Android, iOS, tablet and desktop browsers.
 5. Add STT with editable transcript after provider quality and privacy review.
 
 ## 4. Work order for the remaining three-day window
@@ -108,7 +108,7 @@ Keep the UI independent from the model vendor:
 
 ### Day 3 — Voice, QA and preview
 - Add/test TTS only if provider or browser fallback is appropriate and clearly identified.
-- Verify Android layout, keyboard, history, owner isolation, recovery, safety and error states.
+- Verify phone, tablet and desktop layouts, keyboard/touch access, history, owner isolation, recovery, safety and error states.
 - Run CI and preview deployment.
 - Keep production, paid provider activation and mainnet untouched.
 
@@ -118,7 +118,7 @@ Do not mark a feature complete unless:
 - Code exists on the reviewed branch.
 - Typecheck, tests and production build pass.
 - Relevant API tests cover ownership and validation.
-- Android flow is exercised on a real device.
+- Representative Android, iPhone, tablet and desktop browser flows are exercised on real devices.
 - User-visible labels match actual behaviour.
 - Provider billing and privacy are understood.
 - No secrets or wallet material are exposed.
