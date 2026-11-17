@@ -485,6 +485,187 @@ const handleApi = async (request, env, url) => {
     }, 201);
   }
 
+
+  if (path === "/api/media/uploads" && method === "POST") {
+    if (env.MEDIA_UPLOAD_ENABLED !== "true" || !env.MEDIA_BUCKET) {
+      return json({ error: "media_upload_unavailable" }, 503);
+    }
+    const body = await readJson(request);
+    const sessionId = typeof body?.sessionId === "string" ? body.sessionId : "";
+    const mediaKind = body?.mediaKind === "image" || body?.mediaKind === "video" ? body.mediaKind : "";
+    const mimeType = typeof body?.mimeType === "string" ? body.mimeType.toLowerCase() : "";
+    const byteSize = Number(body?.byteSize);
+    const caption = typeof body?.caption === "string" ? body.caption.trim() : "";
+    const maxBytes = mediaKind === "image" ? IMAGE_MIME_LIMITS.get(mimeType) : VIDEO_MIME_LIMITS.get(mimeType);
+    if (!/^[0-9a-f-]{36}$/i.test(sessionId) || !mediaKind || !maxBytes ||
+        !Number.isSafeInteger(byteSize) || byteSize < 1 || byteSize > maxBytes || caption.length > 2000) {
+      return json({ error: "invalid_media_upload" }, 400);
+    }
+    const ownedSession = await env.DB.prepare(
+      "SELECT id FROM work_sessions WHERE id = ? AND worker_id = ? LIMIT 1",
+    ).bind(sessionId, worker.worker_id).first();
+    if (!ownedSession) return json({ error: "work_session_not_found" }, 404);
+    const id = newId();
+    const now = nowSeconds();
+    const objectKey = "private/" + worker.worker_id + "/" + sessionId + "/" + id;
+    await env.DB.prepare(
+      \`INSERT INTO conversation_media (
+        id, work_session_id, owner_worker_id, object_key, media_kind, mime_type,
+        byte_size, caption, status, created_at, updated_at, upload_expires_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'intent', ?, ?, ?)\`,
+    ).bind(id, sessionId, worker.worker_id, objectKey, mediaKind, mimeType,
+      byteSize, caption || null, now, now, now + MEDIA_UPLOAD_TTL_SECONDS).run();
+    return json({
+      media: { id, mediaKind, mimeType, byteSize, status: "intent", uploadExpiresAt: now + MEDIA_UPLOAD_TTL_SECONDS },
+      uploadPath: "/api/media/" + id + "/content",
+    }, 201);
+  }
+
+  const mediaContentMatch = path.match(/^\/api\/media\/([0-9a-f-]{36})\/content$/i);
+  if (mediaContentMatch && method === "PUT") {
+    if (env.MEDIA_UPLOAD_ENABLED !== "true" || !env.MEDIA_BUCKET) {
+      return json({ error: "media_upload_unavailable" }, 503);
+    }
+    const mediaId = mediaContentMatch[1];
+    const media = await env.DB.prepare(
+      "SELECT id, object_key, media_kind, mime_type, byte_size, status, upload_expires_at FROM conversation_media WHERE id = ? AND owner_worker_id = ? LIMIT 1",
+    ).bind(mediaId, worker.worker_id).first();
+    if (!media) return json({ error: "media_not_found" }, 404);
+    if (media.status !== "intent" || Number(media.upload_expires_at) <= nowSeconds()) {
+      return json({ error: "upload_intent_expired" }, 409);
+    }
+    const expectedBytes = Number(media.byte_size);
+    const contentLength = Number(request.headers.get("content-length") || "0");
+    const contentType = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+    if (!request.body || !Number.isSafeInteger(contentLength) || contentLength !== expectedBytes ||
+        contentType !== media.mime_type) {
+      return json({ error: "media_headers_mismatch" }, 400);
+    }
+    const reader = request.body.getReader();
+    const prefixChunks = [];
+    let prefixLength = 0;
+    try {
+      while (prefixLength < Math.min(16, expectedBytes)) {
+        const part = await reader.read();
+        if (part.done) break;
+        prefixChunks.push(part.value);
+        prefixLength += part.value.byteLength;
+      }
+    } catch {
+      reader.releaseLock();
+      return json({ error: "media_upload_read_failed" }, 400);
+    }
+    const prefix = new Uint8Array(prefixLength);
+    let prefixOffset = 0;
+    for (const chunk of prefixChunks) {
+      prefix.set(chunk, prefixOffset);
+      prefixOffset += chunk.byteLength;
+    }
+    if (!mediaSignatureMatches(String(media.mime_type), prefix)) {
+      await reader.cancel();
+      reader.releaseLock();
+      return json({ error: "media_signature_mismatch" }, 415);
+    }
+    let totalBytes = prefixLength;
+    let prefixIndex = 0;
+    let streamFinished = false;
+    const uploadStream = new ReadableStream({
+      async pull(controller) {
+        if (prefixIndex < prefixChunks.length) {
+          controller.enqueue(prefixChunks[prefixIndex++]);
+          return;
+        }
+        if (streamFinished) return;
+        try {
+          const part = await reader.read();
+          if (part.done) {
+            streamFinished = true;
+            reader.releaseLock();
+            if (totalBytes !== expectedBytes) {
+              controller.error(new Error("media_size_mismatch"));
+              return;
+            }
+            controller.close();
+            return;
+          }
+          totalBytes += part.value.byteLength;
+          if (totalBytes > expectedBytes) {
+            await reader.cancel();
+            controller.error(new Error("media_size_exceeded"));
+            return;
+          }
+          controller.enqueue(part.value);
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+      async cancel() {
+        streamFinished = true;
+        await reader.cancel();
+        reader.releaseLock();
+      },
+    });
+    try {
+      await env.MEDIA_BUCKET.put(String(media.object_key), uploadStream, {
+        httpMetadata: { contentType: String(media.mime_type) },
+        customMetadata: { mediaId, ownerWorkerId: String(worker.worker_id) },
+      });
+      const updated = await env.DB.prepare(
+        "UPDATE conversation_media SET status = 'uploaded', updated_at = ? WHERE id = ? AND owner_worker_id = ? AND status = 'intent'",
+      ).bind(nowSeconds(), mediaId, worker.worker_id).run();
+      if ((updated.meta?.changes ?? 0) !== 1) {
+        await env.MEDIA_BUCKET.delete(String(media.object_key));
+        return json({ error: "upload_intent_conflict" }, 409);
+      }
+      return json({ media: { id: mediaId, status: "uploaded" } }, 201);
+    } catch {
+      await env.MEDIA_BUCKET.delete(String(media.object_key)).catch(() => {});
+      await env.DB.prepare(
+        "UPDATE conversation_media SET status = 'failed', updated_at = ? WHERE id = ? AND owner_worker_id = ? AND status = 'intent'",
+      ).bind(nowSeconds(), mediaId, worker.worker_id).run();
+      return json({ error: "media_upload_failed" }, 503);
+    }
+  }
+
+  const mediaMatch = path.match(/^\/api\/media\/([0-9a-f-]{36})$/i);
+  if (mediaMatch) {
+    const mediaId = mediaMatch[1];
+    const media = await env.DB.prepare(
+      "SELECT id, object_key, mime_type, status FROM conversation_media WHERE id = ? AND owner_worker_id = ? LIMIT 1",
+    ).bind(mediaId, worker.worker_id).first();
+    if (!media) return json({ error: "media_not_found" }, 404);
+    if (method === "GET") {
+      if (!env.MEDIA_BUCKET || !["uploaded", "ready", "processing"].includes(String(media.status))) {
+        return json({ error: "media_not_available" }, 404);
+      }
+      const object = await env.MEDIA_BUCKET.get(String(media.object_key));
+      if (!object) return json({ error: "media_not_found" }, 404);
+      return new Response(object.body, {
+        headers: {
+          "content-type": String(media.mime_type),
+          "cache-control": "private, no-store",
+          "x-content-type-options": "nosniff",
+          "content-disposition": "inline",
+          "referrer-policy": "no-referrer",
+        },
+      });
+    }
+    if (method === "DELETE") {
+      if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable" }, 503);
+      const derivatives = await env.DB.prepare(
+        "SELECT object_key FROM conversation_media_derivatives WHERE media_id = ?",
+      ).bind(mediaId).all();
+      const keys = [
+        String(media.object_key),
+        ...(derivatives.results ?? []).map(row => String(row.object_key)),
+      ];
+      await env.MEDIA_BUCKET.delete(keys);
+      await env.DB.prepare("DELETE FROM conversation_media WHERE id = ? AND owner_worker_id = ?")
+        .bind(mediaId, worker.worker_id).run();
+      return json({ deleted: true });
+    }
+  }
+
   const match = path.match(/^\/api\/work-sessions\/([0-9a-f-]{36})(?:\/messages)?$/i);
   if (match) {
     const sessionId = match[1];
