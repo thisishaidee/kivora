@@ -185,7 +185,7 @@ export default function App() {
           const sources = await api<{ sources: EvidenceSource[] }>("/api/evidence-sources");
           if (alive) setEvidenceSources(sources.sources);
         } catch {
-          if (alive) setNotice("Your private workspace could not be loaded. Refresh to retry.");
+          if (alive) setNotice("Your private preview could not be loaded. Refresh to retry.");
         }
       })
       .catch(() => {
@@ -205,7 +205,7 @@ export default function App() {
       setCopied(false);
       setIdentityState("recovery-code");
     } catch {
-      setNotice("We couldn't create your private workspace. Please try again.");
+      setNotice("We couldn't open your private preview. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -263,11 +263,11 @@ export default function App() {
     if (!recoverySaved) return;
     setRecoveryCode("");
     setIdentityState("ready");
-    setNotice("Your private workspace is ready.");
+    setNotice("Your private preview is ready.");
     try {
       await Promise.all([refreshSessions(), refreshEvidenceSources()]);
     } catch {
-      setNotice("Your workspace is ready, but saved workspace data could not be loaded.");
+      setNotice("Your preview is ready, but saved history could not be loaded.");
     }
   }
 
@@ -490,7 +490,7 @@ export default function App() {
       setActiveSession(null);
       setMessages([]);
       setIdentityState("welcome");
-      setNotice("You have been logged out. Your private workspace remains available with your recovery code.");
+      setNotice("You have been logged out. Your private preview remains available with your recovery code.");
     } catch {
       setNotice("You could not be logged out. Please try again.");
     } finally {
@@ -508,9 +508,9 @@ export default function App() {
       setActiveSession(null);
       setMessages([]);
       setIdentityState("welcome");
-      setNotice("Your private workspace has been deleted.");
+      setNotice("Your private preview identity has been deleted.");
     } catch {
-      setNotice("Your workspace could not be deleted.");
+      setNotice("Your preview identity could not be deleted.");
     } finally {
       setBusy(false);
     }
@@ -540,23 +540,23 @@ export default function App() {
 
       {identityState === "checking" && (
         <section className="workspace identity-card">
-          <p className="eyebrow">PRIVATE WORKSPACE</p>
-          <h2>Opening your workspace…</h2>
-          <p className="privacy-note">Checking your private worker session.</p>
+          <p className="eyebrow">PRIVATE PREVIEW</p>
+          <h2>Opening your KIVORA preview…</h2>
+          <p className="privacy-note">Checking your private preview identity.</p>
         </section>
       )}
 
       {identityState === "recovery" && (
         <section className="workspace identity-card">
           <p className="eyebrow">RESTORE ACCESS</p>
-          <h2>Restore your workspace.</h2>
+          <h2>Restore your KIVORA preview access.</h2>
           <form onSubmit={(event) => void restoreIdentity(event)}>
             <label className="field">
-              <span>Workspace recovery key</span>
+              <span>Preview recovery key</span>
               <input value={recoveryInput} onChange={(event) => setRecoveryInput(event.target.value)} autoComplete="off" spellCheck={false} placeholder="Paste your saved recovery key" />
             </label>
             <button className="submit-button" type="submit" disabled={busy || !recoveryInput.trim()}>
-              {busy ? "Restoring…" : "Restore workspace"} <span aria-hidden="true">↗</span>
+              {busy ? "Restoring…" : "Restore preview"} <span aria-hidden="true">↗</span>
             </button>
           </form>
           <button className="secondary-action" type="button" onClick={() => { setIdentityState("welcome"); setNotice(""); }}>Back</button>
@@ -568,7 +568,7 @@ export default function App() {
         <section className="workspace identity-card">
           <p className="eyebrow">SAVE THIS ONCE</p>
           <h2>Your recovery code.</h2>
-          <p className="wallet-copy">Save this key somewhere private, such as a password manager or a secure note. You can use it to get back into this same workspace if you change phones or lose access to this browser. KIVORA cannot see or recreate it. Anyone with the key may be able to access your workspace, so do not share it.</p>
+          <p className="wallet-copy">Save this key somewhere private, such as a password manager or a secure note. You can use it to return to this same KIVORA preview identity if you change phones or lose access to this browser. KIVORA cannot see or recreate it. Anyone with the key may be able to access your workspace, so do not share it.</p>
           <div className="recovery-code">{recoveryCode.match(/.{1,8}/g)?.join(" ") ?? recoveryCode}</div>
           <button className="unit-option selected" type="button" onClick={() => void copyRecoveryCode()}>{copied ? "Copied" : "Copy recovery key"}</button>
           <label className="recovery-confirm">
@@ -576,7 +576,7 @@ export default function App() {
             <span>I have saved this key somewhere private and can retrieve it later.</span>
           </label>
           <button className="submit-button" type="button" onClick={() => void finishRecoverySetup()} disabled={!recoverySaved}>
-            Continue to workspace <span aria-hidden="true">↗</span>
+            Continue to KIVORA <span aria-hidden="true">↗</span>
           </button>
           {notice && <p className="notice" role="status">{notice}</p>}
         </section>
@@ -804,14 +804,14 @@ export default function App() {
             <div className="workspace-heading">
               <div>
                 <p className="eyebrow">YOUR PRIVATE HISTORY</p>
-                <h2>Your investigations</h2>
+                <h2>Recent conversations</h2>
               </div>
               <button className="text-button" type="button" onClick={() => setShowArchived((value) => !value)}>
                 {showArchived ? "Hide archived" : "Show archived"}
               </button>
             </div>
             {visibleSessions.length === 0 ? (
-              <p className="privacy-note">Each investigation is saved separately here. Start another one whenever you need to look into a different job, machine, product or idea. They all stay in this one private workspace.</p>
+              <p className="privacy-note">Your recent conversations appear here. Start a new one whenever you want to understand something different. They remain private to this preview identity.</p>
             ) : (
               <div className="session-list">
                 {visibleSessions.map((session) => (
