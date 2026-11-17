@@ -1,12 +1,13 @@
 # Worker Identity and Private Sessions
 
-**Status:** API and UI implemented on `feat/worker-identity`; Cloudflare D1 database and schema are provisioned. Worker deployment and end-to-end browser verification are still pending.
+**Status:** The anonymous identity API and UI are retained as temporary preview access. They are not KIVORA's final account system. The accepted account direction is email/password with email verification and password reset; see [Account Authentication](ACCOUNT-AUTHENTICATION.md).
 
 ## Goals
 
 - Support many independent workers from the beginning.
 - Keep each worker's work sessions private by default.
-- Avoid mandatory email, social login or wallet connection for ordinary access.
+- Final accounts use email and password; phone registration, social login and wallet connection are not required.
+- Keep anonymous recovery-code access limited to the development preview until account linking is implemented.
 - Allow a worker to restore access on another device without storing a plaintext credential on the server.
 - Keep identity and work-session data separate from any Bitcoin/Lightning wallet.
 
@@ -107,3 +108,8 @@ All non-GET API requests require an exact same-origin `Origin` header. JSON bodi
 Deleting an identity removes its worker row, recovery hash, browser-session rows, work-session rows and message rows. A logged-out identity remains available until its owner restores it or explicitly deletes it. There is no automatic age-based retention yet; workers should delete sessions they no longer need.
 
 No account credentials or wallet secrets are stored in the repository.
+
+
+## Product decision update
+
+The anonymous recovery-code flow described below documents the existing preview implementation only. It must not be treated as the final sign-in or account recovery experience. KIVORA's normal account uses email and password, verified email, forgot-password/password-reset and secure sessions. A worker may explicitly link a preview identity to a new account so existing private conversations are preserved. Do not enable registration until the email sender is configured and verified and password hashing passes Worker runtime benchmarks. See [Account Authentication](ACCOUNT-AUTHENTICATION.md).
