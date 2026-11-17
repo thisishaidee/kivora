@@ -136,7 +136,11 @@ A first-time user sees three suggested questions from different practical fields
 ### Composer
 - Multiline text input with placeholder: "Ask KIVORA anything about your work or something you want to understand…"
 - Send button.
-- Image attachment only when upload and analysis are implemented.
+- Provide two clear image actions: **Take photo** (opens the device camera) and **Upload image** (opens the photo library/files). These are optional; the worker can always continue with text alone.
+- Allow more than one image where useful, with thumbnails, remove/replace controls and a short optional caption. Suggest an overall view plus a close-up of a label or relevant detail when identification is uncertain.
+- Do not require manufacturer or model details if the worker can show the item. Ask for another angle or a label image only when it materially improves identification.
+- Vision results must separate visible observations from inferred identity, communicate confidence and uncertainty, and never claim an exact model from an ambiguous image.
+- Image attachment must remain hidden/disabled until private authenticated media upload, file validation, retention/deletion controls and a tested vision analysis path are implemented. Do not present a local-only preview as an uploaded or analyzed image.
 - Microphone only when speech recognition is implemented and tested.
 - Voice features must not be represented by inert buttons.
 
