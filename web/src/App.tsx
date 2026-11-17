@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PaymentRequestPreview from "./PaymentRequestPreview";
+import PublicHome from "./PublicHome";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -84,7 +85,7 @@ export default function App() {
   const [recoverySaved, setRecoverySaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [investigationType, setInvestigationType] = useState<"job" | "machine" | "research">("job");
-  const [trade, setTrade] = useState<Trade>("carpentry");
+  const [trade, setTrade] = useState<Trade>("unsure");
   const [language, setLanguage] = useState<Language>("en");
   const [units, setUnits] = useState<UnitSystem>("metric");
   const [task, setTask] = useState("");
@@ -517,6 +518,10 @@ export default function App() {
 
   const visibleSessions = sessions.filter((session) => showArchived || !session.archived_at);
 
+  if (identityState === "welcome") {
+    return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("recovery"); setNotice(""); }} />;
+  }
+
   return (
     <main className="page-shell">
       <header className="topbar">
@@ -528,9 +533,9 @@ export default function App() {
       </header>
 
       <section className="hero">
-        <p className="eyebrow">YOUR WORK. YOUR NEXT MOVE.</p>
+        <p className="eyebrow">YOUR PRACTICAL INTELLIGENCE</p>
         <h1>Know what<br /><em>to do next.</em></h1>
-        <p className="intro">Get clearer on unfamiliar products, materials, equipment and problems. Start with the job in front of you.</p>
+        <p className="intro">Ask about a product, material, machine, technique or anything you want to understand. Start with what you know.</p>
       </section>
 
       {identityState === "checking" && (
@@ -538,21 +543,6 @@ export default function App() {
           <p className="eyebrow">PRIVATE WORKSPACE</p>
           <h2>Opening your workspace…</h2>
           <p className="privacy-note">Checking your private worker session.</p>
-        </section>
-      )}
-
-      {identityState === "welcome" && (
-        <section className="workspace identity-card">
-          <p className="eyebrow">PRIVATE BY DEFAULT</p>
-          <h2>Start your own workspace.</h2>
-          <p className="intro compact-intro">Your work stays in one private workspace. You can start a new investigation whenever you need one. No email, Bitcoin wallet or Web3 knowledge is required. On this device, KIVORA can keep you signed in; use your recovery key if you need to return from another device or browser.</p>
-          <button className="submit-button" type="button" onClick={() => void createIdentity()} disabled={busy}>
-            {busy ? "Creating…" : "Create my workspace"} <span aria-hidden="true">↗</span>
-          </button>
-          <button className="secondary-action" type="button" onClick={() => { setIdentityState("recovery"); setNotice(""); }}>
-            I already have a workspace
-          </button>
-          {notice && <p className="notice" role="status">{notice}</p>}
         </section>
       )}
 
@@ -597,60 +587,23 @@ export default function App() {
           <section className="workspace" aria-labelledby="start-title">
             <div className="workspace-heading">
               <div>
-                <p className="eyebrow">WORKSPACE</p>
-                <h2 id="start-title">What would you like to look into?</h2>
+                <p className="eyebrow">ASK KIVORA</p>
+                <h2 id="start-title">What would you like to understand today?</h2>
               </div>
               <span className="step-label">01 / START</span>
             </div>
 
             <form onSubmit={(event) => void handleSubmit(event)}>
-              <div className="investigation-picker" role="group" aria-label="Choose what you want to do">
-                <button type="button" className={investigationType === "job" ? "investigation-choice selected" : "investigation-choice"} onClick={() => setInvestigationType("job")}><strong>Work on a job</strong><span>Get help with a task or problem</span></button>
-                <button type="button" className={investigationType === "machine" ? "investigation-choice selected" : "investigation-choice"} onClick={() => { setInvestigationType("machine"); setTrade("unsure"); setInvolvesEquipment(true); }}><strong>Understand a machine</strong><span>Learn how equipment or a product works</span></button>
-                <button type="button" className={investigationType === "research" ? "investigation-choice selected" : "investigation-choice"} onClick={() => { setInvestigationType("research"); setTrade("unsure"); }}><strong>Explore a topic</strong><span>Research a new idea or unfamiliar material</span></button>
-              </div>
-              <div className="field-grid">
-                <label className="field">
-                  <span>Trade or area (if known)</span>
-                  <select value={trade} onChange={(event) => setTrade(event.target.value as Trade)}>
-                    {trades.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Language</span>
-                  <select value={language} onChange={(event) => setLanguage(event.target.value as Language)}>
-                    {languages.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                  </select>
-                </label>
-              </div>
-
-              <fieldset className="units-field">
-                <legend>Measurement units</legend>
-                <div className="unit-options">
-                  <button type="button" className={units === "metric" ? "unit-option selected" : "unit-option"} onClick={() => setUnits("metric")}>Metric · mm, cm, m</button>
-                  <button type="button" className={units === "imperial" ? "unit-option selected" : "unit-option"} onClick={() => setUnits("imperial")}>Imperial · in, ft</button>
-                </div>
-              </fieldset>
-
-              <label className="field">
-                <span>Where is the work taking place?</span>
-                <input value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} placeholder="Country or jurisdiction (for example, Nigeria)" />
-              </label>
-
-              {investigationType !== "machine" && (
-                <label className="recovery-confirm">
-                  <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
-                  <span>This also involves a machine, appliance, tool or product</span>
-                </label>
-              )}
+              <p className="consultation-hint">You do not need to choose a trade or know the technical terms. Ask in your own words.</p>
 
               <label className="field task-field">
-                <span>{investigationType === "machine" ? "What would you like to understand about it?" : investigationType === "research" ? "What would you like to explore?" : "Describe the job, product or problem"}</span>
-                <textarea value={task} onChange={(event) => setTask(event.target.value)} placeholder={investigationType === "machine" ? "Tell us what the machine or product is, what it does, what you want to learn or what seems unfamiliar. You can add its make or model later if you find it." : investigationType === "research" ? "Describe the material, component, technique, product or idea you want to understand." : "What are you trying to do? What have you noticed? Include any details you already know."} rows={5} maxLength={2000} />
+                <span>Your question</span>
+                <textarea value={task} onChange={(event) => setTask(event.target.value)} placeholder="What are you trying to understand? It could be a product, machine, material, technique, unfamiliar term or a problem you have come across." rows={5} maxLength={2000} />
               </label>
 
-              <div className="intake-context">
-                <p className="eyebrow">JOB CONTEXT · OPTIONAL BUT USEFUL</p>
+              <details className="intake-context">
+                <summary>+ Add details (optional)</summary>
+                <p className="eyebrow">CONTEXT THAT MAY HELP</p>
                 <p className="privacy-note">A few practical details help KIVORA distinguish your actual job from a general question. Add only what you know; you can leave anything blank.</p>
                 <label className="field">
                   <span>Measurements and dimensions</span>
@@ -668,12 +621,12 @@ export default function App() {
                   <span>Constraints or what you have already tried</span>
                   <textarea value={constraints} onChange={(event) => setConstraints(event.target.value)} rows={2} maxLength={450} placeholder="Access, time, space, budget, parts available, previous attempts or anything that limits the work." />
                 </label>
-              </div>
+              </details>
 
               <button className="submit-button" type="submit" disabled={busy || !task.trim()}>
-                {busy ? "Saving…" : investigationType === "machine" ? "Start machine investigation" : investigationType === "research" ? "Start research" : "Start work session"} <span aria-hidden="true">↗</span>
+                {busy ? "Sending…" : "Ask KIVORA"} <span aria-hidden="true">↗</span>
               </button>
-              <p className="privacy-note">Your task is stored in your private workspace. Avoid passwords, access codes and customer personal details. AI inference is currently disabled while the evidence and cost controls are being validated.</p>
+              <p className="privacy-note">Your question is saved in your private history. Avoid passwords, access codes and customer personal details. AI inference is currently disabled; this preview will not generate live AI guidance.</p>
             </form>
           </section>
 
