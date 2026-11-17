@@ -652,7 +652,7 @@ const handleApi = async (request, env, url) => {
   if (mediaMatch) {
     const mediaId = mediaMatch[1];
     const media = await env.DB.prepare(
-      "SELECT id, object_key, mime_type, status FROM conversation_media WHERE id = ? AND owner_worker_id = ? LIMIT 1",
+      "SELECT id, object_key, mime_type, byte_size, status FROM conversation_media WHERE id = ? AND owner_worker_id = ? LIMIT 1",
     ).bind(mediaId, worker.worker_id).first();
     if (!media) return json({ error: "media_not_found" }, 404);
     if (method === "GET") {
@@ -660,9 +660,7 @@ const handleApi = async (request, env, url) => {
         return json({ error: "media_not_available" }, 404);
       }
       const rangeHeader = request.headers.get("range");
-      const object = await env.MEDIA_BUCKET.get(String(media.object_key));
-      if (!object) return json({ error: "media_not_found" }, 404);
-      const totalSize = Number(object.size);
+      const totalSize = Number(media.byte_size);
       const headers = {
         "content-type": String(media.mime_type),
         "cache-control": "private, no-store",
@@ -706,6 +704,8 @@ const handleApi = async (request, env, url) => {
           },
         });
       }
+      const object = await env.MEDIA_BUCKET.get(String(media.object_key));
+      if (!object) return json({ error: "media_not_found" }, 404);
       return new Response(object.body, {
         headers: { ...headers, "content-length": String(totalSize) },
       });
