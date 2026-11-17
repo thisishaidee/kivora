@@ -213,6 +213,7 @@ describe("private conversation media uploads", () => {
         object_key: "private/worker-a/" + sessionId + "/" + mediaId,
         media_kind: "video",
         mime_type: "video/mp4",
+        byte_size: 6,
         status: "uploaded",
       },
     });
