@@ -526,11 +526,13 @@ export default function App() {
         <span className="topbar-note">Practical intelligence for skilled work</span>
       </header>
 
-      <section className="hero">
-        <p className="eyebrow">YOUR PRACTICAL INTELLIGENCE</p>
-        <h1>Know what<br /><em>to do next.</em></h1>
-        <p className="intro">Ask about a product, material, machine, technique or anything you want to understand. Start with what you know.</p>
-      </section>
+      {identityState !== "ready" && (
+        <section className="hero">
+          <p className="eyebrow">YOUR PRACTICAL INTELLIGENCE</p>
+          <h1>Know what<br /><em>to do next.</em></h1>
+          <p className="intro">Ask about a product, material, machine, technique or anything you want to understand. Start with what you know.</p>
+        </section>
+      )}
 
       {identityState === "checking" && (
         <section className="workspace identity-card">
