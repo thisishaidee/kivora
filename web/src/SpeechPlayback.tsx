@@ -9,7 +9,7 @@ type PlaybackState = "idle" | "speaking" | "paused";
 
 const MAX_CHUNK_LENGTH = 1_600;
 
-function splitForSpeech(value: string): string[] {
+export function splitForSpeech(value: string): string[] {
   const remaining = value.replace(/\s+/g, " ").trim();
   if (!remaining) return [];
 
@@ -24,10 +24,13 @@ function splitForSpeech(value: string): string[] {
     );
 
     if (splitAt < 700) splitAt = rest.lastIndexOf(" ", MAX_CHUNK_LENGTH);
-    if (splitAt < 1) splitAt = MAX_CHUNK_LENGTH;
-
-    chunks.push(rest.slice(0, splitAt + 1).trim());
-    rest = rest.slice(splitAt + 1).trim();
+    if (splitAt < 1) {
+      chunks.push(rest.slice(0, MAX_CHUNK_LENGTH));
+      rest = rest.slice(MAX_CHUNK_LENGTH).trim();
+    } else {
+      chunks.push(rest.slice(0, splitAt + 1).trim());
+      rest = rest.slice(splitAt + 1).trim();
+    }
   }
 
   if (rest) chunks.push(rest);
