@@ -174,3 +174,15 @@ The final refinement commit `725c18f995d0615af56ebb3349636a0bb07ab5b8` (history 
 
 - The signed-in view no longer repeats the large public hero above the composer; the consultation composer is the first main content after the compact header.
 - The Bitcoin payment-request preview is not rendered on Home. It remains a separate optional component for a later wallet/profile surface.
+
+
+### Final preview verification — 17 November 2026
+
+- Final feature-branch snapshot is deployed to the preview URL: `https://bb6c9f9f.kivora-bfx.pages.dev`.
+- Cloudflare Pages deployment `bb6c9f9f` completed successfully for the branch head containing the public homepage, consultation-first signed-in screen, optional context controls, recent-conversation priority, and removal of the payment preview from Home.
+- The deployment ran `npm run build`: TypeScript `tsc --noEmit` passed, Vite production bundling passed, and the Pages Functions Worker compiled successfully.
+- Dependency installation reported zero vulnerabilities in the deployment log.
+- The separate Vitest suite was not run by the Pages build. GitHub commit status returned no status checks for this branch snapshot, so do not claim the test suite passed.
+- Cloudflare project configuration was rechecked: production branch remains `main` and `production_deployments_enabled` remains `false`.
+
+This first-screen implementation is ready for human review on PR #33. Do not merge it until the Vitest suite and manual preview flows are reviewed. Voice, final email/phone personal accounts, live AI/research, Discover, profiles and community remain separate implementation work.
