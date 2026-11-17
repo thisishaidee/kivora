@@ -4,7 +4,7 @@
 
 ## Design goals
 
-- Mobile-first and practical on Android.
+- Responsive and practical across Android, iPhone, tablets, laptops and desktop browsers.
 - One shared intelligence workflow across trades.
 - Trade-specific technical knowledge, safety and verification boundaries.
 - Evidence traceability and explicit uncertainty.
@@ -15,7 +15,7 @@
 ## High-level workflow
 
 ```text
-Worker input (text / image / voice)
+Worker input (text / image / video / voice)
   -> input validation and normalisation
   -> task and trade classification
   -> shared work-context engine
@@ -120,7 +120,7 @@ Cloudflare is the preferred deployment direction based on current project constr
 
 ## Initial non-goals
 
-No microservices/Kubernetes, dedicated vector database before retrieval evaluation, general-purpose autonomous agent framework, live video streaming, 3D reconstruction, marketplace/token economy, compliance certification or complete expert knowledge base for all trades.
+No microservices/Kubernetes, dedicated vector database before retrieval evaluation, general-purpose autonomous agent framework, live video streaming or continuous live camera co-pilot, 3D reconstruction, marketplace/token economy, compliance certification or complete expert knowledge base for all trades. Bounded recorded-video upload and asynchronous analysis are in scope; live streaming is not.
 
 ## Validation gates
 
@@ -130,5 +130,5 @@ No microservices/Kubernetes, dedicated vector database before retrieval evaluati
 4. Test source retrieval and model applicability.
 5. Test safety boundaries with incomplete and adversarial inputs.
 6. Measure latency and estimated cost per work session.
-7. Test mobile usability on a real Android device.
+7. Test real workflows on Android and iPhone phones, tablets and desktop browsers.
 8. Evaluate Bitcoin/Lightning separately without coupling it to ordinary AI access.
