@@ -1,6 +1,6 @@
 # KIVORA Media Provider Evaluation
 
-**Status:** Candidate assessment only. No provider has been activated, no R2 bucket exists, and AI inference remains disabled.
+**Status:** R2 is enabled and a private preview bucket exists. The preview D1 schema and bucket bindings are provisioned, but uploads remain disabled. No AI provider has been activated and AI inference remains disabled.
 
 ## 1. Private media storage: Cloudflare R2
 
@@ -8,9 +8,11 @@ R2 is the leading storage candidate because KIVORA already runs on Cloudflare Wo
 
 ### Account setup state
 
-The connected Cloudflare account currently has R2 disabled. The account API returns an instruction to enable R2 through the Cloudflare Dashboard. Cloudflare's onboarding flow requires adding an R2 subscription through its dashboard checkout before using R2.
+The user completed Cloudflare's R2 subscription onboarding. A Standard bucket named kivora-private-media now exists in WEUR. The bucket's managed r2.dev domain is disabled, no CORS policy is configured, and the bucket has no public access configured. A small write/read/delete health check succeeded and the test object was removed.
 
-No bucket has been created and no subscription/checkout has been completed.
+A separate EU-jurisdictioned D1 database named kivora-preview has all four repository migrations applied. Pages preview is configured with DB and MEDIA_BUCKET bindings to these isolated resources. The previous KIVORA_API service binding to the shared kivora Worker was removed from the Pages preview configuration. Production configuration was not changed.
+
+The preview environment keeps MEDIA_UPLOAD_ENABLED=false and AI_ENABLED=false. Binding R2 does not expose uploads. The original kivora D1 database and production Worker were not migrated or modified.
 
 ### Published Standard storage allowance and rates
 
@@ -69,18 +71,18 @@ The model's answer is an observation/hypothesis layer, not verified technical ev
 
 ## 4. Provider activation and release gates
 
-Do not activate R2, Clef-omni or any other paid model automatically.
+Do not activate Clef-omni or any other paid model automatically. R2 setup has already been completed by the user, but storage usage beyond the published free allowance can be billed.
 
-Before enabling:
-1. Obtain explicit approval to enable the R2 subscription and create a private bucket.
-2. Create and bind a private bucket; verify no public access is configured.
-3. Apply the media metadata migration to the intended non-production database only.
+Before enabling user-facing media uploads or model inference:
+1. Finish and verify the isolated Pages preview deployment against the preview D1 and R2 bindings.
+2. Implement retention enforcement and a user-visible deletion path for original media and derived objects.
+3. Define per-worker and global storage/request budgets, abuse protection and alerting; the current per-worker cap alone does not guarantee account-wide cost control.
 4. Benchmark Clef-omni on representative KIVORA clips across trades, languages, workshop noise, camera movement, lighting and low-quality labels.
 5. Measure token usage, latency, accuracy, uncertainty calibration and false identification rates.
-6. Set daily/per-user cost caps, upload limits, retention, deletion and retry rules.
+6. Set daily/per-user model budgets, request ceilings, upload limits and retry rules.
 7. Keep AI and media flags disabled until privacy, safety and cost tests pass.
 8. Test physical Android, iPhone, tablet and desktop browsers before exposing the composer actions.
 
 ## 5. Decision
 
-R2 + Clef-omni is the leading Cloudflare-native candidate for a controlled multimodal prototype. It is not yet an approved production architecture or active service. No resource provisioning, model invocation, billing change or production deployment has been performed.
+R2 + Clef-omni remains the leading Cloudflare-native candidate for a controlled multimodal prototype. R2 is provisioned for preview only; uploads are disabled. Clef-omni is not activated or approved for inference. No production resource or production deployment has been changed.
