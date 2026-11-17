@@ -52,7 +52,7 @@ Cloudflare Workers/Pages Functions, D1 and R2 are candidates. No final infrastru
 A curated source catalogue with full-text search may be sufficient for the first benchmark. Add vector retrieval only if measured quality requires it.
 
 ### HYP-005 — AI and speech providers
-Cloudflare, Groq and Gemini are candidates for comparative tests. No provider has been selected.
+Cloudflare Workers AI, Groq and Gemini remain candidates for comparative tests. Cloudflare's Clef-omni is the leading multimodal prototype candidate because it accepts image, audio and video in one request, but its model-specific input pricing and strict media limits require benchmarking. No provider is approved or activated. See [Media Provider Evaluation](MEDIA-PROVIDER-EVALUATION.md).
 
 ### HYP-006 — Bitcoin/Lightning SDK
 Wallet/payment SDKs require current checks for custody, security, Android/browser compatibility and send/receive support. No SDK has been selected.
