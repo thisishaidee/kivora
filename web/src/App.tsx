@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import PaymentRequestPreview from "./PaymentRequestPreview";
+import PublicHome from "./PublicHome";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -83,8 +83,7 @@ export default function App() {
   const [recoveryInput, setRecoveryInput] = useState("");
   const [recoverySaved, setRecoverySaved] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [investigationType, setInvestigationType] = useState<"job" | "machine" | "research">("job");
-  const [trade, setTrade] = useState<Trade>("carpentry");
+  const [trade, setTrade] = useState<Trade>("unsure");
   const [language, setLanguage] = useState<Language>("en");
   const [units, setUnits] = useState<UnitSystem>("metric");
   const [task, setTask] = useState("");
@@ -184,7 +183,7 @@ export default function App() {
           const sources = await api<{ sources: EvidenceSource[] }>("/api/evidence-sources");
           if (alive) setEvidenceSources(sources.sources);
         } catch {
-          if (alive) setNotice("Your private workspace could not be loaded. Refresh to retry.");
+          if (alive) setNotice("Your private preview could not be loaded. Refresh to retry.");
         }
       })
       .catch(() => {
@@ -204,7 +203,7 @@ export default function App() {
       setCopied(false);
       setIdentityState("recovery-code");
     } catch {
-      setNotice("We couldn't create your private workspace. Please try again.");
+      setNotice("We couldn't open your private preview. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -262,11 +261,11 @@ export default function App() {
     if (!recoverySaved) return;
     setRecoveryCode("");
     setIdentityState("ready");
-    setNotice("Your private workspace is ready.");
+    setNotice("Your private preview is ready.");
     try {
       await Promise.all([refreshSessions(), refreshEvidenceSources()]);
     } catch {
-      setNotice("Your workspace is ready, but saved workspace data could not be loaded.");
+      setNotice("Your preview is ready, but saved history could not be loaded.");
     }
   }
 
@@ -282,9 +281,8 @@ export default function App() {
       availableTools.trim() ? `Available tools: ${availableTools.trim()}` : "",
       constraints.trim() ? `Constraints: ${constraints.trim()}` : "",
     ].filter(Boolean);
-    const equipmentInvolved = involvesEquipment || investigationType === "machine";
-    const investigationLabels = { job: "Work on a job", machine: "Understand a machine or product", research: "Explore a topic" };
-    const sessionDescription = ["Investigation: " + investigationLabels[investigationType], submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : "", equipmentInvolved ? "Equipment involved: yes" : ""].filter(Boolean).join("\n\n");
+    const equipmentInvolved = involvesEquipment;
+    const sessionDescription = ["Question: " + submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : "", equipmentInvolved ? "Equipment involved: yes" : "", equipmentInvolved && (equipmentMake.trim() || equipmentModel.trim()) ? "Equipment details: make=" + (equipmentMake.trim() || "unknown") + "; model=" + (equipmentModel.trim() || "unknown") : ""].filter(Boolean).join("\n\n");
     if (!validTrade.success || !validLanguage.success || !validUnits.success || !submittedTask) {
       setNotice("Add a job description and check your preferences.");
       return;
@@ -423,9 +421,6 @@ export default function App() {
       setActiveSession(result.session);
       setMessages(result.messages);
       const firstWorkerMessage = result.messages.find(message => message.role === "worker")?.content ?? "";
-      const investigationLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Investigation: "));
-      const investigationValue = investigationLine?.slice("Investigation: ".length);
-      setInvestigationType(investigationValue === "Understand a machine or product" ? "machine" : investigationValue === "Explore a topic" ? "research" : "job");
       const jurisdictionLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Work jurisdiction: "));
       const equipmentLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Equipment details: "));
       const equipmentDetails = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
@@ -489,7 +484,7 @@ export default function App() {
       setActiveSession(null);
       setMessages([]);
       setIdentityState("welcome");
-      setNotice("You have been logged out. Your private workspace remains available with your recovery code.");
+      setNotice("You have been logged out. Your private preview remains available with your recovery code.");
     } catch {
       setNotice("You could not be logged out. Please try again.");
     } finally {
@@ -507,15 +502,19 @@ export default function App() {
       setActiveSession(null);
       setMessages([]);
       setIdentityState("welcome");
-      setNotice("Your private workspace has been deleted.");
+      setNotice("Your private preview identity has been deleted.");
     } catch {
-      setNotice("Your workspace could not be deleted.");
+      setNotice("Your preview identity could not be deleted.");
     } finally {
       setBusy(false);
     }
   }
 
   const visibleSessions = sessions.filter((session) => showArchived || !session.archived_at);
+
+  if (identityState === "welcome") {
+    return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("recovery"); setNotice(""); }} />;
+  }
 
   return (
     <main className="page-shell">
@@ -527,46 +526,33 @@ export default function App() {
         <span className="topbar-note">Practical intelligence for skilled work</span>
       </header>
 
-      <section className="hero">
-        <p className="eyebrow">YOUR WORK. YOUR NEXT MOVE.</p>
-        <h1>Know what<br /><em>to do next.</em></h1>
-        <p className="intro">Get clearer on unfamiliar products, materials, equipment and problems. Start with the job in front of you.</p>
-      </section>
-
-      {identityState === "checking" && (
-        <section className="workspace identity-card">
-          <p className="eyebrow">PRIVATE WORKSPACE</p>
-          <h2>Opening your workspace…</h2>
-          <p className="privacy-note">Checking your private worker session.</p>
+      {identityState !== "ready" && (
+        <section className="hero">
+          <p className="eyebrow">YOUR PRACTICAL INTELLIGENCE</p>
+          <h1>Know what<br /><em>to do next.</em></h1>
+          <p className="intro">Ask about a product, material, machine, technique or anything you want to understand. Start with what you know.</p>
         </section>
       )}
 
-      {identityState === "welcome" && (
+      {identityState === "checking" && (
         <section className="workspace identity-card">
-          <p className="eyebrow">PRIVATE BY DEFAULT</p>
-          <h2>Start your own workspace.</h2>
-          <p className="intro compact-intro">Your work stays in one private workspace. You can start a new investigation whenever you need one. No email, Bitcoin wallet or Web3 knowledge is required. On this device, KIVORA can keep you signed in; use your recovery key if you need to return from another device or browser.</p>
-          <button className="submit-button" type="button" onClick={() => void createIdentity()} disabled={busy}>
-            {busy ? "Creating…" : "Create my workspace"} <span aria-hidden="true">↗</span>
-          </button>
-          <button className="secondary-action" type="button" onClick={() => { setIdentityState("recovery"); setNotice(""); }}>
-            I already have a workspace
-          </button>
-          {notice && <p className="notice" role="status">{notice}</p>}
+          <p className="eyebrow">PRIVATE PREVIEW</p>
+          <h2>Opening your KIVORA preview…</h2>
+          <p className="privacy-note">Checking your private preview identity.</p>
         </section>
       )}
 
       {identityState === "recovery" && (
         <section className="workspace identity-card">
           <p className="eyebrow">RESTORE ACCESS</p>
-          <h2>Restore your workspace.</h2>
+          <h2>Restore your KIVORA preview access.</h2>
           <form onSubmit={(event) => void restoreIdentity(event)}>
             <label className="field">
-              <span>Workspace recovery key</span>
+              <span>Preview recovery key</span>
               <input value={recoveryInput} onChange={(event) => setRecoveryInput(event.target.value)} autoComplete="off" spellCheck={false} placeholder="Paste your saved recovery key" />
             </label>
             <button className="submit-button" type="submit" disabled={busy || !recoveryInput.trim()}>
-              {busy ? "Restoring…" : "Restore workspace"} <span aria-hidden="true">↗</span>
+              {busy ? "Restoring…" : "Restore preview"} <span aria-hidden="true">↗</span>
             </button>
           </form>
           <button className="secondary-action" type="button" onClick={() => { setIdentityState("welcome"); setNotice(""); }}>Back</button>
@@ -578,7 +564,7 @@ export default function App() {
         <section className="workspace identity-card">
           <p className="eyebrow">SAVE THIS ONCE</p>
           <h2>Your recovery code.</h2>
-          <p className="wallet-copy">Save this key somewhere private, such as a password manager or a secure note. You can use it to get back into this same workspace if you change phones or lose access to this browser. KIVORA cannot see or recreate it. Anyone with the key may be able to access your workspace, so do not share it.</p>
+          <p className="wallet-copy">Save this key somewhere private, such as a password manager or a secure note. You can use it to return to this same KIVORA preview identity if you change phones or lose access to this browser. KIVORA cannot see or recreate it. Anyone with the key may be able to access your private preview, so do not share it.</p>
           <div className="recovery-code">{recoveryCode.match(/.{1,8}/g)?.join(" ") ?? recoveryCode}</div>
           <button className="unit-option selected" type="button" onClick={() => void copyRecoveryCode()}>{copied ? "Copied" : "Copy recovery key"}</button>
           <label className="recovery-confirm">
@@ -586,7 +572,7 @@ export default function App() {
             <span>I have saved this key somewhere private and can retrieve it later.</span>
           </label>
           <button className="submit-button" type="button" onClick={() => void finishRecoverySetup()} disabled={!recoverySaved}>
-            Continue to workspace <span aria-hidden="true">↗</span>
+            Continue to KIVORA <span aria-hidden="true">↗</span>
           </button>
           {notice && <p className="notice" role="status">{notice}</p>}
         </section>
@@ -597,61 +583,65 @@ export default function App() {
           <section className="workspace" aria-labelledby="start-title">
             <div className="workspace-heading">
               <div>
-                <p className="eyebrow">WORKSPACE</p>
-                <h2 id="start-title">What would you like to look into?</h2>
+                <p className="eyebrow">ASK KIVORA</p>
+                <h2 id="start-title">What would you like to understand today?</h2>
               </div>
               <span className="step-label">01 / START</span>
             </div>
 
             <form onSubmit={(event) => void handleSubmit(event)}>
-              <div className="investigation-picker" role="group" aria-label="Choose what you want to do">
-                <button type="button" className={investigationType === "job" ? "investigation-choice selected" : "investigation-choice"} onClick={() => setInvestigationType("job")}><strong>Work on a job</strong><span>Get help with a task or problem</span></button>
-                <button type="button" className={investigationType === "machine" ? "investigation-choice selected" : "investigation-choice"} onClick={() => { setInvestigationType("machine"); setTrade("unsure"); setInvolvesEquipment(true); }}><strong>Understand a machine</strong><span>Learn how equipment or a product works</span></button>
-                <button type="button" className={investigationType === "research" ? "investigation-choice selected" : "investigation-choice"} onClick={() => { setInvestigationType("research"); setTrade("unsure"); }}><strong>Explore a topic</strong><span>Research a new idea or unfamiliar material</span></button>
-              </div>
-              <div className="field-grid">
-                <label className="field">
-                  <span>Trade or area (if known)</span>
-                  <select value={trade} onChange={(event) => setTrade(event.target.value as Trade)}>
-                    {trades.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Language</span>
-                  <select value={language} onChange={(event) => setLanguage(event.target.value as Language)}>
-                    {languages.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                  </select>
-                </label>
-              </div>
-
-              <fieldset className="units-field">
-                <legend>Measurement units</legend>
-                <div className="unit-options">
-                  <button type="button" className={units === "metric" ? "unit-option selected" : "unit-option"} onClick={() => setUnits("metric")}>Metric · mm, cm, m</button>
-                  <button type="button" className={units === "imperial" ? "unit-option selected" : "unit-option"} onClick={() => setUnits("imperial")}>Imperial · in, ft</button>
-                </div>
-              </fieldset>
-
-              <label className="field">
-                <span>Where is the work taking place?</span>
-                <input value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} placeholder="Country or jurisdiction (for example, Nigeria)" />
-              </label>
-
-              {investigationType !== "machine" && (
-                <label className="recovery-confirm">
-                  <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
-                  <span>This also involves a machine, appliance, tool or product</span>
-                </label>
-              )}
+              <p className="consultation-hint">You do not need to choose a trade or know the technical terms. Ask in your own words.</p>
 
               <label className="field task-field">
-                <span>{investigationType === "machine" ? "What would you like to understand about it?" : investigationType === "research" ? "What would you like to explore?" : "Describe the job, product or problem"}</span>
-                <textarea value={task} onChange={(event) => setTask(event.target.value)} placeholder={investigationType === "machine" ? "Tell us what the machine or product is, what it does, what you want to learn or what seems unfamiliar. You can add its make or model later if you find it." : investigationType === "research" ? "Describe the material, component, technique, product or idea you want to understand." : "What are you trying to do? What have you noticed? Include any details you already know."} rows={5} maxLength={2000} />
+                <span>Your question</span>
+                <textarea value={task} onChange={(event) => setTask(event.target.value)} placeholder="What are you trying to understand? It could be a product, machine, material, technique, unfamiliar term or a problem you have come across." rows={5} maxLength={2000} />
               </label>
 
-              <div className="intake-context">
-                <p className="eyebrow">JOB CONTEXT · OPTIONAL BUT USEFUL</p>
-                <p className="privacy-note">A few practical details help KIVORA distinguish your actual job from a general question. Add only what you know; you can leave anything blank.</p>
+              <details className="intake-context">
+                <summary>+ Add details (optional)</summary>
+                <p className="eyebrow">CONTEXT THAT MAY HELP</p>
+                <p className="privacy-note">Add only what you know. None of these details is required to ask KIVORA.</p>
+                <div className="field-grid">
+                  <label className="field">
+                    <span>Trade or area (optional)</span>
+                    <select value={trade} onChange={(event) => setTrade(event.target.value as Trade)}>
+                      {trades.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Response language</span>
+                    <select value={language} onChange={(event) => setLanguage(event.target.value as Language)}>
+                      {languages.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <fieldset className="units-field">
+                  <legend>Measurement units</legend>
+                  <div className="unit-options">
+                    <button type="button" className={units === "metric" ? "unit-option selected" : "unit-option"} onClick={() => setUnits("metric")}>Metric · mm, cm, m</button>
+                    <button type="button" className={units === "imperial" ? "unit-option selected" : "unit-option"} onClick={() => setUnits("imperial")}>Imperial · in, ft</button>
+                  </div>
+                </fieldset>
+                <label className="field">
+                  <span>Country or jurisdiction (optional)</span>
+                  <input value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} placeholder="For example, Nigeria" />
+                </label>
+                <label className="recovery-confirm">
+                  <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
+                  <span>This question involves a machine, appliance, tool or product</span>
+                </label>
+                {involvesEquipment && (
+                  <div className="field-grid">
+                    <label className="field">
+                      <span>Make (if known)</span>
+                      <input value={equipmentMake} onChange={(event) => setEquipmentMake(event.target.value)} placeholder="Manufacturer" />
+                    </label>
+                    <label className="field">
+                      <span>Exact model (if known)</span>
+                      <input value={equipmentModel} onChange={(event) => setEquipmentModel(event.target.value)} placeholder="Model number" />
+                    </label>
+                  </div>
+                )}
                 <label className="field">
                   <span>Measurements and dimensions</span>
                   <textarea value={measurements} onChange={(event) => setMeasurements(event.target.value)} rows={2} maxLength={450} placeholder="For example: opening width, depth, thickness, pipe diameter or observed readings. Include units." />
@@ -668,12 +658,12 @@ export default function App() {
                   <span>Constraints or what you have already tried</span>
                   <textarea value={constraints} onChange={(event) => setConstraints(event.target.value)} rows={2} maxLength={450} placeholder="Access, time, space, budget, parts available, previous attempts or anything that limits the work." />
                 </label>
-              </div>
+              </details>
 
               <button className="submit-button" type="submit" disabled={busy || !task.trim()}>
-                {busy ? "Saving…" : investigationType === "machine" ? "Start machine investigation" : investigationType === "research" ? "Start research" : "Start work session"} <span aria-hidden="true">↗</span>
+                {busy ? "Sending…" : "Ask KIVORA"} <span aria-hidden="true">↗</span>
               </button>
-              <p className="privacy-note">Your task is stored in your private workspace. Avoid passwords, access codes and customer personal details. AI inference is currently disabled while the evidence and cost controls are being validated.</p>
+              <p className="privacy-note">Your question is saved in your private history. Avoid passwords, access codes and customer personal details. AI inference is currently disabled; this preview will not generate live AI guidance.</p>
             </form>
           </section>
 
@@ -770,6 +760,36 @@ export default function App() {
             </section>
           )}
 
+          <section className="workspace session-library">
+            <div className="workspace-heading">
+              <div>
+                <p className="eyebrow">YOUR PRIVATE HISTORY</p>
+                <h2>Recent conversations</h2>
+              </div>
+              <button className="text-button" type="button" onClick={() => setShowArchived((value) => !value)}>
+                {showArchived ? "Hide archived" : "Show archived"}
+              </button>
+            </div>
+            {visibleSessions.length === 0 ? (
+              <p className="privacy-note">Your recent conversations appear here. Start a new one whenever you want to understand something different. They remain private to this preview identity.</p>
+            ) : (
+              <div className="session-list">
+                {visibleSessions.map((session) => (
+                  <article className={activeSession?.id === session.id ? "session-item active" : "session-item"} key={session.id}>
+                    <button className="session-open" type="button" onClick={() => void openSession(session.id)}>
+                      <span className="session-title">{session.title}</span>
+                      <span className="session-meta">{trades.find((item) => item.value === session.trade)?.label ?? session.trade} · {new Date(session.updated_at * 1000).toLocaleDateString()}</span>
+                    </button>
+                    <div className="session-actions">
+                      <button className="text-button" type="button" onClick={() => void archiveSession(session)}>{session.archived_at ? "Restore" : "Archive"}</button>
+                      <button className="text-button danger-text" type="button" onClick={() => void deleteSession(session)}>Delete</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
           <section className="workspace evidence-library">
             <div className="workspace-heading">
               <div>
@@ -847,35 +867,7 @@ export default function App() {
             )}
           </section>
 
-          <section className="workspace session-library">
-            <div className="workspace-heading">
-              <div>
-                <p className="eyebrow">YOUR PRIVATE HISTORY</p>
-                <h2>Your investigations</h2>
-              </div>
-              <button className="text-button" type="button" onClick={() => setShowArchived((value) => !value)}>
-                {showArchived ? "Hide archived" : "Show archived"}
-              </button>
-            </div>
-            {visibleSessions.length === 0 ? (
-              <p className="privacy-note">Each investigation is saved separately here. Start another one whenever you need to look into a different job, machine, product or idea. They all stay in this one private workspace.</p>
-            ) : (
-              <div className="session-list">
-                {visibleSessions.map((session) => (
-                  <article className={activeSession?.id === session.id ? "session-item active" : "session-item"} key={session.id}>
-                    <button className="session-open" type="button" onClick={() => void openSession(session.id)}>
-                      <span className="session-title">{session.title}</span>
-                      <span className="session-meta">{trades.find((item) => item.value === session.trade)?.label ?? session.trade} · {new Date(session.updated_at * 1000).toLocaleDateString()}</span>
-                    </button>
-                    <div className="session-actions">
-                      <button className="text-button" type="button" onClick={() => void archiveSession(session)}>{session.archived_at ? "Restore" : "Archive"}</button>
-                      <button className="text-button danger-text" type="button" onClick={() => void deleteSession(session)}>Delete</button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+
 
           {activeSession && (
             <section className="workspace active-session">
@@ -923,7 +915,6 @@ export default function App() {
             </div>
           </section>
 
-          <PaymentRequestPreview />
         </>
       )}
 
