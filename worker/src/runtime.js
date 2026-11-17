@@ -319,7 +319,7 @@ const handleApi = async (request, env, url) => {
         ...(source.jurisdiction ? { jurisdiction: String(source.jurisdiction) } : {}),
         trade: String(source.trade),
         topic: String(source.topic),
-        ...(typeof source.revision_date === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(source.revision_date)
+        ...(typeof source.revision_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.revision_date)
           ? { revisionDate: source.revision_date } : {}),
         retrievedAt: new Date(Number(source.retrieved_at) * 1000).toISOString(),
         ...(source.page_or_section ? { pageOrSection: String(source.page_or_section) } : {}),
@@ -377,7 +377,7 @@ const handleApi = async (request, env, url) => {
         ...(source.jurisdiction ? { jurisdiction: String(source.jurisdiction) } : {}),
         trade: String(source.trade),
         topic: String(source.topic),
-        ...(typeof source.revision_date === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(source.revision_date) ? { revisionDate: source.revision_date } : {}),
+        ...(typeof source.revision_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.revision_date) ? { revisionDate: source.revision_date } : {}),
         retrievedAt: new Date(Number(source.retrieved_at) * 1000).toISOString(),
         ...(source.page_or_section ? { pageOrSection: String(source.page_or_section) } : {}),
         excerpt: String(source.evidence_note),
@@ -672,7 +672,7 @@ const handleApi = async (request, env, url) => {
         "accept-ranges": "bytes",
       };
       if (rangeHeader) {
-        const match = /^bytes=(\\d*)-(\\d*)$/.exec(rangeHeader.trim());
+        const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
         if (!match || (!match[1] && !match[2]) || !Number.isSafeInteger(totalSize) || totalSize <= 0) {
           return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${totalSize}` } });
         }
