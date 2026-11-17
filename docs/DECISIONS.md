@@ -22,6 +22,9 @@ Ordinary AI use must not require a Bitcoin wallet. Bitcoin/Lightning is a hackat
 ### KDV-006 — Evidence and safety
 Distinguish sourced facts, worker observations, AI hypotheses and verified outcomes. Do not fabricate specifications, citations, standards or measurements. Trade-specific safety gates and escalation are mandatory.
 
+### KDV-007 — Personal account authentication
+KIVORA's normal account uses email and password, with verified email, forgot-password/password-reset, secure sessions and account deletion. Phone registration, social login and wallet connection are not required. The current anonymous worker identity and recovery code are temporary preview access only. Preserve private preview data during an explicit account-linking flow. Email delivery and password hashing implementation remain gated by provider setup and runtime security benchmarks; see [Account Authentication](ACCOUNT-AUTHENTICATION.md).
+
 ## Hypotheses requiring validation
 
 ### HYP-001 — Initial product wedge
@@ -49,7 +52,6 @@ Wallet/payment SDKs require current checks for custody, security, Android/browse
 - AI reasoning provider.
 - Speech-to-text and text-to-speech providers.
 - Retrieval/embedding infrastructure.
-- Authentication and account model.
 - Wallet SDK and payment/reward flow.
 - Pricing, monetisation and initial launch coverage.
 
