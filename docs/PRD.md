@@ -46,9 +46,9 @@ A shared intelligence workflow must not imply shared technical conclusions. Each
 
 ## Input requirements
 
-Text, voice and images should work together in one work session. Voice is a first-class requirement, not a separate intelligence path. Voice and text must share the same context, evidence and safety engine.
+Text, voice, images and recorded video should work together in one conversation. Every modality shares the same context, evidence and safety engine. Voice and text must share the same context, evidence and safety engine.
 
-Initial voice experience: push-to-talk, visible/editable transcripts and spoken responses. Continuous hands-free conversation and live camera assistance can follow after the core workflow is reliable. Text fallback is required when speech services fail or connectivity is poor.
+Initial multimodal experience: text, camera/gallery image uploads, recorded video uploads, push-to-talk with visible/editable transcripts, and spoken responses. Recorded video is analysed asynchronously using bounded timestamped frames and audio only when supported. Continuous hands-free conversation and live camera assistance are later phases. Text/file fallback is required when device capabilities or services are unavailable.
 
 ## Evidence and trust
 
@@ -78,7 +78,7 @@ Carpentry and plumbing are candidates for deeper end-to-end demonstrations. Elec
 
 ## MVP acceptance criteria
 
-- Mobile-first text and image input; voice input/output in the planned initial experience.
+- Responsive text, image and recorded-video input across phones, tablets and desktop browsers; voice input/output in the planned initial experience.
 - Appropriate trade/task classification.
 - Targeted follow-up questions instead of guessing when critical information is missing.
 - Retrieval of a real technical source and relevant passage.
@@ -91,7 +91,7 @@ Carpentry and plumbing are candidates for deeper end-to-end demonstrations. Elec
 
 ## Deferred
 
-Defer full-depth knowledge coverage for every trade, 3D reconstruction, live video co-pilot, compliance certification, expert marketplace, rewards/reputation systems, large knowledge graph infrastructure and broad multilingual rollout until core reliability is demonstrated.
+Defer full-depth knowledge coverage for every trade, 3D reconstruction, live video co-pilot/streaming, compliance certification, expert marketplace, rewards/reputation systems, large knowledge graph infrastructure and broad multilingual rollout until core reliability is demonstrated.
 
 ## Bitcoin and payments
 
