@@ -930,16 +930,16 @@ export default function App() {
           <section className="workspace account-card">
             <div className="workspace-heading">
               <div>
-                <p className="eyebrow">ACCOUNT & RECOVERY</p>
-                <h2>Your private identity</h2>
+                <p className="eyebrow">PREVIEW ACCESS</p>
+                <h2>Your preview identity</h2>
               </div>
               <span className="step-label">ACTIVE</span>
             </div>
-            <p className="privacy-note">Anonymous worker ID: {workerId.slice(0, 8)}…{workerId.slice(-4)}. Your sessions are not shared with other workers.</p>
+            <p className="privacy-note">Temporary anonymous preview ID: {workerId.slice(0, 8)}…{workerId.slice(-4)}. This is not your final KIVORA account. Final accounts will use email and password, with email verification and password reset. Your preview sessions remain private.</p>
             <div className="account-actions">
-              <button className="unit-option" type="button" onClick={() => void rotateRecoveryCode()} disabled={busy}>Generate new recovery code</button>
+              <button className="unit-option" type="button" onClick={() => void rotateRecoveryCode()} disabled={busy}>Generate new preview recovery code</button>
               <button className="unit-option" type="button" onClick={() => void logout()} disabled={busy}>Log out on this device</button>
-              <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete identity and all data</button>
+              <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete preview identity and all data</button>
             </div>
           </section>
 
