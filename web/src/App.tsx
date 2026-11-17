@@ -758,6 +758,36 @@ export default function App() {
             </section>
           )}
 
+          <section className="workspace session-library">
+            <div className="workspace-heading">
+              <div>
+                <p className="eyebrow">YOUR PRIVATE HISTORY</p>
+                <h2>Recent conversations</h2>
+              </div>
+              <button className="text-button" type="button" onClick={() => setShowArchived((value) => !value)}>
+                {showArchived ? "Hide archived" : "Show archived"}
+              </button>
+            </div>
+            {visibleSessions.length === 0 ? (
+              <p className="privacy-note">Your recent conversations appear here. Start a new one whenever you want to understand something different. They remain private to this preview identity.</p>
+            ) : (
+              <div className="session-list">
+                {visibleSessions.map((session) => (
+                  <article className={activeSession?.id === session.id ? "session-item active" : "session-item"} key={session.id}>
+                    <button className="session-open" type="button" onClick={() => void openSession(session.id)}>
+                      <span className="session-title">{session.title}</span>
+                      <span className="session-meta">{trades.find((item) => item.value === session.trade)?.label ?? session.trade} · {new Date(session.updated_at * 1000).toLocaleDateString()}</span>
+                    </button>
+                    <div className="session-actions">
+                      <button className="text-button" type="button" onClick={() => void archiveSession(session)}>{session.archived_at ? "Restore" : "Archive"}</button>
+                      <button className="text-button danger-text" type="button" onClick={() => void deleteSession(session)}>Delete</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
           <section className="workspace evidence-library">
             <div className="workspace-heading">
               <div>
@@ -835,35 +865,7 @@ export default function App() {
             )}
           </section>
 
-          <section className="workspace session-library">
-            <div className="workspace-heading">
-              <div>
-                <p className="eyebrow">YOUR PRIVATE HISTORY</p>
-                <h2>Recent conversations</h2>
-              </div>
-              <button className="text-button" type="button" onClick={() => setShowArchived((value) => !value)}>
-                {showArchived ? "Hide archived" : "Show archived"}
-              </button>
-            </div>
-            {visibleSessions.length === 0 ? (
-              <p className="privacy-note">Your recent conversations appear here. Start a new one whenever you want to understand something different. They remain private to this preview identity.</p>
-            ) : (
-              <div className="session-list">
-                {visibleSessions.map((session) => (
-                  <article className={activeSession?.id === session.id ? "session-item active" : "session-item"} key={session.id}>
-                    <button className="session-open" type="button" onClick={() => void openSession(session.id)}>
-                      <span className="session-title">{session.title}</span>
-                      <span className="session-meta">{trades.find((item) => item.value === session.trade)?.label ?? session.trade} · {new Date(session.updated_at * 1000).toLocaleDateString()}</span>
-                    </button>
-                    <div className="session-actions">
-                      <button className="text-button" type="button" onClick={() => void archiveSession(session)}>{session.archived_at ? "Restore" : "Archive"}</button>
-                      <button className="text-button danger-text" type="button" onClick={() => void deleteSession(session)}>Delete</button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+
 
           {activeSession && (
             <section className="workspace active-session">
