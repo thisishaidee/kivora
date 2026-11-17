@@ -23,14 +23,15 @@
 
 ## Cloudflare account state
 
-- Free D1 database named kivora created and schema applied.
-- D1 tables: workers, worker_sessions, work_sessions, work_session_messages.
-- D1 foreign-key check returned no violations.
-- A real D1 insert/select/delete smoke test passed; its temporary test records were removed.
-- Cloudflare Worker script named kivora deployed with D1 and Rate Limiting bindings.
-- Worker workers.dev access is disabled and no public route is attached.
-- Static assets are not deployed; there is no public KIVORA app URL yet.
-- No paid plan or billing upgrade was activated.
+- Original D1 database named kivora remains the existing shared Worker database; no media migration was applied to it in this work.
+- A separate D1 database named kivora-preview was created in the EU jurisdiction / Europe region.
+- All four repository migrations were applied to kivora-preview: worker identity, evidence registry, work-session messages and private conversation media.
+- A direct sqlite_master query verified workers, worker_sessions, work_sessions, work_session_messages, evidence_sources, conversation_media, conversation_media_derivatives and conversation_media_analysis, plus their indexes, in kivora-preview.
+- A private R2 Standard bucket named kivora-private-media exists in WEUR; public access is not enabled.
+- Pages preview was previously configured to call the shared kivora Worker through a service binding. Preview isolation is being corrected before media uploads are enabled.
+- AI inference and media uploads remain disabled; no provider has been activated.
+- Production Pages deployments remain disabled and the production branch remains main.
+- R2 storage and request usage can incur charges beyond the published free allowance; usage must be monitored. No AI or paid inference provider has been enabled.
 
 ## Not implemented or not verified
 
