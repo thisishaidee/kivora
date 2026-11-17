@@ -25,6 +25,9 @@ Distinguish sourced facts, worker observations, AI hypotheses and verified outco
 ### KDV-007 — Personal account authentication
 KIVORA's normal account uses email and password, with verified email, forgot-password/password-reset, secure sessions and account deletion. Phone registration, social login and wallet connection are not required. The current anonymous worker identity and recovery code are temporary preview access only. Preserve private preview data during an explicit account-linking flow. Email delivery and password hashing implementation remain gated by provider setup and runtime security benchmarks; see [Account Authentication](ACCOUNT-AUTHENTICATION.md).
 
+### KDV-008 — Progressive collection of product identification
+Do not ask for a product manufacturer, make or exact model during account creation, preview access, or the first-question form. Let the worker begin with a natural-language question. Ask for manufacturer/model details inside the conversation only when those details materially affect identification, compatibility, specifications or safe guidance. Explain briefly why the detail matters, ask only for what is needed, and allow the worker to say they do not know. Existing saved conversations containing these details remain readable.
+
 ## Hypotheses requiring validation
 
 ### HYP-001 — Initial product wedge
