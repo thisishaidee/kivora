@@ -238,7 +238,7 @@ describe("private conversation media uploads", () => {
     expect(response.headers.get("content-range")).toBe("bytes 1-3/6");
     expect(response.headers.get("accept-ranges")).toBe("bytes");
     expect(Array.from(new Uint8Array(await response.arrayBuffer()))).toEqual([20, 30, 40]);
-    expect(get).toHaveBeenCalledTimes(2);
+    expect(get).toHaveBeenCalledOnce();
   });
 
 });
