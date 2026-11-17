@@ -24,7 +24,8 @@
     "binding": "AI"
   },
   "vars": {
-    "AI_ENABLED": "false"
+    "AI_ENABLED": "false",
+    "MEDIA_UPLOAD_ENABLED": "false"
   },
   "d1_databases": [
     {

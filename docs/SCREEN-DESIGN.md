@@ -1,7 +1,7 @@
 # KIVORA Visual Screen Design — First Release
 
 **Scope:** Public Home, signed-in Home and Ask KIVORA.  
-**Design target:** Android-first mobile web/PWA.  
+**Design target:** Responsive web/PWA for Android, iPhone, tablets, laptops and desktop browsers. No platform is the primary product boundary.  
 **Product reference:** [Product Blueprint](PRODUCT-BLUEPRINT.md) and [Screen Specification](SCREEN-SPECIFICATION.md).
 
 ## 1. Visual direction
@@ -53,7 +53,19 @@ Colour must never be the only signal for evidence status, uncertainty or safety.
 - Trust section: real sources, visible uncertainty, trade-aware safety, private consultations.
 - Closing CTA and compact footer.
 
-### Mobile composition (priority)
+### Phone composition
+
+Support Android phones and iPhones in portrait and landscape. Use a single-column flow, compact navigation, readable text and touch-first controls. Camera and media-library actions must be feature-detected and have file-picker/text fallbacks.
+
+### Tablet composition
+
+Support iPadOS and Android tablets in portrait and landscape. Use available width for a balanced two-column layout only when it improves the task; keep the conversation and reading column comfortably constrained. Do not simply scale up the phone layout.
+
+### Desktop and laptop composition
+
+Support current Chrome, Edge, Firefox and Safari releases on Windows and macOS. Use a wider page shell with a constrained conversation column, clear keyboard focus, keyboard-operable controls and native file selection. Drag-and-drop and webcam capture are optional enhancements, never the only path.
+
+### Phone composition
 1. Wordmark and compact sign-in link.
 2. Hero headline and supporting copy.
 3. One prominent "Get started" CTA.
@@ -113,7 +125,8 @@ A first-time user sees three suggested questions from different practical fields
 - Tapping Ask KIVORA opens a new conversation thread.
 - Selecting a recent item reopens that thread.
 - "New question" starts a separate thread.
-- Never force the user to fill trade, location, model, measurements, tools or materials before asking.
+- Never force the user to fill trade, location, manufacturer, exact model, measurements, tools or materials before asking.
+- Do not put manufacturer or exact-model fields in sign-up, preview setup or the first-question form. Ask inside the conversation only when the detail materially changes the answer, and explain why it is needed.
 - Profile enrichment is skippable and must not block the Home screen.
 
 ## 5. Screen 03 — Ask KIVORA
@@ -135,7 +148,15 @@ A first-time user sees three suggested questions from different practical fields
 ### Composer
 - Multiline text input with placeholder: "Ask KIVORA anything about your work or something you want to understand…"
 - Send button.
-- Image attachment only when upload and analysis are implemented.
+- Provide clear image actions: **Take photo** (requests camera capture where supported) and **Upload image** (opens the photo library/files). These are optional; the worker can always continue with text alone.
+- Provide clear video actions: **Record video** (requests camera/video capture where supported) and **Upload video** (opens the device media library/files). Desktop file selection must work even when camera capture is unavailable.
+- Show image thumbnails and video posters, filenames, media type, upload/processing state, progress, retry, remove/replace controls and optional captions. A local preview must never be labelled uploaded or analysed.
+- Accept multiple useful images and bounded video attachments according to published limits. Explain unsupported formats, codecs, file sizes and duration before the worker loses work.
+- Video analysis must use bounded representative frames with timestamps and optional audio transcription only when that pipeline actually runs. Results must distinguish visible events, audible observations, hypotheses and unknowns.
+- Allow more than one image where useful, with thumbnails, remove/replace controls and a short optional caption. Suggest an overall view plus a close-up of a label or relevant detail when identification is uncertain.
+- Do not require manufacturer or model details if the worker can show the item. Ask for another angle or a label image only when it materially improves identification.
+- Vision results must separate visible observations from inferred identity, communicate confidence and uncertainty, and never claim an exact model from an ambiguous image.
+- Image and video attachment actions must remain hidden/disabled until private authenticated media upload, file validation, retention/deletion controls and a tested analysis path for that modality are implemented. Do not present a local-only preview as an uploaded or analysed attachment.
 - Microphone only when speech recognition is implemented and tested.
 - Voice features must not be represented by inert buttons.
 
@@ -178,23 +199,30 @@ Home · Ask KIVORA · Discover · Profile.
 
 Community should not be a primary destination in the initial bottom navigation. It can be reached through Discover or a secondary destination once it is implemented. Settings lives under Profile.
 
-## 8. Responsive and accessibility requirements
+## 8. Cross-device, responsive and accessibility requirements
 
-- Minimum 44px touch target for primary controls.
-- Body copy comfortably readable at 16px on mobile.
-- No horizontal scrolling at 320px viewport width.
-- Maintain visible focus and semantic labels.
-- Inputs must remain usable with Android keyboard open.
-- Respect reduced-motion settings.
+- Treat Android, iPhone, Android tablets, iPad, Windows and macOS browsers as first-class targets.
+- No horizontal scrolling at 320 CSS px; support zoom and text reflow.
+- Use fluid layouts and content-driven breakpoints; do not assume a device based on viewport width.
+- Keep answer text in a readable constrained column on large screens.
+- Minimum 44px touch target for primary controls; visible keyboard focus for all interactive controls.
+- Body copy comfortably readable at 16px on phones.
+- Maintain safe-area spacing on notched devices and avoid fixed heights that clip content.
+- Inputs and composer must remain usable with mobile keyboards open and in landscape.
+- Respect reduced-motion settings; never autoplay uploaded audio or video.
 - Do not rely on hover to expose essential actions.
-- Ensure contrast for muted copy and form placeholders.
+- Ensure contrast for muted copy and form placeholders; never use colour as the only status signal.
 - Keep long research results scrollable without trapping the user.
 - Audio playback must not prevent text selection or scrolling.
+- Feature-detect camera, microphone, codecs and speech APIs; provide a usable text/file fallback when a capability is absent or permission is denied.
+- Test actual browser/device combinations, not only responsive emulation.
 
 ## 9. Design acceptance checks
 
 - [ ] Public Home communicates product value without sign-up.
-- [ ] Public Home is visually useful on a 360px Android viewport.
+- [ ] Public Home is useful at 320–430 CSS px phone widths, tablet widths and desktop widths.
+- [ ] Layout works on Android, iPhone, iPad/Android tablets, Windows and macOS browsers.
+- [ ] No critical action depends on hover, one browser, or a physical camera.
 - [ ] Product example is clearly marked as illustrative if not live.
 - [ ] The primary CTA does not imply unsupported authentication methods.
 - [ ] Signed-in Home makes consultation the most prominent action.

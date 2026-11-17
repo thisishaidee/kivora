@@ -9,7 +9,7 @@ const makeDb = (firstResult: unknown = null) => {
         sql,
         values: [] as unknown[],
         bind(...values: unknown[]) { this.values = values; return this; },
-        first: async () => firstResult,
+        first: async () => sql.includes("SELECT 1 AS present FROM conversation_media") || sql.includes("SELECT 1 AS present FROM conversation_media_derivatives") ? null : firstResult,
         all: async () => ({ results: [] }),
         run: async () => ({ success: true, meta: { changes: 1 } }),
       };

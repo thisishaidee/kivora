@@ -30,7 +30,7 @@ These are initial fields, not a limit on future expansion. One shared workflow a
 3. **Safety is part of reasoning.** Trade-specific safety controls must constrain guidance.
 4. **Uncertainty must be visible.** Distinguish confirmed facts, observations, hypotheses and unknowns.
 5. **Verification must be honest.** Never claim a result is verified beyond the evidence available.
-6. **Accessible by design.** Prioritise mobile workflows, voice and text, with graceful fallbacks for unreliable connectivity.
+6. **Accessible by design.** Support phones, tablets, laptops and desktop browsers equally; make text, voice and media workflows responsive, accessible and resilient to unreliable connectivity.
 7. **Wallet-optional core access.** Bitcoin/Lightning is required for the current hackathon submission, but ordinary worker access to KIVORA must not require a wallet.
 
 ## Bitcoin Wallet
@@ -48,6 +48,8 @@ These documents do not enable mainnet or real-fund functionality. Testnet intero
 
 - [Product requirements](docs/PRD.md)
 - [Architecture proposal](docs/ARCHITECTURE.md)
+- [Cross-device and multimodal architecture](docs/CROSS-DEVICE-MULTIMODAL-ARCHITECTURE.md)
+- [Media storage and provider evaluation](docs/MEDIA-PROVIDER-EVALUATION.md)
 - [Decision log](docs/DECISIONS.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 - [Worker identity and private sessions](docs/WORKER_IDENTITY.md)
@@ -57,7 +59,7 @@ These documents do not enable mainnet or real-fund functionality. Testnet intero
 
 ## Current implementation
 
-The repository now contains a mobile-first React/Vite interface, shared TypeScript/Zod contracts, a Cloudflare Worker health route, shell-only service-worker caching, and initial automated tests. It is a development foundation, not yet a functioning AI assistant or production service.
+The repository now contains a responsive React/Vite interface, shared TypeScript/Zod contracts, a Cloudflare Worker health route, shell-only service-worker caching, and initial automated tests. It is a development foundation, not yet a functioning AI assistant or production service.
 
 ### Local development
 
@@ -74,7 +76,7 @@ Requires Node.js 22 or newer.
 
 ## Current limitations
 
-Worker identity and private work-session endpoints are implemented on the current feature branch and the D1 schema is provisioned in Cloudflare. The branch still needs CI, Worker deployment and end-to-end browser verification. AI providers, evidence retrieval, image understanding, voice input/output, compatibility assessment and trade-specific safety enforcement are not yet implemented. The optional NWC wallet integration is being developed separately. See the implementation plan for the sequence and deployment gates.
+Worker identity and private work-session endpoints are implemented on the current feature branch and the D1 schema is provisioned in Cloudflare. The branch still needs CI, Worker deployment and end-to-end browser verification. AI providers, autonomous research and image/video understanding are not yet implemented. Private media upload APIs and metadata are implemented behind a disabled feature flag; no storage bucket is configured and no media upload is currently available to users. Initial on-device speech playback is available for the current deterministic preview assessment and response; speech-to-text, editable voice transcripts and a validated remote TTS provider are not yet implemented. Compatibility assessment and trade-specific safety enforcement remain partial and require further validation. The optional NWC wallet integration is being developed separately. See the implementation plan for the sequence and deployment gates.
 
 ## Security
 

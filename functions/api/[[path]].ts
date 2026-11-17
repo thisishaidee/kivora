@@ -1,9 +1,9 @@
+import worker from "../../worker/src/index";
+
 type PagesContext = {
   request: Request;
-  env: {
-    KIVORA_API: { fetch(request: Request): Promise<Response> };
-  };
+  env: Parameters<typeof worker.fetch>[1];
 };
 
 export const onRequest = ({ request, env }: PagesContext): Promise<Response> =>
-  env.KIVORA_API.fetch(request);
+  worker.fetch(request, env);

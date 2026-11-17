@@ -8,11 +8,75 @@
  */
 /** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
-/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> } }} Env */
+/** @typedef {{ put(key: string, value: ReadableStream<Uint8Array>, options?: Record<string, unknown>): Promise<unknown>, get(key: string, options?: { range?: { offset: number, length?: number } }): Promise<{ body: ReadableStream<Uint8Array>, size: number, httpMetadata?: { contentType?: string } } | null>, delete(keys: string | string[]): Promise<void> }} R2Bucket */
+/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> } }} Env */
 
 import { assessWorkRequest, parseWorkRequest } from "../../shared/src/intelligence-runtime.js";
 import { parsePrivateEvidenceCapture } from "../../shared/src/evidence-runtime.js";
 import { composeWorkerAssistantResponse } from "../../shared/src/response-runtime.js";
+
+
+const IMAGE_MIME_LIMITS = new Map([
+  ["image/jpeg", 10 * 1024 * 1024],
+  ["image/png", 10 * 1024 * 1024],
+  ["image/webp", 10 * 1024 * 1024],
+  ["image/avif", 10 * 1024 * 1024],
+]);
+const VIDEO_MIME_LIMITS = new Map([
+  ["video/mp4", 50 * 1024 * 1024],
+  ["video/webm", 50 * 1024 * 1024],
+  ["video/quicktime", 50 * 1024 * 1024],
+]);
+const MEDIA_UPLOAD_TTL_SECONDS = 10 * 60;
+
+/** @param {string} mimeType @param {Uint8Array} bytes */
+const mediaSignatureMatches = (mimeType, bytes) => {
+  /** @param {number} start @param {number} end */
+  const ascii = (start, end) => String.fromCharCode(...bytes.slice(start, end));
+  if (mimeType === "image/jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (mimeType === "image/png") return bytes.length >= 8 && [137,80,78,71,13,10,26,10].every((v,i) => bytes[i] === v);
+  if (mimeType === "image/webp") return bytes.length >= 12 && ascii(0,4) === "RIFF" && ascii(8,12) === "WEBP";
+  if (mimeType === "image/avif") return bytes.length >= 12 && ascii(4,8) === "ftyp" && ["avif","avis"].includes(ascii(8,12));
+  if (mimeType === "video/mp4") return bytes.length >= 12 && ascii(4,8) === "ftyp";
+  if (mimeType === "video/quicktime") return bytes.length >= 12 && ascii(4,8) === "ftyp" && ascii(8,10) === "qt";
+  if (mimeType === "video/webm") return bytes.length >= 4 && [0x1a,0x45,0xdf,0xa3].every((v,i) => bytes[i] === v);
+  return false;
+};
+
+/** @param {D1Database} db @param {R2Bucket | undefined} bucket @param {string} workerId @param {string | undefined} sessionId */
+const purgeOwnedMediaObjects = async (db, bucket, workerId, sessionId) => {
+  const values = sessionId ? [workerId, sessionId] : [workerId];
+  if (!bucket) {
+    // Fail closed: never cascade away metadata when stored objects may still exist.
+    const mediaQuery = sessionId
+      ? "SELECT 1 AS present FROM conversation_media WHERE owner_worker_id = ? AND work_session_id = ? AND status IN ('uploaded', 'validating', 'ready', 'processing') LIMIT 1"
+      : "SELECT 1 AS present FROM conversation_media WHERE owner_worker_id = ? AND status IN ('uploaded', 'validating', 'ready', 'processing') LIMIT 1";
+    const derivativeQuery = sessionId
+      ? "SELECT 1 AS present FROM conversation_media_derivatives d JOIN conversation_media m ON m.id = d.media_id WHERE m.owner_worker_id = ? AND m.work_session_id = ? LIMIT 1"
+      : "SELECT 1 AS present FROM conversation_media_derivatives d JOIN conversation_media m ON m.id = d.media_id WHERE m.owner_worker_id = ? LIMIT 1";
+    const [media, derivatives] = await Promise.all([
+      db.prepare(mediaQuery).bind(...values).first(),
+      db.prepare(derivativeQuery).bind(...values).first(),
+    ]);
+    return !media && !derivatives;
+  }
+  const mediaQuery = sessionId
+    ? "SELECT object_key FROM conversation_media WHERE owner_worker_id = ? AND work_session_id = ?"
+    : "SELECT object_key FROM conversation_media WHERE owner_worker_id = ?";
+  const derivativeQuery = sessionId
+    ? "SELECT d.object_key FROM conversation_media_derivatives d JOIN conversation_media m ON m.id = d.media_id WHERE m.owner_worker_id = ? AND m.work_session_id = ?"
+    : "SELECT d.object_key FROM conversation_media_derivatives d JOIN conversation_media m ON m.id = d.media_id WHERE m.owner_worker_id = ?";
+  const [media, derivatives] = await Promise.all([
+    db.prepare(mediaQuery).bind(...values).all(),
+    db.prepare(derivativeQuery).bind(...values).all(),
+  ]);
+  const keys = [
+    ...(media.results ?? []).map(row => String(row.object_key)),
+    ...(derivatives.results ?? []).map(row => String(row.object_key)),
+  ].filter(Boolean);
+  if (keys.length) await bucket.delete(keys);
+  return true;
+};
 
 const SESSION_COOKIE = "__Host-kivora_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -213,6 +277,8 @@ const handleApi = async (request, env, url) => {
   if (path === "/api/identity" && method === "DELETE") {
     const worker = await authenticate(request, env.DB);
     if (!worker) return json({ error: "unauthorized" }, 401);
+    const mediaPurged = await purgeOwnedMediaObjects(env.DB, env.MEDIA_BUCKET, String(worker.worker_id), undefined);
+    if (!mediaPurged) return json({ error: "media_storage_unavailable" }, 503);
     await env.DB.batch([
       env.DB.prepare("DELETE FROM work_session_messages WHERE worker_id = ?").bind(worker.worker_id),
       env.DB.prepare("DELETE FROM work_sessions WHERE worker_id = ?").bind(worker.worker_id),
@@ -266,7 +332,7 @@ const handleApi = async (request, env, url) => {
         ...(source.jurisdiction ? { jurisdiction: String(source.jurisdiction) } : {}),
         trade: String(source.trade),
         topic: String(source.topic),
-        ...(typeof source.revision_date === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(source.revision_date)
+        ...(typeof source.revision_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.revision_date)
           ? { revisionDate: source.revision_date } : {}),
         retrievedAt: new Date(Number(source.retrieved_at) * 1000).toISOString(),
         ...(source.page_or_section ? { pageOrSection: String(source.page_or_section) } : {}),
@@ -324,7 +390,7 @@ const handleApi = async (request, env, url) => {
         ...(source.jurisdiction ? { jurisdiction: String(source.jurisdiction) } : {}),
         trade: String(source.trade),
         topic: String(source.topic),
-        ...(typeof source.revision_date === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(source.revision_date) ? { revisionDate: source.revision_date } : {}),
+        ...(typeof source.revision_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.revision_date) ? { revisionDate: source.revision_date } : {}),
         retrievedAt: new Date(Number(source.retrieved_at) * 1000).toISOString(),
         ...(source.page_or_section ? { pageOrSection: String(source.page_or_section) } : {}),
         excerpt: String(source.evidence_note),
@@ -433,6 +499,246 @@ const handleApi = async (request, env, url) => {
     }, 201);
   }
 
+
+  if (path === "/api/media/uploads" && method === "POST") {
+    if (env.MEDIA_UPLOAD_ENABLED !== "true" || !env.MEDIA_BUCKET) {
+      return json({ error: "media_upload_unavailable" }, 503);
+    }
+    const body = await readJson(request);
+    const sessionId = typeof body?.sessionId === "string" ? body.sessionId : "";
+    const mediaKind = body?.mediaKind === "image" || body?.mediaKind === "video" ? body.mediaKind : "";
+    const mimeType = typeof body?.mimeType === "string" ? body.mimeType.toLowerCase() : "";
+    const byteSize = Number(body?.byteSize);
+    const caption = typeof body?.caption === "string" ? body.caption.trim() : "";
+    const maxBytes = mediaKind === "image" ? IMAGE_MIME_LIMITS.get(mimeType) : VIDEO_MIME_LIMITS.get(mimeType);
+    if (!/^[0-9a-f-]{36}$/i.test(sessionId) || !mediaKind || !maxBytes ||
+        !Number.isSafeInteger(byteSize) || byteSize < 1 || byteSize > maxBytes || caption.length > 2000) {
+      return json({ error: "invalid_media_upload" }, 400);
+    }
+    const ownedSession = await env.DB.prepare(
+      "SELECT id FROM work_sessions WHERE id = ? AND worker_id = ? LIMIT 1",
+    ).bind(sessionId, worker.worker_id).first();
+    if (!ownedSession) return json({ error: "work_session_not_found" }, 404);
+    const id = newId();
+    const now = nowSeconds();
+    const objectKey = "private/" + worker.worker_id + "/" + sessionId + "/" + id;
+    const intent = await env.DB.prepare(
+      `INSERT INTO conversation_media (
+        id, work_session_id, owner_worker_id, object_key, media_kind, mime_type,
+        byte_size, caption, status, created_at, updated_at, upload_expires_at
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, 'intent', ?, ?, ?
+      WHERE (
+        SELECT COALESCE(SUM(byte_size), 0) FROM conversation_media
+        WHERE owner_worker_id = ?
+          AND status IN ('intent', 'uploaded', 'validating', 'ready', 'processing')
+          AND (status != 'intent' OR upload_expires_at > ?)
+      ) + ? <= ?
+      AND (
+        SELECT COUNT(*) FROM conversation_media
+        WHERE owner_worker_id = ? AND work_session_id = ? AND status != 'deleted'
+          AND (status != 'intent' OR upload_expires_at > ?)
+      ) < ?`,
+    ).bind(
+      id, sessionId, worker.worker_id, objectKey, mediaKind, mimeType,
+      byteSize, caption || null, now, now, now + MEDIA_UPLOAD_TTL_SECONDS,
+      worker.worker_id, now, byteSize, 100 * 1024 * 1024,
+      worker.worker_id, sessionId, now, 10,
+    ).run();
+    if ((intent.meta?.changes ?? 0) !== 1) {
+      return json({ error: "media_quota_or_conversation_limit_exceeded" }, 413);
+    }
+    return json({
+      media: { id, mediaKind, mimeType, byteSize, status: "intent", uploadExpiresAt: now + MEDIA_UPLOAD_TTL_SECONDS },
+      uploadPath: "/api/media/" + id + "/content",
+    }, 201);
+  }
+
+  const mediaContentMatch = path.match(/^\/api\/media\/([0-9a-f-]{36})\/content$/i);
+  if (mediaContentMatch && method === "PUT") {
+    if (env.MEDIA_UPLOAD_ENABLED !== "true" || !env.MEDIA_BUCKET) {
+      return json({ error: "media_upload_unavailable" }, 503);
+    }
+    const mediaId = mediaContentMatch[1];
+    const media = await env.DB.prepare(
+      "SELECT id, object_key, media_kind, mime_type, byte_size, status, upload_expires_at FROM conversation_media WHERE id = ? AND owner_worker_id = ? LIMIT 1",
+    ).bind(mediaId, worker.worker_id).first();
+    if (!media) return json({ error: "media_not_found" }, 404);
+    if (media.status !== "intent" || Number(media.upload_expires_at) <= nowSeconds()) {
+      return json({ error: "upload_intent_expired" }, 409);
+    }
+    const expectedBytes = Number(media.byte_size);
+    const contentLength = Number(request.headers.get("content-length") || "0");
+    const contentType = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+    if (!request.body || !Number.isSafeInteger(contentLength) || contentLength !== expectedBytes ||
+        contentType !== media.mime_type) {
+      return json({ error: "media_headers_mismatch" }, 400);
+    }
+    const reader = request.body.getReader();
+    /** @type {Uint8Array[]} */
+    const prefixChunks = [];
+    let prefixLength = 0;
+    try {
+      while (prefixLength < Math.min(16, expectedBytes)) {
+        const part = await reader.read();
+        if (part.done) break;
+        prefixChunks.push(part.value);
+        prefixLength += part.value.byteLength;
+      }
+    } catch {
+      reader.releaseLock();
+      return json({ error: "media_upload_read_failed" }, 400);
+    }
+    const prefix = new Uint8Array(prefixLength);
+    let prefixOffset = 0;
+    for (const chunk of prefixChunks) {
+      prefix.set(chunk, prefixOffset);
+      prefixOffset += chunk.byteLength;
+    }
+    if (prefixLength > expectedBytes || !mediaSignatureMatches(String(media.mime_type), prefix)) {
+      await reader.cancel();
+      reader.releaseLock();
+      return json({ error: "media_signature_mismatch" }, 415);
+    }
+    let totalBytes = prefixLength;
+    let prefixIndex = 0;
+    let streamFinished = false;
+    const uploadStream = new ReadableStream({
+      async pull(controller) {
+        if (prefixIndex < prefixChunks.length) {
+          controller.enqueue(prefixChunks[prefixIndex++]);
+          return;
+        }
+        if (streamFinished) return;
+        try {
+          const part = await reader.read();
+          if (part.done) {
+            streamFinished = true;
+            reader.releaseLock();
+            if (totalBytes !== expectedBytes) {
+              controller.error(new Error("media_size_mismatch"));
+              return;
+            }
+            controller.close();
+            return;
+          }
+          totalBytes += part.value.byteLength;
+          if (totalBytes > expectedBytes) {
+            await reader.cancel();
+            controller.error(new Error("media_size_exceeded"));
+            return;
+          }
+          controller.enqueue(part.value);
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+      async cancel() {
+        streamFinished = true;
+        await reader.cancel();
+        reader.releaseLock();
+      },
+    });
+    try {
+      await env.MEDIA_BUCKET.put(String(media.object_key), uploadStream, {
+        httpMetadata: { contentType: String(media.mime_type) },
+        customMetadata: { mediaId, ownerWorkerId: String(worker.worker_id) },
+      });
+      const updated = await env.DB.prepare(
+        "UPDATE conversation_media SET status = 'uploaded', updated_at = ? WHERE id = ? AND owner_worker_id = ? AND status = 'intent'",
+      ).bind(nowSeconds(), mediaId, worker.worker_id).run();
+      if ((updated.meta?.changes ?? 0) !== 1) {
+        await env.MEDIA_BUCKET.delete(String(media.object_key));
+        return json({ error: "upload_intent_conflict" }, 409);
+      }
+      return json({ media: { id: mediaId, status: "uploaded" } }, 201);
+    } catch {
+      await env.MEDIA_BUCKET.delete(String(media.object_key)).catch(() => {});
+      await env.DB.prepare(
+        "UPDATE conversation_media SET status = 'failed', updated_at = ? WHERE id = ? AND owner_worker_id = ? AND status = 'intent'",
+      ).bind(nowSeconds(), mediaId, worker.worker_id).run();
+      return json({ error: "media_upload_failed" }, 503);
+    }
+  }
+
+  const mediaMatch = path.match(/^\/api\/media\/([0-9a-f-]{36})$/i);
+  if (mediaMatch) {
+    const mediaId = mediaMatch[1];
+    const media = await env.DB.prepare(
+      "SELECT id, object_key, mime_type, byte_size, status FROM conversation_media WHERE id = ? AND owner_worker_id = ? LIMIT 1",
+    ).bind(mediaId, worker.worker_id).first();
+    if (!media) return json({ error: "media_not_found" }, 404);
+    if (method === "GET") {
+      if (!env.MEDIA_BUCKET || !["uploaded", "ready", "processing"].includes(String(media.status))) {
+        return json({ error: "media_not_available" }, 404);
+      }
+      const rangeHeader = request.headers.get("range");
+      const totalSize = Number(media.byte_size);
+      const headers = {
+        "content-type": String(media.mime_type),
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+        "content-disposition": "inline",
+        "referrer-policy": "no-referrer",
+        "accept-ranges": "bytes",
+      };
+      if (rangeHeader) {
+        const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+        if (!match || (!match[1] && !match[2]) || !Number.isSafeInteger(totalSize) || totalSize <= 0) {
+          return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${totalSize}` } });
+        }
+        let offset;
+        let length;
+        if (!match[1]) {
+          const suffixLength = Number(match[2]);
+          if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) {
+            return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${totalSize}` } });
+          }
+          length = Math.min(suffixLength, totalSize);
+          offset = totalSize - length;
+        } else {
+          offset = Number(match[1]);
+          const requestedEnd = match[2] ? Number(match[2]) : totalSize - 1;
+          if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(requestedEnd) || offset >= totalSize || requestedEnd < offset) {
+            return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${totalSize}` } });
+          }
+          const end = Math.min(requestedEnd, totalSize - 1);
+          length = end - offset + 1;
+        }
+        const rangedObject = await env.MEDIA_BUCKET.get(String(media.object_key), { range: { offset, length } });
+        if (!rangedObject) return json({ error: "media_not_found" }, 404);
+        const end = offset + length - 1;
+        return new Response(rangedObject.body, {
+          status: 206,
+          headers: {
+            ...headers,
+            "content-length": String(length),
+            "content-range": `bytes ${offset}-${end}/${totalSize}`,
+          },
+        });
+      }
+      const object = await env.MEDIA_BUCKET.get(String(media.object_key));
+      if (!object) return json({ error: "media_not_found" }, 404);
+      return new Response(object.body, {
+        headers: { ...headers, "content-length": String(totalSize) },
+      });
+    }
+    if (method === "DELETE") {
+      if (!env.MEDIA_BUCKET) return json({ error: "media_storage_unavailable" }, 503);
+      const derivatives = await env.DB.prepare(
+        "SELECT object_key FROM conversation_media_derivatives WHERE media_id = ?",
+      ).bind(mediaId).all();
+      const keys = [
+        String(media.object_key),
+        ...(derivatives.results ?? []).map(row => String(row.object_key)),
+      ];
+      await env.MEDIA_BUCKET.delete(keys);
+      await env.DB.prepare("DELETE FROM conversation_media WHERE id = ? AND owner_worker_id = ?")
+        .bind(mediaId, worker.worker_id).run();
+      return json({ deleted: true });
+    }
+  }
+
   const match = path.match(/^\/api\/work-sessions\/([0-9a-f-]{36})(?:\/messages)?$/i);
   if (match) {
     const sessionId = match[1];
@@ -476,6 +782,8 @@ const handleApi = async (request, env, url) => {
     }
 
     if (method === "DELETE") {
+      const mediaPurged = await purgeOwnedMediaObjects(env.DB, env.MEDIA_BUCKET, String(worker.worker_id), sessionId);
+      if (!mediaPurged) return json({ error: "media_storage_unavailable" }, 503);
       await env.DB.batch([
         env.DB.prepare("DELETE FROM work_session_messages WHERE work_session_id = ? AND worker_id = ?").bind(sessionId, worker.worker_id),
         env.DB.prepare("DELETE FROM work_sessions WHERE id = ? AND worker_id = ?").bind(sessionId, worker.worker_id),

@@ -7,11 +7,11 @@
 - [ ] Complete technical provider and platform capability checks.
 
 ## Stage 1 — Application foundation
-- [x] Mobile-first application shell.
+- [x] Responsive application shell foundations for phone, tablet and desktop.
 - [x] Shared typed trade, language and unit contracts.
 - [x] Minimal API health endpoint.
 - [x] CI typecheck, unit tests and production build.
-- [ ] Deploy preview and verify on Android.
+- [ ] Deploy preview and verify on Android, iPhone, tablet and desktop browsers.
 
 ## Stage 2 — Worker identity and private work sessions
 - [x] Design anonymous worker identity and one-time recovery credential.
@@ -36,8 +36,9 @@
 - Compatibility status: compatible, incompatible or undetermined.
 - Deterministic trade-specific safety gates before generation and response validation after generation.
 
-## Stage 4 — Voice and image
-- Secure image upload and retention controls.
+## Stage 4 — Voice and media
+- Secure image and video upload, private retrieval and retention controls.
+- Recorded-video frame extraction with timestamps and optional audio analysis.
 - Push-to-talk audio capture, transcript correction and spoken responses.
 - Benchmark Nigerian English, Pidgin, French and workshop noise.
 - Text fallback for unsupported or unavailable speech.

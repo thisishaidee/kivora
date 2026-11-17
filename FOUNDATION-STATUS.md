@@ -2,7 +2,7 @@
 
 ## Implemented
 
-- Mobile-first React/Vite interface.
+- Responsive React/Vite interface foundations for phones, tablets, laptops and desktops.
 - Six skilled-worker fields plus multiple/unsure.
 - English, Nigerian English, Nigerian Pidgin and French preferences.
 - Metric and imperial measurement preference.
@@ -23,23 +23,28 @@
 
 ## Cloudflare account state
 
-- Free D1 database named kivora created and schema applied.
-- D1 tables: workers, worker_sessions, work_sessions, work_session_messages.
-- D1 foreign-key check returned no violations.
-- A real D1 insert/select/delete smoke test passed; its temporary test records were removed.
-- Cloudflare Worker script named kivora deployed with D1 and Rate Limiting bindings.
-- Worker workers.dev access is disabled and no public route is attached.
-- Static assets are not deployed; there is no public KIVORA app URL yet.
-- No paid plan or billing upgrade was activated.
+- Original D1 database named kivora remains the existing shared Worker database; no media migration was applied to it in this work.
+- A separate D1 database named kivora-preview was created in the EU jurisdiction / Europe region.
+- All four repository migrations were applied to kivora-preview: worker identity, evidence registry, work-session messages and private conversation media.
+- A direct sqlite_master query verified workers, worker_sessions, work_sessions, work_session_messages, evidence_sources, conversation_media, conversation_media_derivatives and conversation_media_analysis, plus their indexes, in kivora-preview.
+- A real D1 ownership-integrity test attempted to attach media to another worker's session; SQLite rejected it with FOREIGN KEY constraint failed. Temporary test workers and session were deleted afterward.
+- A private R2 Standard bucket named kivora-private-media exists in WEUR; public access is not enabled.
+- Pages preview was previously configured to call the shared kivora Worker through a service binding. Preview isolation is being corrected before media uploads are enabled.
+- AI inference and media uploads remain disabled; no provider has been activated.
+- Production Pages deployments remain disabled and the production branch remains main.
+- R2 storage and request usage can incur charges beyond the published free allowance; usage must be monitored. No AI or paid inference provider has been enabled.
 
 ## Not implemented or not verified
 
 - AI model/provider integration or technical-source retrieval.
 - Trade-specific evidence applicability and safety enforcement.
-- Voice input/output or image understanding.
+- Browser-native spoken playback for preview answers.
+- Authenticated, feature-gated private image/video upload API and media metadata schema; disabled until private object storage and tested analysis are configured.
+- Speech input, image/video understanding, video frame extraction and audio transcription.
 - Live NWC wallet interoperability test on Android.
 - Outgoing Lightning payments.
 - Public application hosting and static asset deployment.
+- Physical-device/browser QA across iPhone, Android, tablet and desktop.
 - Real-browser end-to-end verification against the deployed Worker.
 
 The work-session flow saves task descriptions privately, but does not yet provide guided AI assistance. Do not present KIVORA as a functioning AI assistant until that workflow is implemented and tested.
