@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import PaymentRequestPreview from "./PaymentRequestPreview";
 import PublicHome from "./PublicHome";
 import type { FormEvent } from "react";
 import {
@@ -912,7 +911,6 @@ export default function App() {
             </div>
           </section>
 
-          <PaymentRequestPreview />
         </>
       )}
 
