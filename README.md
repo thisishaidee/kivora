@@ -74,7 +74,7 @@ Requires Node.js 22 or newer.
 
 ## Current limitations
 
-Worker identity and private work-session endpoints are implemented on the current feature branch and the D1 schema is provisioned in Cloudflare. The branch still needs CI, Worker deployment and end-to-end browser verification. AI providers, evidence retrieval, image understanding, voice input/output, compatibility assessment and trade-specific safety enforcement are not yet implemented. The optional NWC wallet integration is being developed separately. See the implementation plan for the sequence and deployment gates.
+Worker identity and private work-session endpoints are implemented on the current feature branch and the D1 schema is provisioned in Cloudflare. The branch still needs CI, Worker deployment and end-to-end browser verification. AI providers, autonomous research and image understanding are not yet implemented. Initial on-device speech playback is available for the current deterministic preview assessment and response; speech-to-text, editable voice transcripts and a validated remote TTS provider are not yet implemented. Compatibility assessment and trade-specific safety enforcement remain partial and require further validation. The optional NWC wallet integration is being developed separately. See the implementation plan for the sequence and deployment gates.
 
 ## Security
 
