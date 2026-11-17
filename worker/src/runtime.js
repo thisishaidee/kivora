@@ -43,16 +43,29 @@ const mediaSignatureMatches = (mimeType, bytes) => {
   return false;
 };
 
-/** @param {D1Database} db @param {R2Bucket | undefined} bucket @param {string} workerId @param {string | undefined} sessionId @param {boolean} mediaEnabled */
-const purgeOwnedMediaObjects = async (db, bucket, workerId, sessionId, mediaEnabled) => {
-  if (!bucket) return !mediaEnabled;
+/** @param {D1Database} db @param {R2Bucket | undefined} bucket @param {string} workerId @param {string | undefined} sessionId */
+const purgeOwnedMediaObjects = async (db, bucket, workerId, sessionId) => {
+  const values = sessionId ? [workerId, sessionId] : [workerId];
+  if (!bucket) {
+    // Fail closed: never cascade away metadata when stored objects may still exist.
+    const mediaQuery = sessionId
+      ? "SELECT 1 AS present FROM conversation_media WHERE owner_worker_id = ? AND work_session_id = ? AND status IN ('uploaded', 'validating', 'ready', 'processing') LIMIT 1"
+      : "SELECT 1 AS present FROM conversation_media WHERE owner_worker_id = ? AND status IN ('uploaded', 'validating', 'ready', 'processing') LIMIT 1";
+    const derivativeQuery = sessionId
+      ? "SELECT 1 AS present FROM conversation_media_derivatives d JOIN conversation_media m ON m.id = d.media_id WHERE m.owner_worker_id = ? AND m.work_session_id = ? LIMIT 1"
+      : "SELECT 1 AS present FROM conversation_media_derivatives d JOIN conversation_media m ON m.id = d.media_id WHERE m.owner_worker_id = ? LIMIT 1";
+    const [media, derivatives] = await Promise.all([
+      db.prepare(mediaQuery).bind(...values).first(),
+      db.prepare(derivativeQuery).bind(...values).first(),
+    ]);
+    return !media && !derivatives;
+  }
   const mediaQuery = sessionId
     ? "SELECT object_key FROM conversation_media WHERE owner_worker_id = ? AND work_session_id = ?"
     : "SELECT object_key FROM conversation_media WHERE owner_worker_id = ?";
   const derivativeQuery = sessionId
     ? "SELECT d.object_key FROM conversation_media_derivatives d JOIN conversation_media m ON m.id = d.media_id WHERE m.owner_worker_id = ? AND m.work_session_id = ?"
     : "SELECT d.object_key FROM conversation_media_derivatives d JOIN conversation_media m ON m.id = d.media_id WHERE m.owner_worker_id = ?";
-  const values = sessionId ? [workerId, sessionId] : [workerId];
   const [media, derivatives] = await Promise.all([
     db.prepare(mediaQuery).bind(...values).all(),
     db.prepare(derivativeQuery).bind(...values).all(),
@@ -264,7 +277,7 @@ const handleApi = async (request, env, url) => {
   if (path === "/api/identity" && method === "DELETE") {
     const worker = await authenticate(request, env.DB);
     if (!worker) return json({ error: "unauthorized" }, 401);
-    const mediaPurged = await purgeOwnedMediaObjects(env.DB, env.MEDIA_BUCKET, String(worker.worker_id), undefined, env.MEDIA_UPLOAD_ENABLED === "true");
+    const mediaPurged = await purgeOwnedMediaObjects(env.DB, env.MEDIA_BUCKET, String(worker.worker_id), undefined);
     if (!mediaPurged) return json({ error: "media_storage_unavailable" }, 503);
     await env.DB.batch([
       env.DB.prepare("DELETE FROM work_session_messages WHERE worker_id = ?").bind(worker.worker_id),
@@ -769,7 +782,7 @@ const handleApi = async (request, env, url) => {
     }
 
     if (method === "DELETE") {
-      const mediaPurged = await purgeOwnedMediaObjects(env.DB, env.MEDIA_BUCKET, String(worker.worker_id), sessionId, env.MEDIA_UPLOAD_ENABLED === "true");
+      const mediaPurged = await purgeOwnedMediaObjects(env.DB, env.MEDIA_BUCKET, String(worker.worker_id), sessionId);
       if (!mediaPurged) return json({ error: "media_storage_unavailable" }, 503);
       await env.DB.batch([
         env.DB.prepare("DELETE FROM work_session_messages WHERE work_session_id = ? AND worker_id = ?").bind(sessionId, worker.worker_id),
