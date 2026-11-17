@@ -135,3 +135,26 @@ Do not mark a feature complete unless:
 ## 7. Immediate next code task
 
 Before provider integrations, implement the public visual shell and consultation-first Home in a feature branch while preserving the existing private session/recovery functions behind a clearly labelled preview access boundary. Do not ship a pretend email/phone form or expose a non-working microphone/listen button.
+
+
+## Implementation status — 17 November 2026
+
+The first React implementation is now on `feat/public-home-consultation-redesign`:
+
+- Added `web/src/PublicHome.tsx` as the public product homepage, shown when no preview identity is present.
+- Added responsive public-home styling in `web/src/styles.css`.
+- Replaced the welcome screen with the public homepage. The primary action opens the existing anonymous preview identity flow; it is explicitly labelled as a preview and discloses that email/phone registration is not available.
+- Reworked the signed-in start panel into a consultation-first composer: one open question, no mandatory trade/mode selection, and practical context fields behind an optional disclosure.
+- Changed the default trade classification to `unsure` so the UI does not silently assume carpentry when the worker has not selected a trade.
+- Updated history labels to say conversations and clarified that the existing identity is a private preview identity, not the final personal-account system.
+
+### Deliberately not represented as complete
+
+- Email or phone registration, verified personal accounts, profile, Discover, and community are not implemented in this UI pass.
+- AI inference is still disabled. Saving a question and receiving a deterministic safety/evidence assessment is not the same as live research or an AI answer.
+- Voice input and spoken response playback are not implemented in this pass; the page describes read/listen as a product direction, not a working control.
+- The example answer on the public page is explicitly marked illustrative, not live or verified technical guidance.
+
+### Validation still required
+
+A Cloudflare Pages preview deployment was started from this branch to validate the React/Vite build. Confirm its final build/deploy status and test public and signed-in flows before treating this implementation as complete. Production remains disabled and untouched.
