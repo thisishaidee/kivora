@@ -678,7 +678,7 @@ export default function App() {
                 <div className="assessment-heading-actions">
                   <span className="step-label">{assessment.safetyLevel.toUpperCase()}</span>
                   <SpeechPlayback
-                    language={language}
+                    language={activeSession?.language ?? language}
                     text={[
                       assessment.decision === "escalate" ? "Stop and get qualified help." : assessment.decision === "clarify" ? "A few details are still needed." : "Evidence requirements met.",
                       "Safety level: " + assessment.safetyLevel + ".",
@@ -724,7 +724,7 @@ export default function App() {
                 <div className="assessment-heading-actions">
                   <span className="step-label">{assistantResponse.status.toUpperCase()}</span>
                   <SpeechPlayback
-                    language={language}
+                    language={activeSession?.language ?? language}
                     text={[
                       assistantResponse.summary,
                       ...assistantResponse.blocks.map((block) => block.content),
