@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PublicHome from "./PublicHome";
+import SpeechPlayback from "./SpeechPlayback";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -674,7 +675,21 @@ export default function App() {
                   <p className="eyebrow">INITIAL WORK ASSESSMENT</p>
                   <h2>{assessment.decision === "escalate" ? "Stop and get qualified help" : assessment.decision === "clarify" ? "A few details are still needed" : "Evidence requirements met"}</h2>
                 </div>
-                <span className="step-label">{assessment.safetyLevel.toUpperCase()}</span>
+                <div className="assessment-heading-actions">
+                  <span className="step-label">{assessment.safetyLevel.toUpperCase()}</span>
+                  <SpeechPlayback
+                    language={language}
+                    text={[
+                      assessment.decision === "escalate" ? "Stop and get qualified help." : assessment.decision === "clarify" ? "A few details are still needed." : "Evidence requirements met.",
+                      "Safety level: " + assessment.safetyLevel + ".",
+                      ...assessment.detectedHazards.map((hazard) => "Risk signal: " + hazard.replace(/-/g, " ") + "."),
+                      ...assessment.permittedGuidance,
+                      ...assessment.questions,
+                      "Compatibility status: " + assessment.compatibilityStatus + ".",
+                      "This is a preliminary deterministic assessment, not an AI answer, complete risk assessment or technical procedure.",
+                    ].join("\n\n")}
+                  />
+                </div>
               </div>
               {assessment.detectedHazards.length > 0 && (
                 <div className="assessment-group">
@@ -706,7 +721,20 @@ export default function App() {
                   <p className="eyebrow">KIVORA RESPONSE</p>
                   <h2>{assistantResponse.status === "guided" ? "What the reviewed evidence says" : assistantResponse.status === "escalate" ? "Safety comes first" : assistantResponse.status === "clarify" ? "A few things need confirming" : "AI response unavailable"}</h2>
                 </div>
-                <span className="step-label">{assistantResponse.status.toUpperCase()}</span>
+                <div className="assessment-heading-actions">
+                  <span className="step-label">{assistantResponse.status.toUpperCase()}</span>
+                  <SpeechPlayback
+                    language={language}
+                    text={[
+                      assistantResponse.summary,
+                      ...assistantResponse.blocks.map((block) => block.content),
+                      ...assistantResponse.questions,
+                      ...assistantResponse.citations.map((source) => "Source: " + source.publisher + ". " + source.title + (source.pageOrSection ? ". " + source.pageOrSection : "")),
+                      "Compatibility status: " + assistantResponse.compatibilityStatus + ".",
+                      "Check the cited sources before acting. This is not a substitute for professional judgement or a site-specific risk assessment.",
+                    ].join("\n\n")}
+                  />
+                </div>
               </div>
               <p className="assistant-summary">{assistantResponse.summary}</p>
               {assistantResponse.blocks.map((block, index) => (
