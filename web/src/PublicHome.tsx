@@ -1,7 +1,6 @@
-import type { ReactNode } from "react";
-
 type PublicHomeProps = {
   busy: boolean;
+  notice: string;
   onGetStarted: () => void;
   onSignIn: () => void;
 };
@@ -15,7 +14,7 @@ const trades = [
   "Construction & installation",
 ];
 
-export default function PublicHome({ busy, onGetStarted, onSignIn }: PublicHomeProps) {
+export default function PublicHome({ busy, notice, onGetStarted, onSignIn }: PublicHomeProps) {
   return (
     <div className="public-home">
       <header className="public-header">
@@ -42,6 +41,7 @@ export default function PublicHome({ busy, onGetStarted, onSignIn }: PublicHomeP
               <a className="public-secondary" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a>
             </div>
             <p className="public-disclosure">The current preview uses a private recovery key. Email and phone sign-up are not available yet.</p>
+            {notice && <p className="public-notice" role="status">{notice}</p>}
           </div>
 
           <div className="public-demo" aria-label="Illustrative example of a KIVORA question">
