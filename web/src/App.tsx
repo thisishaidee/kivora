@@ -563,7 +563,7 @@ export default function App() {
         <section className="workspace identity-card">
           <p className="eyebrow">SAVE THIS ONCE</p>
           <h2>Your recovery code.</h2>
-          <p className="wallet-copy">Save this key somewhere private, such as a password manager or a secure note. You can use it to return to this same KIVORA preview identity if you change phones or lose access to this browser. KIVORA cannot see or recreate it. Anyone with the key may be able to access your workspace, so do not share it.</p>
+          <p className="wallet-copy">Save this key somewhere private, such as a password manager or a secure note. You can use it to return to this same KIVORA preview identity if you change phones or lose access to this browser. KIVORA cannot see or recreate it. Anyone with the key may be able to access your private preview, so do not share it.</p>
           <div className="recovery-code">{recoveryCode.match(/.{1,8}/g)?.join(" ") ?? recoveryCode}</div>
           <button className="unit-option selected" type="button" onClick={() => void copyRecoveryCode()}>{copied ? "Copied" : "Copy recovery key"}</button>
           <label className="recovery-confirm">
