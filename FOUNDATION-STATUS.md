@@ -27,6 +27,7 @@
 - A separate D1 database named kivora-preview was created in the EU jurisdiction / Europe region.
 - All four repository migrations were applied to kivora-preview: worker identity, evidence registry, work-session messages and private conversation media.
 - A direct sqlite_master query verified workers, worker_sessions, work_sessions, work_session_messages, evidence_sources, conversation_media, conversation_media_derivatives and conversation_media_analysis, plus their indexes, in kivora-preview.
+- A real D1 ownership-integrity test attempted to attach media to another worker's session; SQLite rejected it with FOREIGN KEY constraint failed. Temporary test workers and session were deleted afterward.
 - A private R2 Standard bucket named kivora-private-media exists in WEUR; public access is not enabled.
 - Pages preview was previously configured to call the shared kivora Worker through a service binding. Preview isolation is being corrected before media uploads are enabled.
 - AI inference and media uploads remain disabled; no provider has been activated.
