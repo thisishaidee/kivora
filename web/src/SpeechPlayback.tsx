@@ -50,7 +50,7 @@ export default function SpeechPlayback({ text, language = "en" }: SpeechPlayback
     setSupported(
       typeof window !== "undefined" &&
       "speechSynthesis" in window &&
-      typeof window.SpeechSynthesisUtterance !== "undefined",
+      typeof SpeechSynthesisUtterance !== "undefined",
     );
 
     return () => {
@@ -74,7 +74,7 @@ export default function SpeechPlayback({ text, language = "en" }: SpeechPlayback
       return;
     }
 
-    const utterance = new window.SpeechSynthesisUtterance(chunks[index]);
+    const utterance = new SpeechSynthesisUtterance(chunks[index]);
     utterance.lang = speechLanguage(language);
     utterance.rate = 0.96;
     utterance.pitch = 1;
