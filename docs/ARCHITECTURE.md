@@ -132,3 +132,11 @@ No microservices/Kubernetes, dedicated vector database before retrieval evaluati
 6. Measure latency and estimated cost per work session.
 7. Test real workflows on Android and iPhone phones, tablets and desktop browsers.
 8. Evaluate Bitcoin/Lightning separately without coupling it to ordinary AI access.
+
+## Preview runtime isolation (2026-11-17)
+
+Cloudflare Pages preview has its own D1 database binding (kivora-preview) and private R2 binding (kivora-private-media). The Pages API function invokes the same Worker runtime directly with the environment supplied to that Pages deployment. This avoids routing preview API requests through the shared kivora Worker and its existing D1 database.
+
+The preview database is EU-jurisdictioned and has all repository migrations applied, including the conversation-media schema. Pages preview configuration keeps AI_ENABLED=false and MEDIA_UPLOAD_ENABLED=false; binding storage does not enable uploads. The bucket remains private with no public access.
+
+The Pages project production configuration and main branch were not changed. Production deployments remain disabled. The preview service binding to the shared kivora Worker was removed from the Pages preview configuration. The next successful branch deployment is required to activate the new Pages function code against these bindings.
