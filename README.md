@@ -48,6 +48,7 @@ These documents do not enable mainnet or real-fund functionality. Testnet intero
 
 - [Product requirements](docs/PRD.md)
 - [Architecture proposal](docs/ARCHITECTURE.md)
+- [Cross-device and multimodal architecture](docs/CROSS-DEVICE-MULTIMODAL-ARCHITECTURE.md)
 - [Decision log](docs/DECISIONS.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 - [Worker identity and private sessions](docs/WORKER_IDENTITY.md)
