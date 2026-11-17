@@ -6,7 +6,7 @@ describe("Cloudflare Pages API function", () => {
     const request = new Request("https://kivora.pages.dev/api/health");
     const first = vi.fn().mockResolvedValue({ ok: 1 });
     const prepare = vi.fn().mockReturnValue({ first });
-    const env = { DB: { prepare } } as Parameters<typeof onRequest>[0]["env"];
+    const env = { DB: { prepare } } as unknown as Parameters<typeof onRequest>[0]["env"];
 
     const response = await onRequest({ request, env });
 
