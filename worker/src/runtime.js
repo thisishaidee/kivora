@@ -31,6 +31,7 @@ const MEDIA_UPLOAD_TTL_SECONDS = 10 * 60;
 
 /** @param {string} mimeType @param {Uint8Array} bytes */
 const mediaSignatureMatches = (mimeType, bytes) => {
+  /** @param {number} start @param {number} end */
   const ascii = (start, end) => String.fromCharCode(...bytes.slice(start, end));
   if (mimeType === "image/jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
   if (mimeType === "image/png") return bytes.length >= 8 && [137,80,78,71,13,10,26,10].every((v,i) => bytes[i] === v);
@@ -42,7 +43,7 @@ const mediaSignatureMatches = (mimeType, bytes) => {
   return false;
 };
 
-/** @param {D1Database} db @param {R2Bucket | undefined} bucket @param {string} workerId @param {string} [sessionId] */
+/** @param {D1Database} db @param {R2Bucket | undefined} bucket @param {string} workerId @param {string | undefined} sessionId @param {boolean} mediaEnabled */
 const purgeOwnedMediaObjects = async (db, bucket, workerId, sessionId, mediaEnabled) => {
   if (!bucket) return !mediaEnabled;
   const mediaQuery = sessionId
@@ -561,6 +562,7 @@ const handleApi = async (request, env, url) => {
       return json({ error: "media_headers_mismatch" }, 400);
     }
     const reader = request.body.getReader();
+    /** @type {Uint8Array[]} */
     const prefixChunks = [];
     let prefixLength = 0;
     try {
