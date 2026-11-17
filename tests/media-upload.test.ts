@@ -9,6 +9,7 @@ function makeDb(options: {
   ownsSession?: boolean;
   media?: Record<string, unknown> | null;
   changes?: number;
+  storedMedia?: boolean;
 } = {}) {
   const statements: { sql: string; values: unknown[] }[] = [];
   const db = {
@@ -23,6 +24,7 @@ function makeDb(options: {
             return options.ownsSession === false ? null : { id: sessionId };
           }
           if (sql.includes("FROM conversation_media WHERE id = ?")) return options.media ?? null;
+          if (sql.includes("SELECT 1 AS present FROM conversation_media")) return options.storedMedia ? { present: 1 } : null;
           return null;
         },
         all: async () => ({ results: [] }),
@@ -45,6 +47,20 @@ const authenticatedHeaders = {
 };
 
 describe("private conversation media uploads", () => {
+  it("refuses destructive deletion when stored media may exist but R2 is unavailable", async () => {
+    const db = makeDb({ storedMedia: true });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/work-sessions/" + sessionId, {
+        method: "DELETE",
+        headers: authenticatedHeaders,
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "media_storage_unavailable" });
+    expect(db.statements.some(s => s.sql.includes("DELETE FROM work_sessions"))).toBe(false);
+  });
+
   it("keeps media uploads unavailable unless explicitly enabled", async () => {
     const db = makeDb();
     const response = await worker.fetch(
