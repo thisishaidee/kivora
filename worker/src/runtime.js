@@ -8,11 +8,61 @@
  */
 /** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
-/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> } }} Env */
+/** @typedef {{ put(key: string, value: ReadableStream<Uint8Array>, options?: Record<string, unknown>): Promise<unknown>, get(key: string): Promise<{ body: ReadableStream<Uint8Array>, httpMetadata?: { contentType?: string } } | null>, delete(keys: string | string[]): Promise<void> }} R2Bucket */
+/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> } }} Env */
 
 import { assessWorkRequest, parseWorkRequest } from "../../shared/src/intelligence-runtime.js";
 import { parsePrivateEvidenceCapture } from "../../shared/src/evidence-runtime.js";
 import { composeWorkerAssistantResponse } from "../../shared/src/response-runtime.js";
+
+
+const IMAGE_MIME_LIMITS = new Map([
+  ["image/jpeg", 10 * 1024 * 1024],
+  ["image/png", 10 * 1024 * 1024],
+  ["image/webp", 10 * 1024 * 1024],
+  ["image/avif", 10 * 1024 * 1024],
+]);
+const VIDEO_MIME_LIMITS = new Map([
+  ["video/mp4", 50 * 1024 * 1024],
+  ["video/webm", 50 * 1024 * 1024],
+  ["video/quicktime", 50 * 1024 * 1024],
+]);
+const MEDIA_UPLOAD_TTL_SECONDS = 10 * 60;
+
+/** @param {string} mimeType @param {Uint8Array} bytes */
+const mediaSignatureMatches = (mimeType, bytes) => {
+  const ascii = (start, end) => String.fromCharCode(...bytes.slice(start, end));
+  if (mimeType === "image/jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (mimeType === "image/png") return bytes.length >= 8 && [137,80,78,71,13,10,26,10].every((v,i) => bytes[i] === v);
+  if (mimeType === "image/webp") return bytes.length >= 12 && ascii(0,4) === "RIFF" && ascii(8,12) === "WEBP";
+  if (mimeType === "image/avif") return bytes.length >= 12 && ascii(4,8) === "ftyp" && ["avif","avis"].includes(ascii(8,12));
+  if (mimeType === "video/mp4") return bytes.length >= 12 && ascii(4,8) === "ftyp";
+  if (mimeType === "video/quicktime") return bytes.length >= 12 && ascii(4,8) === "ftyp" && ascii(8,10) === "qt";
+  if (mimeType === "video/webm") return bytes.length >= 4 && [0x1a,0x45,0xdf,0xa3].every((v,i) => bytes[i] === v);
+  return false;
+};
+
+/** @param {D1Database} db @param {R2Bucket | undefined} bucket @param {string} workerId @param {string} [sessionId] */
+const purgeOwnedMediaObjects = async (db, bucket, workerId, sessionId) => {
+  const mediaQuery = sessionId
+    ? "SELECT object_key FROM conversation_media WHERE owner_worker_id = ? AND work_session_id = ?"
+    : "SELECT object_key FROM conversation_media WHERE owner_worker_id = ?";
+  const derivativeQuery = sessionId
+    ? "SELECT d.object_key FROM conversation_media_derivatives d JOIN conversation_media m ON m.id = d.media_id WHERE m.owner_worker_id = ? AND m.work_session_id = ?"
+    : "SELECT d.object_key FROM conversation_media_derivatives d JOIN conversation_media m ON m.id = d.media_id WHERE m.owner_worker_id = ?";
+  const values = sessionId ? [workerId, sessionId] : [workerId];
+  const [media, derivatives] = await Promise.all([
+    db.prepare(mediaQuery).bind(...values).all(),
+    db.prepare(derivativeQuery).bind(...values).all(),
+  ]);
+  const keys = [
+    ...(media.results ?? []).map(row => String(row.object_key)),
+    ...(derivatives.results ?? []).map(row => String(row.object_key)),
+  ].filter(Boolean);
+  if (keys.length && !bucket) return false;
+  if (keys.length) await bucket.delete(keys);
+  return true;
+};
 
 const SESSION_COOKIE = "__Host-kivora_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -213,6 +263,8 @@ const handleApi = async (request, env, url) => {
   if (path === "/api/identity" && method === "DELETE") {
     const worker = await authenticate(request, env.DB);
     if (!worker) return json({ error: "unauthorized" }, 401);
+    const mediaPurged = await purgeOwnedMediaObjects(env.DB, env.MEDIA_BUCKET, String(worker.worker_id));
+    if (!mediaPurged) return json({ error: "media_storage_unavailable" }, 503);
     await env.DB.batch([
       env.DB.prepare("DELETE FROM work_session_messages WHERE worker_id = ?").bind(worker.worker_id),
       env.DB.prepare("DELETE FROM work_sessions WHERE worker_id = ?").bind(worker.worker_id),
@@ -476,6 +528,8 @@ const handleApi = async (request, env, url) => {
     }
 
     if (method === "DELETE") {
+      const mediaPurged = await purgeOwnedMediaObjects(env.DB, env.MEDIA_BUCKET, String(worker.worker_id), sessionId);
+      if (!mediaPurged) return json({ error: "media_storage_unavailable" }, 503);
       await env.DB.batch([
         env.DB.prepare("DELETE FROM work_session_messages WHERE work_session_id = ? AND worker_id = ?").bind(sessionId, worker.worker_id),
         env.DB.prepare("DELETE FROM work_sessions WHERE id = ? AND worker_id = ?").bind(sessionId, worker.worker_id),
