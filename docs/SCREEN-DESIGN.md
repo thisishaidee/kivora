@@ -113,7 +113,8 @@ A first-time user sees three suggested questions from different practical fields
 - Tapping Ask KIVORA opens a new conversation thread.
 - Selecting a recent item reopens that thread.
 - "New question" starts a separate thread.
-- Never force the user to fill trade, location, model, measurements, tools or materials before asking.
+- Never force the user to fill trade, location, manufacturer, exact model, measurements, tools or materials before asking.
+- Do not put manufacturer or exact-model fields in sign-up, preview setup or the first-question form. Ask inside the conversation only when the detail materially changes the answer, and explain why it is needed.
 - Profile enrichment is skippable and must not block the Home screen.
 
 ## 5. Screen 03 — Ask KIVORA
