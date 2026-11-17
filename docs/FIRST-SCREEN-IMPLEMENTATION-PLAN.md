@@ -158,3 +158,16 @@ The first React implementation is now on `feat/public-home-consultation-redesign
 ### Validation still required
 
 A Cloudflare Pages preview deployment was started from this branch to validate the React/Vite build. Confirm its final build/deploy status and test public and signed-in flows before treating this implementation as complete. Production remains disabled and untouched.
+
+
+### Follow-up refinements
+
+- Recent conversations now appear immediately after the consultation composer/results, ahead of the technical evidence contribution form.
+- The Bitcoin payment-request preview has been removed from the primary Home screen. Its component remains in the codebase for a future optional wallet/profile area; it is not part of the core consultation path.
+- Optional context now includes trade, response language, measurement units, jurisdiction, equipment make/model, measurements, materials, tools and constraints. The worker can still submit a question without opening this section.
+
+### Build verification
+
+Cloudflare Pages preview deployment `30ff112e` completed successfully for commit `8b2740e7aeecc58714493889b3bfafdf5e48b66c`. Its build command is `npm run build`, which runs TypeScript typechecking followed by the Vite production build. The earlier failed attempt exposed unused preference state after the first UI refactor; optional preference controls were restored and the subsequent build passed.
+
+The final refinement commit `725c18f995d0615af56ebb3349636a0bb07ab5b8` (history ordering and removing the payment preview from Home) has its own preview deployment in progress. Run the repository's Vitest suite and manually verify the preview's public, recovery and signed-in flows before merging. This PR remains separate from `main`; production deployments remain disabled.
