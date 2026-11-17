@@ -28,6 +28,9 @@ KIVORA's normal account uses email and password, with verified email, forgot-pas
 ### KDV-008 — Progressive collection of product identification
 Do not ask for a product manufacturer, make or exact model during account creation, preview access, or the first-question form. Let the worker begin with a natural-language question. Ask for manufacturer/model details inside the conversation only when those details materially affect identification, compatibility, specifications or safe guidance. Explain briefly why the detail matters, ask only for what is needed, and allow the worker to say they do not know. Existing saved conversations containing these details remain readable.
 
+### KDV-009 — Image-first product and component identification
+The conversation composer must support both taking a photo with the device camera and choosing an existing image from the device. This is an optional alternative to typing product names, manufacturer details or model numbers. Support multiple useful views where appropriate (for example, an overall view and a close-up of a label or connection). Ask for another angle or a label photo only when it materially improves identification. Image analysis must distinguish visible observations from inferred identity, state confidence and uncertainty, and never claim an exact model from an ambiguous image. Images are private to the worker and conversation; define file-type/size limits, access controls, retention/deletion and consent before enabling uploads. Do not expose image upload as working until secure media handling and a vision-capable analysis path are implemented and tested. AI/vision remains disabled until separately authorized.
+
 ## Hypotheses requiring validation
 
 ### HYP-001 — Initial product wedge
