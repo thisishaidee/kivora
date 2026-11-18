@@ -383,3 +383,22 @@ textarea {
  .workspace-nav-item{padding:9px 9px;font-size:9px}
  .nav-glyph{display:none}
 }
+
+
+/* Investigation history and conversation hierarchy */
+.history-search{display:flex;flex-direction:column;gap:8px;margin:5px 0 14px;max-width:560px;color:#626a5e;font-size:11px;font-weight:600}
+.history-search input{background:#fafbf8;border-radius:9px}
+.history-summary{display:flex;justify-content:space-between;gap:12px;padding:0 0 12px;border-bottom:1px solid #eceee8;color:#8a9086;font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.04em}
+.history-empty{padding:22px 0;color:#858b81;font-size:12px;line-height:1.7}
+.message-card{max-width:88%;padding:16px 18px;border-radius:12px}
+.worker-message{align-self:flex-end;background:#20231f;border-color:#20231f}
+.worker-message .message-role,.worker-message p{color:#f4f3ef}
+.assistant-message{align-self:flex-start;background:#f6f7f3;border-color:#e7eae2}
+.assistant-message .message-role{color:#718067}
+.assistant-message p{color:#343a32}
+.message-list{gap:14px}
+@media(max-width:650px){
+ .history-search{max-width:none}
+ .history-summary{font-size:8px}
+ .message-card{max-width:96%;padding:13px 14px}
+}
