@@ -64,7 +64,8 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
   const [accountBackupState, setAccountBackupState] = useState<"checking" | "missing" | "ready" | "error">("checking");
   const [accountBackupMessage, setAccountBackupMessage] = useState("");
   const [, setAccountBackupRevision] = useState<number | null>(null);
-  const [localWalletDetected, setLocalWalletDetected] = useState(false);\n  const [localWalletCheckComplete, setLocalWalletCheckComplete] = useState(false);
+  const [localWalletDetected, setLocalWalletDetected] = useState(false);
+  const [localWalletCheckComplete, setLocalWalletCheckComplete] = useState(false);
   const pendingAccountBackupRef = useRef<string | null>(null);
   const accountBackupExistsRef = useRef(false);
 
