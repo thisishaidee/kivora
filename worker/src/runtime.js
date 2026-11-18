@@ -502,6 +502,13 @@ const handleApi = async (request, env, url) => {
     if (!limit.success) return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
   }
 
+  if (path === "/api/wallet/backup") {
+    const verifiedAccount = await env.DB.prepare(
+      "SELECT 1 AS verified FROM worker_accounts WHERE worker_id = ? AND email_verified_at IS NOT NULL LIMIT 1",
+    ).bind(worker.worker_id).first();
+    if (!verifiedAccount) return json({ error: "verified_account_required" }, 403);
+  }
+
   if (path === "/api/wallet/backup" && method === "GET") {
     const backup = await env.DB.prepare(
       "SELECT format_version, network, kdf, kdf_iterations, salt_b64, cipher, iv_b64, ciphertext_b64, revision, created_at, updated_at FROM account_wallet_backups WHERE worker_id = ? LIMIT 1",
@@ -551,7 +558,11 @@ const handleApi = async (request, env, url) => {
         ).bind(worker.worker_id, iterations, salt, iv, ciphertext, now, now).run();
         return json({ saved: true, revision: 1 }, 201);
       } catch {
-        return json({ error: "wallet_backup_already_exists" }, 409);
+        const existing = await env.DB.prepare(
+          "SELECT 1 AS present FROM account_wallet_backups WHERE worker_id = ? LIMIT 1",
+        ).bind(worker.worker_id).first();
+        if (existing) return json({ error: "wallet_backup_already_exists" }, 409);
+        throw new Error("wallet_backup_save_failed");
       }
     }
     const updated = await env.DB.prepare(
