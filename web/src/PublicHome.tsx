@@ -27,7 +27,7 @@ export default function PublicHome({ busy, notice, onGetStarted, onSignIn, onCre
           <a href="#how-it-works">How it works</a>
           <a href="#trades">For every trade</a>
           <button type="button" className="public-signin" onClick={onSignIn}>Sign in</button>
-          <button type="button" className="public-nav-cta" onClick={onGetStarted} disabled={busy}>Try the preview</button>
+          <button type="button" className="public-nav-cta" onClick={onCreateAccount}>Create account</button>
         </nav>
       </header>
 
