@@ -342,11 +342,18 @@ export default function App() {
     const inferredTrade = inferTradeFromTask(submittedTask, validTrade.success ? validTrade.data : "unsure");
     const knownFacts = [
       measurements.trim() ? `Measurements: ${measurements.trim()}` : "",
+      involvesEquipment ? "Specific product, component or equipment involved: yes" : "",
       materials.trim() ? `Materials: ${materials.trim()}` : "",
       availableTools.trim() ? `Available tools: ${availableTools.trim()}` : "",
       constraints.trim() ? `Constraints: ${constraints.trim()}` : "",
     ].filter(Boolean);
-    const sessionDescription = ["Question: " + submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : ""].filter(Boolean).join("\n\n");
+    const sessionDescription = [
+      "Question: " + submittedTask,
+      ...knownFacts,
+      involvesEquipment ? "Equipment involved: yes" : "",
+      involvesEquipment ? "Equipment details: make=" + (equipmentMake.trim() || "unknown") + "; model=" + (equipmentModel.trim() || "unknown") : "",
+      jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : "",
+    ].filter(Boolean).join("\n\n");
     if (!validTrade.success || !validLanguage.success || !validUnits.success || !submittedTask) {
       setNotice("Add a job description and check your preferences.");
       return;
@@ -393,6 +400,9 @@ export default function App() {
             language: validLanguage.data,
             units: validUnits.data,
             jurisdiction: jurisdiction.trim() || undefined,
+            involvesEquipment,
+            equipmentMake: equipmentMake.trim() || undefined,
+            equipmentModel: equipmentModel.trim() || undefined,
           }),
         });
         setAssessment(assistantResult.assessment);
@@ -776,7 +786,21 @@ export default function App() {
                   <span>Country or jurisdiction (optional)</span>
                   <input value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} placeholder="For example, Nigeria" />
                 </label>
-                <p className="privacy-note">If a specific product or machine matters to your question, KIVORA can ask for its manufacturer or exact model later in the conversation.</p>
+                <label className="intake-flag">
+                  <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
+                  <span>A specific product, component or machine is involved</span>
+                </label>
+                {involvesEquipment && <div className="field-grid">
+                  <label className="field">
+                    <span>Manufacturer or brand (if known)</span>
+                    <input value={equipmentMake} onChange={(event) => setEquipmentMake(event.target.value)} maxLength={120} placeholder="Brand or manufacturer" />
+                  </label>
+                  <label className="field">
+                    <span>Exact model or part number (if known)</span>
+                    <input value={equipmentModel} onChange={(event) => setEquipmentModel(event.target.value)} maxLength={120} placeholder="Model / part number" />
+                  </label>
+                </div>}
+                <p className="privacy-note">Exact product identity helps KIVORA distinguish manufacturer instructions for your actual component from information about similar products.</p>
                 <label className="field">
                   <span>Measurements and dimensions</span>
                   <textarea value={measurements} onChange={(event) => setMeasurements(event.target.value)} rows={2} maxLength={450} placeholder="For example: opening width, depth, thickness, pipe diameter or observed readings. Include units." />
