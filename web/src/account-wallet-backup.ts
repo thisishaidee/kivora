@@ -4,6 +4,50 @@ const KDF_ITERATIONS = 600_000;
 const MIN_KDF_ITERATIONS = 300_000;
 const MAX_KDF_ITERATIONS = 1_000_000;
 const MAX_CIPHERTEXT_BYTES = 256 * 1024;
+const KEY_DB = "kivora-account-wallet-keys";
+const KEY_STORE = "keys";
+let keyDbPromise: Promise<IDBDatabase> | undefined;
+
+function openKeyDb(): Promise<IDBDatabase> {
+  if (typeof indexedDB === "undefined") return Promise.reject(new Error("This browser cannot securely cache the wallet unlock key."));
+  if (!keyDbPromise) keyDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(KEY_DB, 1);
+    request.onupgradeneeded = () => { if (!request.result.objectStoreNames.contains(KEY_STORE)) request.result.createObjectStore(KEY_STORE, { keyPath: "workerId" }); };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("Wallet key storage could not be opened."));
+  });
+  return keyDbPromise;
+}
+
+async function cacheUnlockKey(workerId: string, key: CryptoKey): Promise<void> {
+  const db = await openKeyDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(KEY_STORE, "readwrite");
+    tx.objectStore(KEY_STORE).put({ workerId, key, updatedAt: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error("Wallet unlock key could not be saved."));
+    tx.onabort = () => reject(tx.error ?? new Error("Wallet unlock key save was interrupted."));
+  });
+}
+
+async function loadUnlockKey(workerId: string): Promise<CryptoKey | null> {
+  const db = await openKeyDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(KEY_STORE, "readonly").objectStore(KEY_STORE).get(workerId);
+    request.onsuccess = () => resolve(request.result?.key instanceof CryptoKey ? request.result.key : null);
+    request.onerror = () => reject(request.error ?? new Error("Wallet unlock key could not be read."));
+  });
+}
+
+export async function forgetAccountWalletUnlockKey(workerId: string): Promise<void> {
+  const db = await openKeyDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(KEY_STORE, "readwrite");
+    tx.objectStore(KEY_STORE).delete(workerId);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error("Wallet unlock key could not be deleted."));
+  });
+}
 
 export type EncryptedAccountWalletBackup = {
   formatVersion: typeof FORMAT_VERSION;
@@ -60,6 +104,7 @@ export async function encryptAccountWalletBackup(
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveEncryptionKey(password, salt, KDF_ITERATIONS);
+  await cacheUnlockKey(workerId, key);
   const plaintext = new TextEncoder().encode(serializedBackup);
   try {
     const encrypted = await crypto.subtle.encrypt(
@@ -103,7 +148,7 @@ export async function decryptAccountWalletBackup(
   if (salt.byteLength !== 16 || iv.byteLength !== 12 || ciphertext.byteLength < 17) {
     throw new Error("The encrypted wallet backup is malformed.");
   }
-  const key = await deriveEncryptionKey(password, salt, backup.iterations);
+  const key = password\n    ? await deriveEncryptionKey(password, salt, backup.iterations)\n    : await loadUnlockKey(workerId);\n  if (!key) throw new Error("Sign in with your account password to unlock this wallet on this device.");\n  if (password) await cacheUnlockKey(workerId, key);
   try {
     const plaintext = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv, additionalData: associatedData(workerId), tagLength: 128 },
