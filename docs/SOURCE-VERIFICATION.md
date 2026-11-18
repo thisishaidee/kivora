@@ -57,6 +57,6 @@ Do not show a green "verified" badge for search discovery. Do not upgrade source
 
 ## Current implementation boundary
 
-The research interface displays Tavily output as unverified leads and allows a lead to be saved privately for review. Plain HTTP result links are rejected. The existing approved-evidence pipeline remains the only route by which reviewed shared records can support guided technical content.
+The research interface displays Tavily output as unverified leads and allows a lead to be saved privately for review. Plain HTTP, credential-bearing, malformed, localhost, local-network and IP-literal source links are rejected at capture; research results are filtered using the same conservative host checks before they are shown as clickable links. Field observations are visibly labelled as not independently verified. The existing approved-evidence pipeline remains the only route by which reviewed shared records can support guided technical content.
 
 A complete official-origin verification workflow is not yet implemented: there is no curated publisher registry, reviewer authentication workflow, document fingerprint review UI or independently persisted origin-verification record. Until those controls exist, KIVORA must not claim the official-origin level.
