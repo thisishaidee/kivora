@@ -138,12 +138,16 @@ const verifyPassword = async (password, salt, expected) => {
 /** @param {Env} env @param {string} to @param {string} subject @param {string} html */
 const sendAccountEmail = async (env, to, subject, html) => {
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL || !/^https:\/\//i.test(env.APP_BASE_URL)) return false;
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html }),
-  });
-  return response.ok;
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
+      body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 };
 /** @param {D1Database} db @param {string} workerId @param {"verify" | "reset"} purpose @param {string} token @param {number} now @param {number} ttl */
 const accountTokenRecord = async (db, workerId, purpose, token, now, ttl) => {
