@@ -13,7 +13,7 @@ import {
 } from "../../shared/src/contracts";
 import type { IntelligenceAssessment } from "../../shared/src/intelligence";
 
-type IdentityState = "checking" | "welcome" | "sign-in" | "sign-up" | "ready";
+type IdentityState = "checking" | "welcome" | "sign-in" | "sign-up" | "forgot" | "reset" | "ready";
 type WorkSession = {
   id: string;
   title: string;
@@ -143,6 +143,7 @@ export default function App() {
   const [accountPassword, setAccountPassword] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountNotice, setAccountNotice] = useState("");
+  const [resetToken, setResetToken] = useState("");
 
   async function refreshSessions() {
     const result = await api<{ sessions: WorkSession[] }>("/api/work-sessions");
@@ -276,6 +277,13 @@ export default function App() {
       if (identityState === "sign-up") {
         const result = await api<{ message: string }>("/api/accounts/register", { method: "POST", body: JSON.stringify({ email: accountEmail.trim(), password: accountPassword }) });
         setAccountNotice(result.message || "Check your inbox to verify your email address.");
+      } else if (identityState === "forgot") {
+        const result = await api<{ message: string }>("/api/accounts/forgot", { method: "POST", body: JSON.stringify({ email: accountEmail.trim() }) });
+        setAccountNotice(result.message);
+      } else if (identityState === "reset") {
+        await api("/api/accounts/reset", { method: "POST", body: JSON.stringify({ token: resetToken, password: accountPassword }) });
+        setIdentityState("sign-in"); setAccountPassword(""); setResetToken("");
+        setAccountNotice("Your password has been reset. Sign in with your new password.");
       } else {
         const result = await api<{ worker: { id: string } }>("/api/accounts/login", { method: "POST", body: JSON.stringify({ email: accountEmail.trim(), password: accountPassword }) });
         setWorkerId(result.worker.id); setIdentityState("ready"); setActiveScreen("work"); setAccountPassword("");
