@@ -173,8 +173,12 @@ export default function App() {
 
   useEffect(() => {
     let alive = true;
-    void api<{ worker: { id: string } }>("/api/identity")
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
+
+    void api<{ worker: { id: string } }>("/api/identity", { signal: controller.signal })
       .then(async (result) => {
+        window.clearTimeout(timeout);
         if (!alive) return;
         setWorkerId(result.worker.id);
         setIdentityState("ready");
@@ -188,9 +192,20 @@ export default function App() {
         }
       })
       .catch(() => {
-        if (alive) setIdentityState("welcome");
+        window.clearTimeout(timeout);
+        if (alive) {
+          setIdentityState("welcome");
+          setNotice(controller.signal.aborted
+            ? "The private preview check timed out. You can retry or open a new preview identity."
+            : "We couldn't check your private preview identity. You can retry or restore access.");
+        }
       });
-    return () => { alive = false; };
+
+    return () => {
+      alive = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   async function createIdentity() {
