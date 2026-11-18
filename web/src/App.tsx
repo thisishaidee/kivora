@@ -529,19 +529,24 @@ export default function App() {
     event.preventDefault();
     if (!activeSession || !followUpText.trim()) return;
     const message = followUpText.trim();
+    const productContext = involvesEquipment
+      ? ["Equipment involved: yes", "Equipment details: make=" + (equipmentMake.trim() || "unknown") + "; model=" + (equipmentModel.trim() || "unknown")].join("\n")
+      : "";
+    const savedMessage = [message, productContext].filter(Boolean).join("\n\n");
     setBusy(true);
     setNotice("");
     setAssessment(null);
     setAssistantResponse(null);
     try {
-      await api("/api/work-sessions/" + activeSession.id + "/messages", { method: "POST", body: JSON.stringify({ content: message }) });
+      await api("/api/work-sessions/" + activeSession.id + "/messages", { method: "POST", body: JSON.stringify({ content: savedMessage }) });
       const workerMessages = messages.filter(item => item.role === "worker").map(item => item.content);
       const priorWorkerContext = workerMessages.length > 5 ? [workerMessages[0], ...workerMessages.slice(-4)] : workerMessages;
       const savedContext = priorWorkerContext.join("\n");
-      const combinedTask = [...priorWorkerContext, message].join("\n\n").slice(-3900);
+      const combinedTask = [...priorWorkerContext, savedMessage].join("\n\n").slice(-3900);
     const inferredTrade = inferTradeFromTask(combinedTask, activeSession.trade);
       const savedJurisdiction = savedContext.split("\n").find(line => line.startsWith("Work jurisdiction: "))?.slice("Work jurisdiction: ".length).trim();
-      const equipmentLine = savedContext.split("\n").find(line => line.startsWith("Equipment details: "));
+      const equipmentLines = savedContext.split("\n").filter(line => line.startsWith("Equipment details: "));
+      const equipmentLine = equipmentLines[equipmentLines.length - 1];
       const savedEquipment = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
       const savedEquipmentFlag = savedContext.includes("Equipment involved: yes");
       const assistantResult = await api<{ assessment: IntelligenceAssessment; response: AssistantResponse }>("/api/assist", {
@@ -550,7 +555,7 @@ export default function App() {
       });
       const assistantText = [assistantResult.response.summary, ...assistantResult.response.blocks.map(block => block.content), ...assistantResult.response.questions].join("\n\n");
       const now = Math.floor(Date.now() / 1000);
-      setMessages(previous => [...previous, { id: "worker-" + now, role: "worker", content: message, created_at: now }, { id: "assistant-" + now, role: "assistant", content: assistantText, created_at: now }]);
+      setMessages(previous => [...previous, { id: "worker-" + now, role: "worker", content: savedMessage, created_at: now }, { id: "assistant-" + now, role: "assistant", content: assistantText, created_at: now }]);
       setFollowUpText("");
       setAssessment(assistantResult.assessment);
       setAssistantResponse(assistantResult.response);
@@ -572,12 +577,13 @@ export default function App() {
       setSavedResearchUrls([]);
       setActiveSession(result.session);
       setMessages(result.messages);
-      const firstWorkerMessage = result.messages.find(message => message.role === "worker")?.content ?? "";
-      const jurisdictionLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Work jurisdiction: "));
-      const equipmentLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Equipment details: "));
+      const workerHistory = result.messages.filter(message => message.role === "worker").map(message => message.content).join("\n");
+      const jurisdictionLine = workerHistory.split("\n").find(line => line.startsWith("Work jurisdiction: "));
+      const equipmentLines = workerHistory.split("\n").filter(line => line.startsWith("Equipment details: "));
+      const equipmentLine = equipmentLines[equipmentLines.length - 1];
       const equipmentDetails = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
       setJurisdiction(jurisdictionLine?.slice("Work jurisdiction: ".length).trim() ?? "");
-      setInvolvesEquipment(firstWorkerMessage.includes("Equipment involved: yes") || Boolean(equipmentDetails));
+      setInvolvesEquipment(workerHistory.includes("Equipment involved: yes") || Boolean(equipmentDetails));
       setEquipmentMake(equipmentDetails?.[1].trim() !== "unknown" ? equipmentDetails?.[1].trim() ?? "" : "");
       setEquipmentModel(equipmentDetails?.[2].trim() !== "unknown" ? equipmentDetails?.[2].trim() ?? "" : "");
       setAssessment(null);
