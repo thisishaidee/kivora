@@ -282,9 +282,12 @@ const handleApi = async (request, env, url) => {
     const record = await env.DB.prepare("SELECT worker_id FROM account_email_tokens WHERE purpose = 'verify' AND token_hash = ? AND consumed_at IS NULL AND expires_at > ? LIMIT 1")
       .bind(await hashToken(token), now).first();
     if (!record) return json({ error: "invalid_or_expired_token" }, 400);
+    const tokenHash = await hashToken(token);
+    const consumed = await env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE token_hash = ? AND purpose = 'verify' AND consumed_at IS NULL AND expires_at > ?")
+      .bind(now, tokenHash, now).run();
+    if ((consumed.meta?.changes ?? 0) !== 1) return json({ error: "invalid_or_expired_token" }, 400);
     const sessionToken = randomToken();
     await env.DB.batch([
-      env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE token_hash = ? AND consumed_at IS NULL").bind(now, await hashToken(token)),
       env.DB.prepare("UPDATE worker_accounts SET email_verified_at = ?, updated_at = ? WHERE worker_id = ?").bind(now, now, record.worker_id),
       env.DB.prepare("INSERT INTO worker_sessions (id, worker_id, session_token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)").bind(newId(), record.worker_id, await hashToken(sessionToken), now, now + SESSION_TTL_SECONDS),
     ]);
@@ -344,10 +347,12 @@ const handleApi = async (request, env, url) => {
     const tokenHash = await hashToken(token);
     const record = await env.DB.prepare("SELECT worker_id FROM account_email_tokens WHERE purpose = 'reset' AND token_hash = ? AND consumed_at IS NULL AND expires_at > ? LIMIT 1").bind(tokenHash, now).first();
     if (!record) return json({ error: "invalid_or_expired_token" }, 400);
+    const consumed = await env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE token_hash = ? AND purpose = 'reset' AND consumed_at IS NULL AND expires_at > ?")
+      .bind(now, tokenHash, now).run();
+    if ((consumed.meta?.changes ?? 0) !== 1) return json({ error: "invalid_or_expired_token" }, 400);
     const passwordRecord = await derivePasswordHash(password);
     await env.DB.batch([
       env.DB.prepare("UPDATE worker_accounts SET password_salt = ?, password_hash = ?, updated_at = ? WHERE worker_id = ?").bind(passwordRecord.salt, passwordRecord.hash, now, record.worker_id),
-      env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE token_hash = ? AND consumed_at IS NULL").bind(now, tokenHash),
       env.DB.prepare("UPDATE worker_sessions SET revoked_at = ? WHERE worker_id = ? AND revoked_at IS NULL").bind(now, record.worker_id),
       env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE worker_id = ? AND purpose = 'reset' AND consumed_at IS NULL").bind(now, record.worker_id),
     ]);
