@@ -48,7 +48,7 @@ A worker may report an outcome from one specific job. Keep the report attributed
 ## Product display rules
 
 - Search results: **Unverified lead**.
-- Saved worker source: **Pending review · Private**.
+- Saved worker source: **Pending review · Private**. The capture form records exact product make/model, document version or revision, revision date, jurisdiction and page/section when known, so a later reviewer can assess applicability instead of guessing.
 - Authenticated origin without technical approval: **Official source verified · Technical review pending** only after the origin check above has actually been implemented and recorded.
 - Approved technical evidence: show the reviewer-approved state and its scope; never imply that it applies to a similar but unconfirmed model.
 - Worker outcomes: **Field observation**.
