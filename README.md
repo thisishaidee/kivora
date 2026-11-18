@@ -55,12 +55,13 @@ These documents do not enable mainnet or real-fund functionality. Testnet intero
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 - [Worker identity and private sessions](docs/WORKER_IDENTITY.md)
 - [Worker validation plan](docs/VALIDATION_PLAN.md)
+- [Source verification model](docs/SOURCE-VERIFICATION.md)
 - [Dakar Bitcoin Hack requirements](docs/HACKATHON.md)
 - [Foundation status and limitations](FOUNDATION-STATUS.md)
 
 ## Current implementation
 
-The repository contains a responsive React/Vite interface, shared TypeScript/Zod contracts, Cloudflare Worker APIs, D1-backed private preview sessions, on-device speech playback, and automated tests. It remains a preview prototype, not a production service.
+The repository contains a responsive React/Vite interface, shared TypeScript/Zod contracts, Cloudflare Worker APIs, D1-backed private preview sessions, on-device speech playback, Tavily source discovery and automated tests. Tavily results are displayed only as unverified leads; they cannot support technical instructions or be promoted to approved evidence by the AI.
 
 ### Local development
 
@@ -77,7 +78,7 @@ Requires Node.js 22 or newer.
 
 ## Current limitations
 
-Private worker identity and work-session endpoints are implemented and a preview D1 schema is provisioned. The optional NWC/NIP-47 Lightning panel supports connecting an existing wallet, reading advertised wallet details/balance and creating receive-only invoices; it does not send payments, custody funds or collect seed phrases. Real Android wallet/relay interoperability remains unverified. The initial identity timeout fix and wallet panel pass CI typecheck, 110 tests and production build on feature branches, with Cloudflare preview deployments succeeding. AI inference and autonomous web research remain disabled/not integrated; the current deterministic assessment is not a live AI research answer. Private media upload remains feature-gated and unavailable in the UI. On-device speech playback is available for current preview responses; speech-to-text and a validated remote TTS provider are not implemented. Compatibility assessment and trade-specific safety enforcement remain partial and require further validation.
+Private worker identity and work-session endpoints are implemented and a preview D1 schema is provisioned. The optional NWC/NIP-47 Lightning panel supports connecting an existing wallet, reading advertised wallet details/balance and creating receive-only invoices; it does not send payments, custody funds or collect seed phrases. Real Android wallet/relay interoperability remains unverified. Tavily source discovery is integrated on the feature branch: results are unverified leads, HTTPS links only, and may be saved privately as pending review. The current schema does not yet support an independently recorded official-publisher verification status or a reviewer approval UI; do not treat a hostname match as proof of publisher identity. Only existing shared evidence records that pass the server-side reviewer, rights, trade, jurisdiction and product applicability gates may support guided technical content. AI inference remains disabled in the isolated Pages preview; the deterministic assessment is not a live AI answer. Private media upload remains feature-gated and unavailable in the UI. On-device speech playback is available for current preview responses; speech-to-text and a validated remote TTS provider are not implemented. Compatibility assessment and trade-specific safety enforcement remain partial and require further validation.
 
 ## Security
 
