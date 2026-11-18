@@ -212,6 +212,7 @@ export default function App() {
         window.clearTimeout(timeout);
         if (!alive || identityCheckCancelled.current) return;
         setWorkerId(result.worker.id);
+        setActiveScreen("work");
         setIdentityState("ready");
         try {
           const list = await api<{ sessions: WorkSession[] }>("/api/work-sessions");
@@ -246,6 +247,7 @@ export default function App() {
     try {
       const result = await api<{ worker: { id: string }; recovery_code: string }>("/api/identity", { method: "POST" });
       setWorkerId(result.worker.id);
+      setActiveScreen("work");
       setRecoveryCode(result.recovery_code);
       setRecoverySaved(false);
       setCopied(false);
@@ -308,6 +310,7 @@ export default function App() {
   async function finishRecoverySetup() {
     if (!recoverySaved) return;
     setRecoveryCode("");
+    setActiveScreen("work");
     setIdentityState("ready");
     setNotice("Your private preview is ready.");
     try {
@@ -682,7 +685,7 @@ export default function App() {
           <h2>Restore your KIVORA preview access.</h2>
           <form onSubmit={(event) => void restoreIdentity(event)}>
             <label className="field">
-              <span>Preview recovery key</span>
+              <span>Preview access key</span>
               <input value={recoveryInput} onChange={(event) => setRecoveryInput(event.target.value)} autoComplete="off" spellCheck={false} placeholder="Paste your saved recovery key" />
             </label>
             <button className="submit-button" type="submit" disabled={busy || !recoveryInput.trim()}>
@@ -697,7 +700,7 @@ export default function App() {
       {identityState === "recovery-code" && (
         <section className="workspace identity-card">
           <p className="eyebrow">SAVE THIS ONCE</p>
-          <h2>Your recovery code.</h2>
+          <h2>Your preview access key.</h2>
           <p className="wallet-copy">Save this key somewhere private, such as a password manager or a secure note. You can use it to return to this same KIVORA preview identity if you change phones or lose access to this browser. KIVORA cannot see or recreate it. Anyone with the key may be able to access your private preview, so do not share it.</p>
           <div className="recovery-code">{recoveryCode.match(/.{1,8}/g)?.join(" ") ?? recoveryCode}</div>
           <button className="unit-option selected" type="button" onClick={() => void copyRecoveryCode()}>{copied ? "Copied" : "Copy recovery key"}</button>
@@ -1126,7 +1129,7 @@ export default function App() {
             </div>
             <p className="privacy-note">Temporary anonymous preview ID: {workerId.slice(0, 8)}…{workerId.slice(-4)}. This is not your final KIVORA account. Final accounts will use email and password, with email verification and password reset. Your preview sessions remain private.</p>
             <div className="account-actions">
-              <button className="unit-option" type="button" onClick={() => void rotateRecoveryCode()} disabled={busy}>Generate new preview recovery code</button>
+              <button className="unit-option" type="button" onClick={() => void rotateRecoveryCode()} disabled={busy}>Generate new preview access key</button>
               <button className="unit-option" type="button" onClick={() => void logout()} disabled={busy}>Log out on this device</button>
               <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete preview identity and all data</button>
             </div>
