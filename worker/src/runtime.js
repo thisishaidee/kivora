@@ -114,15 +114,20 @@ const hashToken = async (token) => {
 };
 
 const PASSWORD_ITERATIONS = 600000;
+/** @param {unknown} value */
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+/** @param {string} value */
 const validEmail = (value) => value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+/** @param {string} password @param {string} [saltHex] */
 const derivePasswordHash = async (password, saltHex) => {
   const salt = saltHex ? Uint8Array.from(saltHex.match(/.{2}/g) || [], byte => parseInt(byte, 16)) : crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PASSWORD_ITERATIONS }, key, 256);
+  /** @param {ArrayBuffer} value */
   const hex = value => Array.from(new Uint8Array(value), byte => byte.toString(16).padStart(2, "0")).join("");
   return { salt: hex(salt), hash: hex(bits) };
 };
+/** @param {string} password @param {string} salt @param {string} expected */
 const verifyPassword = async (password, salt, expected) => {
   const actual = await derivePasswordHash(password, salt);
   if (actual.hash.length !== expected.length) return false;
@@ -130,6 +135,7 @@ const verifyPassword = async (password, salt, expected) => {
   for (let index = 0; index < expected.length; index += 1) mismatch |= actual.hash.charCodeAt(index) ^ expected.charCodeAt(index);
   return mismatch === 0;
 };
+/** @param {Env} env @param {string} to @param {string} subject @param {string} html */
 const sendAccountEmail = async (env, to, subject, html) => {
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL || !/^https:\/\//i.test(env.APP_BASE_URL)) return false;
   const response = await fetch("https://api.resend.com/emails", {
@@ -139,6 +145,7 @@ const sendAccountEmail = async (env, to, subject, html) => {
   });
   return response.ok;
 };
+/** @param {D1Database} db @param {string} workerId @param {"verify" | "reset"} purpose @param {string} token @param {number} now @param {number} ttl */
 const accountTokenRecord = async (db, workerId, purpose, token, now, ttl) => {
   await db.prepare("INSERT INTO account_email_tokens (id, worker_id, purpose, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")
     .bind(newId(), workerId, purpose, await hashToken(token), now + ttl, now).run();
