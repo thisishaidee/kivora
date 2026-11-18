@@ -8,6 +8,7 @@ import {
 } from "./bdk-testnet-wallet";
 import {
   deleteEncryptedChangeset,
+  hasEncryptedChangeset,
   loadEncryptedChangeset,
   saveEncryptedChangeset,
 } from "./bdk-testnet-persistence";
@@ -19,7 +20,9 @@ async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Pr
   const staged = wallet.take_staged();
   if (!staged) throw new Error("BDK did not return the wallet changes needed for safe local recovery.");
   try {
-    const delta = staged.to_json();\n    await saveEncryptedChangeset(delta, seed);\n    return await loadEncryptedChangeset(seed) ?? delta;
+    const delta = staged.to_json();
+    await saveEncryptedChangeset(delta, seed);
+    return await loadEncryptedChangeset(seed) ?? delta;
   } finally {
     staged.free();
   }
@@ -60,7 +63,8 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
   const [backupPassword, setBackupPassword] = useState(props.accountPassword ?? "");
   const [accountBackupState, setAccountBackupState] = useState<"checking" | "missing" | "ready" | "error">("checking");
   const [accountBackupMessage, setAccountBackupMessage] = useState("");
-  const [accountBackupRevision, setAccountBackupRevision] = useState<number | null>(null);\n  const [localWalletDetected, setLocalWalletDetected] = useState(false);
+  const [accountBackupRevision, setAccountBackupRevision] = useState<number | null>(null);
+  const [localWalletDetected, setLocalWalletDetected] = useState(false);
   const pendingAccountBackupRef = useRef<string | null>(null);
   const accountBackupExistsRef = useRef(false);
 
@@ -84,6 +88,9 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
           accountBackupExistsRef.current = false;
           setAccountBackupRevision(null);
           setAccountBackupState("missing");
+          const localExists = await hasEncryptedChangeset();
+          if (!cancelled) setLocalWalletDetected(localExists);
+          if (props.accountPassword) props.onWalletPasswordConsumed?.();
           return;
         }
         accountBackupExistsRef.current = true;
@@ -97,14 +104,14 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
           const result = await restoreBdkTestnetWallet(seed, parsed.changeset);
           restored = result.wallet;
           if (cancelled) { restored.free(); restored = null; seed.fill(0); return; }
-          await saveEncryptedChangeset(parsed.changeset, seed);
           walletRef.current = restored;
           restored = null;
           walletSeedRef.current = seed.slice();
           setAddress(result.address);
           setAccountBackupState("ready");
           setAccountBackupMessage("Your account wallet was unlocked. Its encrypted backup is linked to this KIVORA account.");
-          if (props.accountPassword) props.onWalletPasswordConsumed?.();\n          setBackupPassword("");
+          if (props.accountPassword) props.onWalletPasswordConsumed?.();
+          setBackupPassword("");
         } finally {
           restored?.free();
           seed.fill(0);
