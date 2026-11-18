@@ -370,6 +370,32 @@ describe("KIVORA assessment endpoint", () => {
     expect(evidenceQuery?.sql).toContain("source_type = 'standard' AND jurisdiction = ? COLLATE NOCASE");
   });
 
+  it("does not broaden equipment evidence when the exact model is missing", async () => {
+    const db = makeDb({ worker_id: "worker-a" });
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/assess", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"b".repeat(64)}`,
+        },
+        body: JSON.stringify({
+          trade: "plumbing",
+          task: "Identify a replacement cartridge for this tap.",
+          jurisdiction: "Nigeria",
+          involvesEquipment: true,
+          equipmentMake: "Acme",
+        }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+    expect(response.status).toBe(200);
+    const evidenceQuery = db.statements.find((statement) => statement.sql.includes("FROM evidence_sources"));
+    expect(evidenceQuery?.values).toEqual(["plumbing", "Nigeria", "Nigeria", "Acme", ""]);
+    expect(evidenceQuery?.sql).toContain("product_make = ? COLLATE NOCASE AND product_model = ? COLLATE NOCASE");
+  });
+
   it("returns a stop-work escalation for a reported gas leak", async () => {
     const db = makeDb({ worker_id: "worker-a" });
     const response = await worker.fetch(
