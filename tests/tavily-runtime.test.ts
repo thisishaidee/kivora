@@ -18,6 +18,7 @@ describe("Tavily research leads", () => {
         { title: " Manufacturer guide ", url: "https://example.com/manual", content: "  Check the hinge model.\\nUse the correct plate. " },
         { title: "Bad scheme", url: "javascript:alert(1)", content: "not allowed" },
         { title: "Credential URL", url: "https://user:pass@example.com/", content: "not allowed" },
+        { title: "Insecure HTTP", url: "http://manual.example.com/guide", content: "not allowed" },
       ],
     }));
     const result = await searchTavilyLeads({ query: "cabinet hinge installation", apiKey: "server-secret", fetchImpl });
@@ -59,6 +60,14 @@ describe("Tavily research leads", () => {
     const result = await searchTavilyLeads({ query: "  ", apiKey: "server-secret", fetchImpl });
     expect(result).toEqual({ ok: false, error: "invalid_query" });
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("rejects plain HTTP source links even when search returns useful-looking content", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(response({
+      results: [{ title: "Manual", url: "http://manufacturer.example/manual", content: "Installation notes." }],
+    }));
+    const result = await searchTavilyLeads({ query: "manufacturer manual", apiKey: "server-secret", fetchImpl });
+    expect(result).toEqual({ ok: true, sources: [] });
   });
 
   it("does not return technical evidence as reviewed", async () => {
