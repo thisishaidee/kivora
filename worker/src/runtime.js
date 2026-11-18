@@ -314,7 +314,8 @@ const handleApi = async (request, env, url) => {
       env.DB.prepare("UPDATE worker_accounts SET email_verified_at = ?, updated_at = ? WHERE worker_id = ?").bind(now, now, record.worker_id),
       env.DB.prepare("INSERT INTO worker_sessions (id, worker_id, session_token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)").bind(newId(), record.worker_id, await hashToken(sessionToken), now, now + SESSION_TTL_SECONDS),
     ]);
-    return json({ worker: { id: record.worker_id } }, 200, { "set-cookie": cookieHeader(sessionToken) });
+    const verifiedAccount = await env.DB.prepare("SELECT email_normalized FROM worker_accounts WHERE worker_id = ? LIMIT 1").bind(record.worker_id).first();
+    return json({ worker: { id: record.worker_id, ...(verifiedAccount ? { email: String(verifiedAccount.email_normalized) } : {}) } }, 200, { "set-cookie": cookieHeader(sessionToken) });
   }
 
   if (path === "/api/accounts/login" && method === "POST") {
