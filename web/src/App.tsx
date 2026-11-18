@@ -600,12 +600,15 @@ export default function App() {
 
   return (
     <main className="page-shell">
-      <header className="topbar">
+      <header className="topbar app-topbar">
         <a className="brand" href="/" aria-label="KIVORA home">
           <span className="brand-mark">K</span>
           <span>KIVORA</span>
         </a>
-        <span className="topbar-note">Practical intelligence for skilled work</span>
+        <div className="app-topbar-right">
+          <span className="workspace-status"><span className="status-dot" /> PRIVATE WORKSPACE</span>
+          <span className="topbar-note">Practical intelligence for skilled work</span>
+        </div>
       </header>
 
       {identityState !== "ready" && (
@@ -626,8 +629,16 @@ export default function App() {
 
       {identityState === "ready" && (
         <>
+          <section className="app-welcome-strip">
+            <div>
+              <p className="eyebrow">YOUR WORKSPACE</p>
+              <h1>{activeScreen === "work" ? "What are we working through?" : activeScreen === "history" ? "Your investigations" : activeScreen === "sources" ? "Evidence library" : activeScreen === "payments" ? "Connected payments" : "Account & access"}</h1>
+              <p>{activeScreen === "work" ? "Bring the question, product or problem. KIVORA helps you work out the next step." : activeScreen === "history" ? "Pick up where you left off." : activeScreen === "sources" ? "Keep useful references and source notes together." : activeScreen === "payments" ? "Optional payment tools. Your KIVORA workspace does not require a wallet." : "Manage this private workspace and its data."}</p>
+            </div>
+            <div className="intelligence-signature"><span className="sparkle-mark">✦</span><span><strong>KIVORA intelligence</strong><small>Evidence-aware workspace</small></span></div>
+          </section>
           <nav className="workspace-nav" aria-label="Workspace sections">
-            {([["work","Workspace"],["history","History"],["sources","Evidence library"],["payments","Payments"],["account","Account"]] as const).map(([screen,label]) => <button key={screen} type="button" className={activeScreen === screen ? "workspace-nav-item active" : "workspace-nav-item"} aria-current={activeScreen === screen ? "page" : undefined} onClick={() => { setActiveScreen(screen); setNotice(""); }}>{label}</button>)}
+            {([["work","Workspace","⌂"],["history","History","◷"],["sources","Evidence library","▤"],["payments","Payments","⇄"],["account","Account","○"]] as const).map(([screen,label,glyph]) => <button key={screen} type="button" className={activeScreen === screen ? "workspace-nav-item active" : "workspace-nav-item"} aria-current={activeScreen === screen ? "page" : undefined} onClick={() => { setActiveScreen(screen); setNotice(""); }}><span className="nav-glyph" aria-hidden="true">{glyph}</span><span>{label}</span></button>)}
           </nav>
 
           
@@ -754,7 +765,7 @@ export default function App() {
             <section className="workspace assistant-card" aria-live="polite">
               <div className="workspace-heading">
                 <div>
-                  <p className="eyebrow">KIVORA RESPONSE</p>
+                  <p className="eyebrow response-eyebrow"><span className="sparkle-mark small">✦</span> KIVORA RESPONSE</p>
                   <h2>{assistantResponse.status === "guided" ? "What the reviewed evidence says" : assistantResponse.status === "escalate" ? "Safety comes first" : assistantResponse.status === "clarify" ? "A few things need confirming" : "AI response unavailable"}</h2>
                 </div>
                 <div className="assessment-heading-actions">
