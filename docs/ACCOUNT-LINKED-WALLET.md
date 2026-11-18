@@ -1,6 +1,6 @@
 # Account-linked wallet backup
 
-**Status:** implementation in progress; not enabled in Preview or production.
+**Status:** implementation and CI complete in PR #39; deployed to the isolated Preview environment. End-to-end account testing is blocked until secure email delivery is configured. Not enabled in production.
 
 ## Required user experience
 
@@ -15,8 +15,8 @@ The Create Wallet action remains visible only when the authenticated account has
 - Only ciphertext, salt, IV, KDF parameters, format/network metadata, and non-secret timestamps may be sent to the Worker and stored in D1.
 - The recovery phrase, BIP39 seed, private keys, derived encryption key, and decrypted BDK changeset must never be sent to the server or written to logs.
 - The server authorizes reads and writes using the existing HttpOnly account session and enforces one wallet record per worker account. It cannot decrypt or replace wallet material.
-- The password used for decryption is held only in component memory for the sign-in/create flow and cleared after the wallet is unlocked. It is not persisted in localStorage, IndexedDB, cookies, URL parameters, or analytics.
-- Password reset changes the account password but cannot re-encrypt an existing client-side backup. In that case the recovery phrase remains the fallback; the UI must explain this before reset is treated as a seamless wallet recovery operation. A future account-key-rotation design may improve this without escrow.
+- The account password is held only in component memory for the sign-in/create flow and cleared after the wallet is unlocked. It is not persisted in localStorage, IndexedDB, cookies, URL parameters, or analytics. A non-extractable derived CryptoKey may be cached locally in IndexedDB for same-browser convenience; the raw password and extractable key material are not stored.
+- Password reset changes the account password but cannot re-encrypt an existing client-side backup. A device that still has its cached non-extractable unlock key may continue to unlock locally. A new device or a device whose cache was cleared must use the recovery phrase once and then create a new encrypted backup under the new password. A future account-key-rotation design may improve this without escrow.
 
 ## API contract to implement
 
