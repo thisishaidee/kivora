@@ -464,12 +464,14 @@ export default function App() {
       setResearchNotice("This source link is invalid and cannot be saved.");
       return;
     }
+    const workerContext = messages.filter((message) => message.role === "worker").map((message) => message.content).join("\n\n").slice(-3600);
+    const inferredTrade = inferTradeFromTask(workerContext, activeSession.trade);
     setBusy(true);
     try {
       await api("/api/evidence-sources", {
         method: "POST",
         body: JSON.stringify({
-          trade: activeSession.trade,
+          trade: inferredTrade,
           sourceType: "other",
           publisher,
           title: source.title,
