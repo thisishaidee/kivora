@@ -14,7 +14,7 @@ import {
 } from "./bdk-testnet-persistence";
 import { createRecoveryPhrase, recoveryPhraseToSeed } from "./bip39-recovery";
 import { fetchTestnetAddressSnapshot, formatSats, type AddressSnapshot } from "./testnet-esplora";
-import { decryptAccountWalletBackup, encryptAccountWalletBackup, rememberAccountWalletUnlockKey, type EncryptedAccountWalletBackup } from "./account-wallet-backup";
+import { decryptAccountWalletBackup, encryptAccountWalletBackup, forgetAccountWalletUnlockKey, rememberAccountWalletUnlockKey, type EncryptedAccountWalletBackup } from "./account-wallet-backup";
 
 async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Promise<string> {
   const staged = wallet.take_staged();
@@ -321,11 +321,12 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
     setBusy(true);
     try {
       await deleteEncryptedChangeset();
+      if (props.accountWorkerId) await forgetAccountWalletUnlockKey(props.accountWorkerId);
       clearWallet();
       setRecoveryPhrase("");
       setShowPhrase(false);
       setDiagnostic("");
-      setStatus("Wallet and its encrypted local state were discarded.");
+      setStatus(props.accountWorkerId ? "This device’s wallet copy and unlock key were cleared. Your encrypted account backup remains available after you sign in again." : "Wallet and its encrypted local state were discarded.");
     } catch (error) {
       clearWallet();
       setStatus(error instanceof Error
@@ -416,7 +417,7 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
           <p className="testnet-address">{address}</p>
           <div className="unit-options">
             <button className="unit-option selected" type="button" onClick={() => void copyAddress()}>Copy address</button>
-            <button className="unit-option" type="button" onClick={() => void discardWallet()} disabled={busy || syncBusy}>Discard wallet</button>
+            <button className="unit-option" type="button" onClick={() => void discardWallet()} disabled={busy || syncBusy}>{props.accountWorkerId ? "Clear from this device" : "Discard wallet"}</button>
           </div>
           {props.accountWorkerId && pendingAccountBackupRef.current && <div className="backup-controls">
             <p className="eyebrow">LINK THIS WALLET TO YOUR ACCOUNT</p>
