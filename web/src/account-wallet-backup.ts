@@ -149,8 +149,10 @@ export async function decryptAccountWalletBackup(
     throw new Error("The encrypted wallet backup is malformed.");
   }
   const key = password
-    ? await deriveEncryptionKey(password, salt, backup.iterations)\n    : await loadUnlockKey(workerId);
-  if (!key) throw new Error("Sign in with your account password to unlock this wallet on this device.");\n  try {
+    ? await deriveEncryptionKey(password, salt, backup.iterations)
+    : await loadUnlockKey(workerId);
+  if (!key) throw new Error("Sign in with your account password to unlock this wallet on this device.");
+  try {
     const plaintext = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv, additionalData: associatedData(workerId), tagLength: 128 },
       key,
