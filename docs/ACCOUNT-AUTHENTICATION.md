@@ -39,6 +39,16 @@ Email verification and password reset require a transactional email sender and a
 
 The Worker currently supports Resend through server-side `RESEND_API_KEY`, `EMAIL_FROM` and `APP_BASE_URL` bindings. The sender must be configured with a verified domain and tested before registration is enabled. Until then, the registration and reset endpoints return an unavailable response and do not create a partial account. The D1 schema is in `migrations/0004_email_password_accounts.sql`; it has been applied to the isolated Preview database only.
 
+## Lowest-cost email provider review
+
+Do not buy a domain or enable a paid email plan for the first account release without comparing the zero-cost option first.
+
+- Firebase Authentication on the Spark plan is the current leading option to evaluate: the plan is no-cost and does not require a payment method, and its documented limits include up to 1,000 address-verification emails/day and 150 password-reset emails/day. It supplies the password and email-action lifecycle, reducing the need to operate a custom password store and sender.
+- Resend's free plan currently includes 3,000 emails/month and 100/day, but requires a domain that KIVORA controls and can verify in DNS.
+- Supabase's built-in email sender is not suitable for general production sign-up: it is limited to team-authorized recipient addresses and currently 2 emails/hour. Custom SMTP is required for broader delivery.
+
+No provider has been connected or paid for. Before committing to a provider, compare integration/security trade-offs and the exact current terms. The current Worker implementation retains a Resend sending adapter as a fallback; Firebase Spark should be evaluated before asking the founder to buy a domain.
+
 ## Release checks
 
 1. Benchmark PBKDF2-HMAC-SHA256 (600,000 iterations) in the deployed Worker runtime and confirm it fits the configured CPU budget; obtain independent review.
