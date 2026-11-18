@@ -713,6 +713,9 @@ export default function App() {
 
       {identityState === "ready" && (
         <>
+          <div style={{ display: activeScreen === "payments" ? "block" : "none" }}>
+            <TestnetWalletPanel accountWorkerId={accountMode ? workerId : undefined} accountPassword={walletUnlockPassword} onWalletPasswordConsumed={() => setWalletUnlockPassword("")} />
+          </div>
           <section className="app-welcome-strip">
             <div>
               <p className="eyebrow">YOUR WORKSPACE</p>
@@ -1126,7 +1129,7 @@ export default function App() {
             </section>
           )}
 
-          {activeScreen === "payments" && <><TestnetWalletPanel accountWorkerId={accountMode ? workerId : undefined} accountPassword={walletUnlockPassword} onWalletPasswordConsumed={() => setWalletUnlockPassword("")} /><WalletPanel /></>}
+          {activeScreen === "payments" && <WalletPanel />}
 
           {activeScreen === "account" && <section className="workspace account-card">
             <div className="workspace-heading">
