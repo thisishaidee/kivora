@@ -533,7 +533,8 @@ const handleApi = async (request, env, url) => {
     const iv = typeof body.iv === "string" ? body.iv : "";
     const ciphertext = typeof body.ciphertext === "string" ? body.ciphertext : "";
     const revision = body.revision === undefined || body.revision === null ? null : Number(body.revision);
-    const validBase64 = (value: string) => /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value);
+    /** @param {string} value */
+    const validBase64 = value => /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value);
     if (formatVersion !== 1 || network !== "bitcoin-testnet" || kdf !== "PBKDF2-SHA-256" ||
         !Number.isInteger(iterations) || iterations < 300000 || iterations > 1000000 ||
         cipher !== "AES-256-GCM" || !validBase64(salt) || atob(salt).length !== 16 ||
