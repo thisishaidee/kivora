@@ -413,7 +413,8 @@ const handleApi = async (request, env, url) => {
   if (path === "/api/identity" && method === "GET") {
     const worker = await authenticate(request, env.DB);
     if (!worker) return json({ error: "unauthorized" }, 401);
-    return json({ worker: { id: worker.worker_id } });
+    const account = await env.DB.prepare("SELECT email_normalized FROM worker_accounts WHERE worker_id = ? AND email_verified_at IS NOT NULL LIMIT 1").bind(worker.worker_id).first();
+    return json({ worker: { id: worker.worker_id, ...(account ? { email: String(account.email_normalized) } : {}) } });
   }
 
   if (path === "/api/identity/logout" && method === "POST") {
