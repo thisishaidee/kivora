@@ -182,7 +182,7 @@ function addTradeContextQuestions(
     questions.push(question);
   };
 
-  if (trade === "carpentry" && /\b(cabinet|cupboard)\b/i.test(text) && /\bhinge\b/i.test(text)) {
+  if (trade === "carpentry" && /\b(cabinet|cupboard)\b/i.test(text) && /\bhinge\w*\b/i.test(text)) {
     if (!/\b(door will not close|door won't close|not closing|will not stay closed|won't stay closed|soft.?close|slamming|sagging|misalign|loose|detached|leaking)\b/i.test(text)) {
       add("cabinet hinge symptom", "What is the main problem: the door is misaligned, the hinge is loose, the door will not stay closed, or the soft-close action has stopped working?");
     }
