@@ -86,3 +86,21 @@ This roadmap sequences the full requirements in `WALLET-REQUIREMENTS.md`. Each s
 - Automatic recurring Bitcoin debits.
 - Automatic payouts without a reviewed approval process.
 - Production activation or real-fund movement.
+
+
+## Immediate next implementation slice — wallet creation
+
+The wallet screen must present two clearly separate choices:
+
+1. **Create a new KIVORA Bitcoin wallet** — embedded, user-controlled keys, beginning on Bitcoin testnet only. The next technical slice is a BDK-WASM proof of concept covering wallet creation, receive address, backup, restore and browser persistence. Do not show a seed phrase until the backup/restore design is implemented and tested end to end.
+2. **Connect an existing Lightning wallet** — the existing NWC/NIP-47 flow. This is optional and remains separate from the embedded on-chain wallet.
+
+The current NWC panel is only the second option. It must not be described as a complete KIVORA wallet. The embedded wallet must not display a fabricated balance, enable mainnet or offer send/broadcast until the relevant SDK and security gates pass.
+
+### Founder-side actions when the implementation is ready
+
+- Review the first wallet-creation and backup screens on the phone.
+- Complete a testnet restore check using a separate browser profile/device when prompted.
+- Do not fund a wallet with real Bitcoin during the testnet stage.
+
+No API key, domain purchase or paid service is currently required for the planned BDK testnet spike. If a later provider or service introduces a cost, it must be reviewed before activation.
