@@ -147,29 +147,34 @@ export async function decryptAccountWalletBackup(
   if (salt.byteLength !== 16 || iv.byteLength !== 12 || ciphertext.byteLength < 17) {
     throw new Error("The encrypted wallet backup is malformed.");
   }
-  const key = password
-    ? await deriveEncryptionKey(password, salt, backup.iterations)
-    : await loadUnlockKey(workerId);
-  if (!key) throw new Error("Sign in with your account password to unlock this wallet on this device.");
-  try {
-    const plaintext = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv, additionalData: associatedData(workerId), tagLength: 128 },
-      key,
-      ciphertext,
-    );
-    const bytes = new Uint8Array(plaintext);
+  const passwordKey = password ? await deriveEncryptionKey(password, salt, backup.iterations) : null;
+  const cachedKey = await loadUnlockKey(workerId);
+  const candidateKeys = [passwordKey, cachedKey].filter((key, index, all): key is CryptoKey =>
+    Boolean(key) && all.indexOf(key) === index,
+  );
+  if (candidateKeys.length === 0) throw new Error("Sign in with your account password to unlock this wallet on this device.");
+  for (const key of candidateKeys) {
     try {
-      const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-      if (password && typeof indexedDB !== "undefined") {
-        try { await cacheUnlockKey(workerId, key); } catch { /* Unlock still succeeded; caching is best-effort. */ }
+      const plaintext = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv, additionalData: associatedData(workerId), tagLength: 128 },
+        key,
+        ciphertext,
+      );
+      const bytes = new Uint8Array(plaintext);
+      try {
+        const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        if (password && key === passwordKey && typeof indexedDB !== "undefined") {
+          try { await cacheUnlockKey(workerId, key); } catch { /* Unlock still succeeded; caching is best-effort. */ }
+        }
+        return decoded;
+      } finally {
+        bytes.fill(0);
       }
-      return decoded;
-    } finally {
-      bytes.fill(0);
+    } catch {
+      // A cached key may still unlock a backup after the account password changes on this device.
     }
-  } catch {
-    throw new Error("This password could not unlock the wallet backup. Use your 12-word recovery phrase if you have reset your account password.");
   }
+  throw new Error("This password could not unlock the wallet backup. Use your 12-word recovery phrase if you have reset your account password on a new device.");
 }
 
 /** Cache the password-derived key only after the server confirms the encrypted backup was saved. */
