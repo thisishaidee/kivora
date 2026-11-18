@@ -6,7 +6,7 @@ const REQUEST_TIMEOUT_MS = 8000;
 const safeUrl = (value) => {
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (url.protocol !== "https:") return null;
     if (url.username || url.password) return null;
     return url.toString();
   } catch {
