@@ -41,7 +41,7 @@ export default function PublicHome({ busy, notice, onGetStarted, onSignIn, onCre
               <button type="button" className="public-primary" onClick={onGetStarted} disabled={busy}>{busy ? "Opening workspace…" : "Explore the workspace"} <span aria-hidden="true">↗</span></button>
               <a className="public-secondary" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a>
             </div>
-            <p className="public-disclosure">Email and password accounts are being prepared. Workspace access is currently in a limited preview while secure email verification is completed.</p>
+            <p className="public-disclosure">Account registration will open once secure email verification is configured. You can explore the workspace in the meantime.</p>
             {notice && <p className="public-notice" role="status">{notice}</p>}
           </div>
 
@@ -69,21 +69,21 @@ export default function PublicHome({ busy, notice, onGetStarted, onSignIn, onCre
           </div>
           <div className="principle-grid">
             <article><span>01</span><h3>Ask naturally</h3><p>Describe what you are trying to understand, even if you do not know the right technical terms yet.</p></article>
-            <article><span>02</span><h3>Investigate properly</h3><p>KIVORA is designed to bring together relevant product details, reliable references and the context that changes an answer.</p></article>
+            <article><span>02</span><h3>Investigate properly</h3><p>Bring together product details, reliable references and the job context that changes an answer.</p></article>
             <article><span>03</span><h3>Know what is certain</h3><p>Clear answers should distinguish verified information from assumptions, missing details and situations that need qualified help.</p></article>
-            <article><span>04</span><h3>Read or listen</h3><p>Results are being designed for both reading and listening, so workers can choose how to take in information.</p></article>
+            <article><span>04</span><h3>Read or listen</h3><p>Read a response on screen or listen to it with voice playback.</p></article>
           </div>
         </section>
 
         <section className="public-trades" id="trades">
-          <div><p className="eyebrow">BUILT ACROSS TRADES</p><h2>One place to keep<br /><em>learning and moving.</em></h2><p>KIVORA is being built for independent workers and skilled people across different fields — not one trade, one tool or one kind of problem.</p></div>
+          <div><p className="eyebrow">BUILT ACROSS TRADES</p><h2>One place to keep<br /><em>learning and moving.</em></h2><p>One investigation workflow for independent workers across skilled trades — not one trade, one tool or one kind of problem.</p></div>
           <ul>{trades.map((trade) => <li key={trade}><span>{trade}</span><span aria-hidden="true">↗</span></li>)}</ul>
         </section>
 
         <section className="public-trust">
           <p className="eyebrow">USEFUL, WITHOUT PRETENDING</p>
           <h2>Confidence comes from knowing what you know — and what you don't.</h2>
-          <p>KIVORA is being built to treat evidence, uncertainty and safety as part of the answer. It should never invent a product specification or present an unverified guess as a proven instruction.</p>
+          <p>KIVORA is designed to keep evidence, uncertainty and safety visible throughout an investigation. It should never invent a product specification or present an unverified guess as a proven instruction.</p>
           <button type="button" className="public-primary" onClick={onGetStarted} disabled={busy}>Explore the preview <span aria-hidden="true">↗</span></button>
         </section>
       </main>
