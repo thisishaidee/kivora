@@ -15,7 +15,7 @@ describe("Tavily research leads", () => {
   it("returns capped, sanitized results as unverified leads", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response({
       results: [
-        { title: " Manufacturer guide ", url: "https://example.com/manual", content: "  Check the hinge model.\\nUse the correct plate. " },
+        { title: " Manufacturer guide ", url: "https://example.com/manual", content: "  Check the hinge model.\nUse the correct plate. " },
         { title: "Bad scheme", url: "javascript:alert(1)", content: "not allowed" },
         { title: "Credential URL", url: "https://user:pass@example.com/", content: "not allowed" },
         { title: "Insecure HTTP", url: "http://manual.example.com/guide", content: "not allowed" },
