@@ -25,6 +25,10 @@ const cleanText = (value, max) =>
  * evidence: a qualified reviewer must approve material before it can support
  * technical instructions.
  * @param {{ query: string, apiKey: string, fetchImpl?: typeof fetch }} input
+ * @returns {Promise<
+ *   | { ok: true, sources: Array<{ title: string, url: string, excerpt: string, sourceType: "web_search_result", reviewStatus: "unverified_lead", evidenceEligible: false }> }
+ *   | { ok: false, error: string }
+ * >}
  */
 export async function searchTavilyLeads({ query, apiKey, fetchImpl = fetch }) {
   const normalizedQuery = cleanText(query, MAX_QUERY_CHARS);
@@ -55,8 +59,7 @@ export async function searchTavilyLeads({ query, apiKey, fetchImpl = fetch }) {
     const rows = Array.isArray(payload?.results) ? payload.results : [];
     const sources = rows.slice(0, MAX_RESULTS).flatMap((row) => {
       if (!row || typeof row !== "object") return [];
-      /** @type {Record<string, unknown>} */
-      const record = row;
+      const record = /** @type {Record<string, unknown>} */ (row);
       const url = safeUrl(record.url);
       const title = cleanText(record.title, 240);
       const excerpt = cleanText(record.content, 700);
