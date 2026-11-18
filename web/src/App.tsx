@@ -49,6 +49,12 @@ type EvidenceSource = {
   publisher: string;
   title: string;
   source_url: string | null;
+  source_version?: string | null;
+  revision_date?: string | null;
+  jurisdiction?: string | null;
+  product_make?: string | null;
+  product_model?: string | null;
+  page_or_section?: string | null;
   topic: string;
   rights_status: string;
   review_status: string;
@@ -121,6 +127,9 @@ export default function App() {
   const [evidenceNote, setEvidenceNote] = useState("");
   const [evidenceMake, setEvidenceMake] = useState("");
   const [evidenceModel, setEvidenceModel] = useState("");
+  const [evidenceVersion, setEvidenceVersion] = useState("");
+  const [evidenceRevisionDate, setEvidenceRevisionDate] = useState("");
+  const [evidenceJurisdiction, setEvidenceJurisdiction] = useState("");
   const [evidenceSection, setEvidenceSection] = useState("");
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [messages, setMessages] = useState<WorkMessage[]>([]);
@@ -161,6 +170,9 @@ export default function App() {
           sourceUrl: evidenceUrl.trim() || undefined,
           productMake: evidenceMake.trim() || undefined,
           productModel: evidenceModel.trim() || undefined,
+          sourceVersion: evidenceVersion.trim() || undefined,
+          revisionDate: evidenceRevisionDate || undefined,
+          jurisdiction: evidenceJurisdiction.trim() || undefined,
           topic: evidenceTopic.trim(),
           pageOrSection: evidenceSection.trim() || undefined,
           evidenceNote: evidenceNote.trim(),
@@ -174,6 +186,9 @@ export default function App() {
       setEvidenceNote("");
       setEvidenceMake("");
       setEvidenceModel("");
+      setEvidenceVersion("");
+      setEvidenceRevisionDate("");
+      setEvidenceJurisdiction("");
       setEvidenceSection("");
       await refreshEvidenceSources();
       setNotice("Source saved privately. It is pending review and cannot be used for AI guidance yet.");
@@ -982,6 +997,20 @@ export default function App() {
                   <input value={evidenceModel} onChange={(event) => setEvidenceModel(event.target.value)} placeholder="Model number" />
                 </label>
               </div>
+              <div className="field-grid">
+                <label className="field">
+                  <span>Document version / revision</span>
+                  <input value={evidenceVersion} onChange={(event) => setEvidenceVersion(event.target.value)} maxLength={120} placeholder="Revision, edition or version" />
+                </label>
+                <label className="field">
+                  <span>Revision date</span>
+                  <input type="date" value={evidenceRevisionDate} onChange={(event) => setEvidenceRevisionDate(event.target.value)} />
+                </label>
+              </div>
+              <label className="field">
+                <span>Jurisdiction / region (if relevant)</span>
+                <input value={evidenceJurisdiction} onChange={(event) => setEvidenceJurisdiction(event.target.value)} maxLength={120} placeholder="For example, Nigeria or UK" />
+              </label>
               <label className="field">
                 <span>Topic this source supports</span>
                 <input value={evidenceTopic} onChange={(event) => setEvidenceTopic(event.target.value)} maxLength={200} placeholder="For example, tap cartridge identification" required />
@@ -1006,6 +1035,9 @@ export default function App() {
                       <span className="evidence-status">{source.source_type === "field_observation" ? "FIELD OBSERVATION · NOT INDEPENDENTLY VERIFIED" : "PENDING REVIEW · PRIVATE"}</span>
                       <h3>{source.title}</h3>
                       <p>{source.publisher} · {source.topic}</p>
+                      <p className="evidence-meta">
+                        {[source.product_make, source.product_model, source.source_version, source.revision_date, source.jurisdiction, source.page_or_section].filter(Boolean).join(" · ") || "Product model, revision and scope not recorded"}
+                      </p>
                     </div>
                     {source.source_url && <a href={source.source_url} target="_blank" rel="noreferrer">Open source</a>}
                   </article>
