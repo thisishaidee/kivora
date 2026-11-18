@@ -422,7 +422,7 @@ export default function App() {
         setResearchNotice("This result does not use HTTPS, so it cannot be saved to the evidence library.");
         return;
       }
-      publisher = url.hostname;
+      publisher = "Unverified host: " + url.hostname;
     } catch {
       setResearchNotice("This source link is invalid and cannot be saved.");
       return;
