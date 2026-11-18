@@ -16,8 +16,8 @@ export function parsePrivateEvidenceCapture(input) {
   if(input.sourceUrl!==undefined){
     try {
       const u=new URL(input.sourceUrl);
-      const host=u.hostname.toLowerCase().replace(/\\.$/, "");
-      const isIpv4=/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(host);
+      const host=u.hostname.toLowerCase().replace(/\.$/, "");
+      const isIpv4=/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
       const isLocal=host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.endsWith(".test");
       if(u.protocol!=="https:"||u.username||u.password||!host.includes(".")||isIpv4||host.includes(":")||isLocal) return {success:false};
       if(!/^[a-z0-9.-]+$/.test(host)||host.split(".").some(label=>!label||label.startsWith("-")||label.endsWith("-"))) return {success:false};
