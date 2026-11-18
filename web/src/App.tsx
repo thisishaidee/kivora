@@ -719,7 +719,8 @@ export default function App() {
           </nav>
 
           
-          {activeScreen === "work" && <section className="workspace" aria-labelledby="start-title">
+          {activeScreen === "work" && <>
+          <section className="workspace" aria-labelledby="start-title">
             <div className="workspace-heading">
               <div>
                 <p className="eyebrow">ASK KIVORA</p>
@@ -950,7 +951,7 @@ export default function App() {
             </section>
           )}
 
-          }
+          </>}
 
           {activeScreen === "history" && <section className="workspace session-library">
             <div className="workspace-heading">
