@@ -41,6 +41,7 @@ The Bitcoin Wallet is a general-purpose, wallet-optional product direction. Its 
 - [Wallet architecture](docs/WALLET-ARCHITECTURE.md)
 - [Wallet delivery roadmap](docs/WALLET-ROADMAP.md)
 - [Wallet SDK evaluation](docs/WALLET-SDK-EVALUATION.md)
+- [Lightning wallet integration](docs/LIGHTNING_WALLET.md)
 
 These documents do not enable mainnet or real-fund functionality. Testnet interoperability, security review and explicit release gates remain mandatory.
 
@@ -59,7 +60,7 @@ These documents do not enable mainnet or real-fund functionality. Testnet intero
 
 ## Current implementation
 
-The repository now contains a responsive React/Vite interface, shared TypeScript/Zod contracts, a Cloudflare Worker health route, shell-only service-worker caching, and initial automated tests. It is a development foundation, not yet a functioning AI assistant or production service.
+The repository contains a responsive React/Vite interface, shared TypeScript/Zod contracts, Cloudflare Worker APIs, D1-backed private preview sessions, on-device speech playback, and automated tests. It remains a preview prototype, not a production service.
 
 ### Local development
 
@@ -76,7 +77,7 @@ Requires Node.js 22 or newer.
 
 ## Current limitations
 
-Worker identity and private work-session endpoints are implemented on the current feature branch and the D1 schema is provisioned in Cloudflare. The branch still needs CI, Worker deployment and end-to-end browser verification. AI providers, autonomous research and image/video understanding are not yet implemented. Private media upload APIs and metadata are implemented behind a disabled feature flag; no storage bucket is configured and no media upload is currently available to users. Initial on-device speech playback is available for the current deterministic preview assessment and response; speech-to-text, editable voice transcripts and a validated remote TTS provider are not yet implemented. Compatibility assessment and trade-specific safety enforcement remain partial and require further validation. The optional NWC wallet integration is being developed separately. See the implementation plan for the sequence and deployment gates.
+Private worker identity and work-session endpoints are implemented and a preview D1 schema is provisioned. The optional NWC/NIP-47 Lightning panel supports connecting an existing wallet, reading advertised wallet details/balance and creating receive-only invoices; it does not send payments, custody funds or collect seed phrases. Real Android wallet/relay interoperability remains unverified. The initial identity timeout fix and wallet panel pass CI typecheck, 110 tests and production build on feature branches, with Cloudflare preview deployments succeeding. AI inference and autonomous web research remain disabled/not integrated; the current deterministic assessment is not a live AI research answer. Private media upload remains feature-gated and unavailable in the UI. On-device speech playback is available for current preview responses; speech-to-text and a validated remote TTS provider are not implemented. Compatibility assessment and trade-specific safety enforcement remain partial and require further validation.
 
 ## Security
 
