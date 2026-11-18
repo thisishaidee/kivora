@@ -237,3 +237,12 @@ export async function deleteEncryptedChangeset(): Promise<void> {
     transaction.onabort = () => reject(transaction.error ?? new Error("Local wallet deletion was aborted."));
   });
 }
+
+
+/** Check whether wallet state exists without requiring the user's seed. */
+export async function hasEncryptedChangeset(): Promise<boolean> {
+  if (typeof indexedDB === "undefined") return false;
+  const db = await openDatabase();
+  const record = await readRecord(db);
+  return Boolean(record);
+}
