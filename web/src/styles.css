@@ -304,3 +304,17 @@ textarea {
 .invoice-result .unit-option{margin-top:10px}
 .wallet-notice{margin-top:16px}
 @media(max-width:650px){.wallet-panel{padding:24px 20px}.wallet-heading h2{font-size:19px}.wallet-summary{align-items:flex-start}.wallet-balance{gap:12px}.wallet-balance strong{font-size:17px;text-align:right}}
+
+/* Research results remain visibly separate from approved technical evidence. */
+.research-card{margin-top:22px}
+.research-notice{font-size:11px;line-height:1.65;color:#6c5630;margin:14px 0 0}
+.research-list{margin-top:20px;border-top:1px solid #eceee8}
+.research-item{padding:17px 0;border-bottom:1px solid #eceee8}
+.research-item-heading,.research-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.research-domain{font-family:"DM Mono",monospace;font-size:9px;color:#858b81;overflow-wrap:anywhere;text-align:right}
+.research-item h3{font-size:13px;line-height:1.5;margin:10px 0 7px;color:#252922}
+.research-item>p{font-size:12px;line-height:1.7;color:#697066;margin:0}
+.research-actions{margin-top:12px;flex-wrap:wrap}
+.research-actions a{font-size:10px;color:#52664b;text-decoration:underline;text-underline-offset:3px}
+.research-actions .text-button{padding:5px 0}
+@media(max-width:650px){.research-item-heading{align-items:flex-start;flex-direction:column}.research-domain{text-align:left}.research-actions{align-items:flex-start;flex-direction:column}}
