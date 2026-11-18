@@ -210,7 +210,7 @@ export default function App() {
     void api<{ worker: { id: string } }>("/api/identity", { signal: controller.signal })
       .then(async (result) => {
         window.clearTimeout(timeout);
-        if (!alive) return;
+        if (!alive || identityCheckCancelled.current) return;
         setWorkerId(result.worker.id);
         setIdentityState("ready");
         try {
@@ -356,6 +356,7 @@ export default function App() {
       setResearchSources([]);
       setResearchNotice("");
       setSavedResearchUrls([]);
+      setActiveScreen("work");
       setActiveSession(result.session);
       setMessages([{
         id: "initial-task",
@@ -630,7 +631,7 @@ export default function App() {
   const visibleSessions = sessions.filter((session) => showArchived || !session.archived_at);
 
   if (identityState === "welcome") {
-    return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("sign-in"); setNotice(""); }} />;
+    return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("sign-in"); setNotice(""); }} onRestorePreview={() => { setIdentityState("recovery"); setNotice(""); }} />;
   }
 
   if (identityState === "sign-in") {
