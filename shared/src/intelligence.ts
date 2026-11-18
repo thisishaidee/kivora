@@ -139,7 +139,7 @@ const HAZARD_RULES: HazardRule[] = [
 ];
 
 const TRADE_TERMS: Record<Trade, RegExp> = {
-  carpentry: /\b(cabinet|wood|timber|hinge\\w*|drawer|shelf|joinery|furniture|saw|door)\b/i,
+  carpentry: /\b(cabinet|wood|timber|hinge\w*|drawer|shelf|joinery|furniture|saw|door)\b/i,
   electrical: /\b(wire|circuit|voltage|current|socket|switch|breaker|electrical|conduit)\b/i,
   plumbing: /\b(pipe|tap|faucet|drain|valve|leak|toilet|water|pump|plumbing)\b/i,
   hvac: /\b(refrigerant|compressor|air conditioner|aircon|hvac|condenser|evaporator|thermostat)\b/i,
