@@ -13,7 +13,7 @@ import {
 } from "../../shared/src/contracts";
 import type { IntelligenceAssessment } from "../../shared/src/intelligence";
 
-type IdentityState = "checking" | "welcome" | "sign-in" | "recovery" | "recovery-code" | "ready";
+type IdentityState = "checking" | "welcome" | "sign-in" | "ready";
 type WorkSession = {
   id: string;
   title: string;
@@ -97,10 +97,6 @@ export default function App() {
   const identityCheckCancelled = useRef(false);
   const [activeScreen, setActiveScreen] = useState<"work" | "history" | "sources" | "payments" | "account">("work");
   const [workerId, setWorkerId] = useState("");
-  const [recoveryCode, setRecoveryCode] = useState("");
-  const [recoveryInput, setRecoveryInput] = useState("");
-  const [recoverySaved, setRecoverySaved] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [trade, setTrade] = useState<Trade>("unsure");
   const [language, setLanguage] = useState<Language>("en");
   const [units, setUnits] = useState<UnitSystem>("metric");
@@ -246,78 +242,21 @@ export default function App() {
     setBusy(true);
     setNotice("");
     try {
-      const result = await api<{ worker: { id: string }; recovery_code: string }>("/api/identity", { method: "POST" });
+      const result = await api<{ worker: { id: string } }>("/api/identity", { method: "POST" });
       setWorkerId(result.worker.id);
       setActiveScreen("work");
-      setRecoveryCode(result.recovery_code);
-      setRecoverySaved(false);
-      setCopied(false);
-      setIdentityState("recovery-code");
-    } catch {
-      setNotice("We couldn't open your private preview. Please try again.");
+      setIdentityState("ready");
+      try {
+        await Promise.all([refreshSessions(), refreshEvidenceSources()]);
+        setNotice("Your private preview is ready.");
+      } catch {
+        setNotice("Your preview is open, but saved history could not be loaded. Refresh to retry.");
+      }
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "request_failed";
+      setNotice("We couldn't open your private preview (" + code + "). Please try again.");
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function restoreIdentity(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setNotice("");
-    try {
-      const result = await api<{ worker: { id: string }; recovery_code: string }>("/api/identity/recover", {
-        method: "POST",
-        body: JSON.stringify({ recovery_code: recoveryInput.replace(/\s+/g, "") }),
-      });
-      setWorkerId(result.worker.id);
-      setRecoveryCode(result.recovery_code);
-      setRecoveryInput("");
-      setRecoverySaved(false);
-      setCopied(false);
-      setIdentityState("recovery-code");
-    } catch {
-      setNotice("That recovery code could not be used. Check it and try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function rotateRecoveryCode() {
-    setBusy(true);
-    setNotice("");
-    try {
-      const result = await api<{ recovery_code: string }>("/api/identity/recovery/rotate", { method: "POST" });
-      setRecoveryCode(result.recovery_code);
-      setRecoverySaved(false);
-      setCopied(false);
-      setIdentityState("recovery-code");
-    } catch {
-      setNotice("A new recovery code could not be created.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyRecoveryCode() {
-    try {
-      await navigator.clipboard.writeText(recoveryCode);
-      setCopied(true);
-      setNotice("Recovery code copied. Store it somewhere private.");
-    } catch {
-      setNotice("Clipboard access is unavailable. Select and copy the code manually.");
-    }
-  }
-
-  async function finishRecoverySetup() {
-    if (!recoverySaved) return;
-    setRecoveryCode("");
-    setActiveScreen("work");
-    setIdentityState("ready");
-    setNotice("Your private preview is ready.");
-    try {
-      await Promise.all([refreshSessions(), refreshEvidenceSources()]);
-    } catch {
-      setNotice("Your preview is ready, but saved history could not be loaded.");
     }
   }
 
@@ -606,7 +545,7 @@ export default function App() {
       setActiveSession(null);
       setMessages([]);
       setIdentityState("welcome");
-      setNotice("You have been logged out. Your private preview remains available with your recovery code.");
+      setNotice("You have been logged out on this device. Start a new preview to continue.");
     } catch {
       setNotice("You could not be logged out. Please try again.");
     } finally {
@@ -635,7 +574,7 @@ export default function App() {
   const visibleSessions = sessions.filter((session) => showArchived || !session.archived_at);
 
   if (identityState === "welcome") {
-    return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("sign-in"); setNotice(""); }} onRestorePreview={() => { setIdentityState("recovery"); setNotice(""); }} />;
+    return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("sign-in"); setNotice(""); }} />;
   }
 
   if (identityState === "sign-in") {
@@ -677,42 +616,6 @@ export default function App() {
           <p className="eyebrow">PRIVATE PREVIEW</p>
           <h2>Opening your KIVORA preview…</h2>
           <p className="privacy-note">Checking your private preview identity.</p>
-        </section>
-      )}
-
-      {identityState === "recovery" && (
-        <section className="workspace identity-card">
-          <p className="eyebrow">RESTORE ACCESS</p>
-          <h2>Restore your KIVORA preview access.</h2>
-          <form onSubmit={(event) => void restoreIdentity(event)}>
-            <label className="field">
-              <span>Preview access key</span>
-              <input value={recoveryInput} onChange={(event) => setRecoveryInput(event.target.value)} autoComplete="off" spellCheck={false} placeholder="Paste your saved recovery key" />
-            </label>
-            <button className="submit-button" type="submit" disabled={busy || !recoveryInput.trim()}>
-              {busy ? "Restoring…" : "Restore preview"} <span aria-hidden="true">↗</span>
-            </button>
-          </form>
-          <button className="secondary-action" type="button" onClick={() => { setIdentityState("welcome"); setNotice(""); }}>Back</button>
-          {notice && <p className="notice" role="status">{notice}</p>}
-        </section>
-      )}
-
-      {identityState === "recovery-code" && (
-        <section className="workspace identity-card">
-          <p className="eyebrow">SAVE THIS ONCE</p>
-          <h2>Your preview access key.</h2>
-          <p className="wallet-copy">Save this key somewhere private, such as a password manager or a secure note. You can use it to return to this same KIVORA preview identity if you change phones or lose access to this browser. KIVORA cannot see or recreate it. Anyone with the key may be able to access your private preview, so do not share it.</p>
-          <div className="recovery-code">{recoveryCode.match(/.{1,8}/g)?.join(" ") ?? recoveryCode}</div>
-          <button className="unit-option selected" type="button" onClick={() => void copyRecoveryCode()}>{copied ? "Copied" : "Copy recovery key"}</button>
-          <label className="recovery-confirm">
-            <input type="checkbox" checked={recoverySaved} onChange={(event) => setRecoverySaved(event.target.checked)} />
-            <span>I have saved this key somewhere private and can retrieve it later.</span>
-          </label>
-          <button className="submit-button" type="button" onClick={() => void finishRecoverySetup()} disabled={!recoverySaved}>
-            Continue to KIVORA <span aria-hidden="true">↗</span>
-          </button>
-          {notice && <p className="notice" role="status">{notice}</p>}
         </section>
       )}
 
@@ -1130,7 +1033,6 @@ export default function App() {
             </div>
             <p className="privacy-note">Temporary anonymous preview ID: {workerId.slice(0, 8)}…{workerId.slice(-4)}. This is not your final KIVORA account. Final accounts will use email and password, with email verification and password reset. Your preview sessions remain private.</p>
             <div className="account-actions">
-              <button className="unit-option" type="button" onClick={() => void rotateRecoveryCode()} disabled={busy}>Generate new preview access key</button>
               <button className="unit-option" type="button" onClick={() => void logout()} disabled={busy}>Log out on this device</button>
               <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete preview identity and all data</button>
             </div>
