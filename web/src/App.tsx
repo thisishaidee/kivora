@@ -144,6 +144,7 @@ export default function App() {
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountNotice, setAccountNotice] = useState("");
   const [resetToken, setResetToken] = useState("");
+  const [showResendVerification, setShowResendVerification] = useState(false);
 
   async function refreshSessions() {
     const result = await api<{ sessions: WorkSession[] }>("/api/work-sessions");
@@ -291,6 +292,17 @@ export default function App() {
     }
   }
 
+  async function resendVerification() {
+    setAccountBusy(true);
+    try {
+      const result = await api<{ message: string }>("/api/accounts/resend-verification", { method: "POST", body: JSON.stringify({ email: accountEmail.trim() }) });
+      setAccountNotice(result.message);
+      setShowResendVerification(false);
+    } catch {
+      setAccountNotice("A verification email could not be sent. Email delivery may not be configured yet.");
+    } finally { setAccountBusy(false); }
+  }
+
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setAccountBusy(true); setAccountNotice("");
     try {
@@ -311,6 +323,7 @@ export default function App() {
       }
     } catch (error) {
       const code = error instanceof Error ? error.message : "account_request_failed";
+      if (code === "email_not_verified") setShowResendVerification(true);
       setAccountNotice(code === "email_delivery_unavailable" ? "Account email delivery is not configured yet. Your details were not registered. Sign-up will remain closed until verification email can be delivered." : code === "invalid_credentials" ? "Those sign-in details could not be verified. Check your email and password." : code === "email_already_registered" ? "An account with this email already exists. Try signing in instead." : code === "password_too_short" ? "Use a password with at least 12 characters." : "We couldn't complete that account request. Please try again.");
     } finally { setAccountBusy(false); }
   }
@@ -648,6 +661,7 @@ export default function App() {
             <button className="submit-button" type="submit" disabled={accountBusy || (!settingNewPassword && !accountEmail.trim()) || (!requestingReset && !accountPassword)}>{accountBusy ? "Please wait…" : creatingAccount ? "Create account" : requestingReset ? "Send reset link" : settingNewPassword ? "Update password" : "Sign in"} <span aria-hidden="true">↗</span></button>
           </form>
           {accountNotice && <p className="notice" role="status">{accountNotice}</p>}
+          {showResendVerification && <button className="text-button auth-forgot" type="button" onClick={() => void resendVerification()} disabled={accountBusy}>Resend verification email</button>}
           {identityState === "sign-in" && <button className="text-button auth-forgot" type="button" onClick={() => { setIdentityState("forgot"); setAccountNotice(""); }}>Forgot password?</button>}
           <div className="auth-switch"><span>{creatingAccount ? "Already have an account?" : requestingReset || settingNewPassword ? "Remember your password?" : "New to KIVORA?"}</span><button className="text-button" type="button" onClick={() => { setIdentityState(creatingAccount || requestingReset || settingNewPassword ? "sign-in" : "sign-up"); setAccountNotice(""); setAccountPassword(""); }}>{creatingAccount || requestingReset || settingNewPassword ? "Sign in" : "Create an account"}</button></div>
           <button className="text-button auth-back" type="button" onClick={() => { setIdentityState("welcome"); setAccountNotice(""); }}>Back to landing page</button>
