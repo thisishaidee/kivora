@@ -1,6 +1,6 @@
 interface PagesContext {
   request: Request;
-  params: { path?: string };
+  params?: { path?: string | string[] };
 }
 
 const UPSTREAM = "https://blockstream.info/testnet/api";
