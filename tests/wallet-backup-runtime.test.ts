@@ -103,7 +103,7 @@ describe("account wallet backup Worker API", () => {
     const { env: secondEnv, sessions: secondSessions } = createEnvironment([]);
     secondSessions.set(await hashToken(tokenA), workerA);
     const unverified = await worker.fetch(request("GET", tokenA), secondEnv);
-    expect(unverified.status).toBe(401);
+    expect(unverified.status).toBe(403);
   });
 
   it("creates once, reads only the owner's encrypted envelope, and updates by revision", async () => {
