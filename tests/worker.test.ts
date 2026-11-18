@@ -486,6 +486,58 @@ describe("KIVORA research endpoint access control", () => {
   });
 });
 
+describe("KIVORA assist evidence applicability", () => {
+  it("uses the same exact-model and jurisdiction gates before composing an answer", async () => {
+    const sessionId = "123e4567-e89b-12d3-a456-426614174000";
+    const statements: { sql: string; values: unknown[] }[] = [];
+    const db = {
+      prepare: (sql: string) => {
+        const statement = {
+          sql,
+          values: [] as unknown[],
+          bind(...values: unknown[]) { this.values = values; return this; },
+          first: async () => sql.includes("JOIN workers")
+            ? { worker_id: "worker-a" }
+            : sql.includes("FROM work_sessions") ? { id: sessionId, trade: "plumbing" } : null,
+          all: async () => ({ results: [] }),
+          run: async () => ({ success: true, meta: { changes: 1 } }),
+        };
+        statements.push(statement);
+        return statement;
+      },
+      batch: async () => [],
+    };
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/assist", {
+        method: "POST",
+        headers: {
+          origin: "https://kivora.test",
+          "content-type": "application/json",
+          cookie: `__Host-kivora_session=${"a".repeat(64)}`,
+        },
+        body: JSON.stringify({
+          sessionId,
+          trade: "plumbing",
+          task: "Identify the exact replacement cartridge for this tap.",
+          jurisdiction: "Nigeria",
+          involvesEquipment: true,
+          equipmentMake: "Acme",
+          equipmentModel: "K-100",
+          language: "en",
+          units: "metric",
+        }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never, AI_ENABLED: "false" },
+    );
+    expect(response.status).toBe(200);
+    const evidenceQuery = statements.find((statement) => statement.sql.includes("FROM evidence_sources"));
+    expect(evidenceQuery?.sql).toContain("source_type != 'field_observation'");
+    expect(evidenceQuery?.sql).toContain("product_make = ? COLLATE NOCASE AND product_model = ? COLLATE NOCASE");
+    expect(evidenceQuery?.sql).toContain("source_type = 'standard' AND jurisdiction = ? COLLATE NOCASE");
+    expect(evidenceQuery?.values).toEqual(["plumbing", "Nigeria", "Nigeria", "Acme", "K-100"]);
+  });
+});
+
 describe("private evidence source API", () => {
   it("stores a new source as private and pending", async () => {
     const db = makeDb({ worker_id: "worker-a" });
