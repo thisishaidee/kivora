@@ -3,8 +3,10 @@ const MAX_QUERY_CHARS = 600;
 const MAX_RESULTS = 5;
 const REQUEST_TIMEOUT_MS = 8000;
 
+/** @param {unknown} value */
 const safeUrl = (value) => {
   try {
+    if (typeof value !== "string") return null;
     const url = new URL(value);
     if (url.protocol !== "https:") return null;
     if (url.username || url.password) return null;
@@ -14,6 +16,7 @@ const safeUrl = (value) => {
   }
 };
 
+/** @param {unknown} value @param {number} max */
 const cleanText = (value, max) =>
   typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
 
@@ -48,11 +51,15 @@ export async function searchTavilyLeads({ query, apiKey, fetchImpl = fetch }) {
     if (!response.ok) return { ok: false, error: response.status === 429 ? "research_rate_limited" : "research_upstream_error" };
 
     const payload = await response.json();
+    /** @type {unknown[]} */
     const rows = Array.isArray(payload?.results) ? payload.results : [];
     const sources = rows.slice(0, MAX_RESULTS).flatMap((row) => {
-      const url = safeUrl(row?.url);
-      const title = cleanText(row?.title, 240);
-      const excerpt = cleanText(row?.content, 700);
+      if (!row || typeof row !== "object") return [];
+      /** @type {Record<string, unknown>} */
+      const record = row;
+      const url = safeUrl(record.url);
+      const title = cleanText(record.title, 240);
+      const excerpt = cleanText(record.content, 700);
       if (!url || !title || !excerpt) return [];
       return [{
         title,
@@ -65,7 +72,7 @@ export async function searchTavilyLeads({ query, apiKey, fetchImpl = fetch }) {
     });
     return { ok: true, sources };
   } catch (error) {
-    return { ok: false, error: error?.name === "AbortError" ? "research_timeout" : "research_unavailable" };
+    return { ok: false, error: error instanceof Error && error.name === "AbortError" ? "research_timeout" : "research_unavailable" };
   } finally {
     clearTimeout(timeout);
   }
