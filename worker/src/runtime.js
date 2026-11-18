@@ -254,26 +254,44 @@ const handleApi = async (request, env, url) => {
     if (!validEmail(email) || password.length < 12 || password.length > 128) return json({ error: password.length < 12 ? "password_too_short" : "invalid_account_request" }, 400);
     const existing = await env.DB.prepare("SELECT id FROM worker_accounts WHERE email_normalized = ? LIMIT 1").bind(email).first();
     if (existing) return json({ error: "email_already_registered" }, 409);
-    const workerId = newId();
+    const currentWorker = await authenticate(request, env.DB);
+    const currentAccount = currentWorker
+      ? await env.DB.prepare("SELECT id FROM worker_accounts WHERE worker_id = ? LIMIT 1").bind(currentWorker.worker_id).first()
+      : null;
+    if (currentAccount) return json({ error: "account_already_linked" }, 409);
+    const workerId = currentWorker ? String(currentWorker.worker_id) : newId();
+    const createdWorker = !currentWorker;
     const now = nowSeconds();
     const sessionSecret = randomToken();
     const passwordRecord = await derivePasswordHash(password);
     const verifyToken = randomToken();
     try {
-      await env.DB.batch([
+      const statements = [];
+      if (createdWorker) statements.push(
         env.DB.prepare("INSERT INTO workers (id, recovery_token_hash, created_at, updated_at) VALUES (?, ?, ?, ?)").bind(workerId, await hashToken(sessionSecret), now, now),
+      );
+      statements.push(
         env.DB.prepare("INSERT INTO worker_accounts (id, worker_id, email_normalized, password_salt, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(newId(), workerId, email, passwordRecord.salt, passwordRecord.hash, now, now),
         env.DB.prepare("INSERT INTO account_email_tokens (id, worker_id, purpose, token_hash, expires_at, created_at) VALUES (?, ?, 'verify', ?, ?, ?)").bind(newId(), workerId, await hashToken(verifyToken), now + 86400, now),
-      ]);
+      );
+      await env.DB.batch(statements);
       const link = env.APP_BASE_URL.replace(/\/$/, "") + "/?verify=" + encodeURIComponent(verifyToken);
       const sent = await sendAccountEmail(env, email, "Verify your KIVORA account", "<p>Confirm your email address to activate your KIVORA account.</p><p><a href=\"" + link + "\">Verify email address</a></p><p>This link expires in 24 hours. If you did not create this account, you can ignore this message.</p>");
       if (!sent) {
-        await env.DB.prepare("DELETE FROM workers WHERE id = ?").bind(workerId).run();
+        if (createdWorker) await env.DB.prepare("DELETE FROM workers WHERE id = ?").bind(workerId).run();
+        else {
+          await env.DB.prepare("DELETE FROM account_email_tokens WHERE worker_id = ? AND purpose = 'verify' AND consumed_at IS NULL").bind(workerId).run();
+          await env.DB.prepare("DELETE FROM worker_accounts WHERE worker_id = ?").bind(workerId).run();
+        }
         return json({ error: "email_delivery_unavailable" }, 503);
       }
-      return json({ message: "Account created. Check your inbox for the verification link." }, 201);
+      return json({ message: "Account created. Check your inbox for the verification link. Your current private preview history will stay with this account." }, 201);
     } catch {
-      await env.DB.prepare("DELETE FROM workers WHERE id = ?").bind(workerId).run().catch(() => {});
+      if (createdWorker) await env.DB.prepare("DELETE FROM workers WHERE id = ?").bind(workerId).run().catch(() => {});
+      else {
+        await env.DB.prepare("DELETE FROM account_email_tokens WHERE worker_id = ? AND purpose = 'verify' AND consumed_at IS NULL").bind(workerId).run().catch(() => {});
+        await env.DB.prepare("DELETE FROM worker_accounts WHERE worker_id = ?").bind(workerId).run().catch(() => {});
+      }
       return json({ error: "account_registration_failed" }, 503);
     }
   }
