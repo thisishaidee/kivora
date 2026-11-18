@@ -205,6 +205,26 @@ export default function App() {
 
   useEffect(() => {
     let alive = true;
+    const params = new URLSearchParams(window.location.search);
+    const verifyToken = params.get("verify");
+    const reset = params.get("reset");
+    if (verifyToken) {
+      window.history.replaceState({}, "", window.location.pathname);
+      void api<{ worker: { id: string } }>("/api/accounts/verify", { method: "POST", body: JSON.stringify({ token: verifyToken }) })
+        .then(async (result) => {
+          if (!alive) return;
+          setWorkerId(result.worker.id); setIdentityState("ready"); setActiveScreen("work");
+          setNotice("Your email is verified. Your KIVORA account is ready.");
+          try { await Promise.all([refreshSessions(), refreshEvidenceSources()]); } catch { setNotice("Your account is ready, but saved workspace data could not be loaded."); }
+        })
+        .catch(() => { if (alive) { setIdentityState("welcome"); setNotice("That verification link is invalid or has expired. Request a new one."); } });
+      return () => { alive = false; };
+    }
+    if (reset) {
+      window.history.replaceState({}, "", window.location.pathname);
+      setResetToken(reset); setIdentityState("reset");
+      return () => { alive = false; };
+    }
     const controller = new AbortController();
     identityCheckCancelled.current = false;
     const timeout = window.setTimeout(() => controller.abort(), 10000);
@@ -628,7 +648,8 @@ export default function App() {
             <button className="submit-button" type="submit" disabled={accountBusy || (!settingNewPassword && !accountEmail.trim()) || (!requestingReset && !accountPassword)}>{accountBusy ? "Please wait…" : creatingAccount ? "Create account" : requestingReset ? "Send reset link" : settingNewPassword ? "Update password" : "Sign in"} <span aria-hidden="true">↗</span></button>
           </form>
           {accountNotice && <p className="notice" role="status">{accountNotice}</p>}
-          <div className="auth-switch"><span>{creatingAccount ? "Already have an account?" : "New to KIVORA?"}</span><button className="text-button" type="button" onClick={() => { setIdentityState(creatingAccount ? "sign-in" : "sign-up"); setAccountNotice(""); }}>{creatingAccount ? "Sign in" : "Create an account"}</button></div>
+          {identityState === "sign-in" && <button className="text-button auth-forgot" type="button" onClick={() => { setIdentityState("forgot"); setAccountNotice(""); }}>Forgot password?</button>}
+          <div className="auth-switch"><span>{creatingAccount ? "Already have an account?" : requestingReset || settingNewPassword ? "Remember your password?" : "New to KIVORA?"}</span><button className="text-button" type="button" onClick={() => { setIdentityState(creatingAccount || requestingReset || settingNewPassword ? "sign-in" : "sign-up"); setAccountNotice(""); setAccountPassword(""); }}>{creatingAccount || requestingReset || settingNewPassword ? "Sign in" : "Create an account"}</button></div>
           <button className="text-button auth-back" type="button" onClick={() => { setIdentityState("welcome"); setAccountNotice(""); }}>Back to landing page</button>
         </section>
         <footer className="footer"><span>KIVORA</span><span>Built for the people who make things work.</span></footer>
