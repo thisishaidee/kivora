@@ -3,6 +3,7 @@ type PublicHomeProps = {
   notice: string;
   onGetStarted: () => void;
   onSignIn: () => void;
+  onRestorePreview: () => void;
 };
 
 const trades = [
@@ -14,7 +15,7 @@ const trades = [
   "Construction & installation",
 ];
 
-export default function PublicHome({ busy, notice, onGetStarted, onSignIn }: PublicHomeProps) {
+export default function PublicHome({ busy, notice, onGetStarted, onSignIn, onRestorePreview }: PublicHomeProps) {
   return (
     <div className="public-home">
       <header className="public-header">
@@ -26,6 +27,7 @@ export default function PublicHome({ busy, notice, onGetStarted, onSignIn }: Pub
           <a href="#how-it-works">How it works</a>
           <a href="#trades">For every trade</a>
           <button type="button" className="public-signin" onClick={onSignIn}>Sign in</button>
+          <button type="button" className="public-signin" onClick={onRestorePreview}>Restore preview</button>
           <button type="button" className="public-nav-cta" onClick={onGetStarted} disabled={busy}>Try the preview</button>
         </nav>
       </header>
