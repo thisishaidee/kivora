@@ -139,7 +139,7 @@ const HAZARD_RULES: HazardRule[] = [
 ];
 
 const TRADE_TERMS: Record<Trade, RegExp> = {
-  carpentry: /\b(cabinet|wood|timber|hinge|drawer|shelf|joinery|furniture|saw|door)\b/i,
+  carpentry: /\b(cabinet|wood|timber|hinge\w*|drawer|shelf|joinery|furniture|saw|door)\b/i,
   electrical: /\b(wire|circuit|voltage|current|socket|switch|breaker|electrical|conduit)\b/i,
   plumbing: /\b(pipe|tap|faucet|drain|valve|leak|toilet|water|pump|plumbing)\b/i,
   hvac: /\b(refrigerant|compressor|air conditioner|aircon|hvac|condenser|evaporator|thermostat)\b/i,
@@ -148,6 +148,15 @@ const TRADE_TERMS: Record<Trade, RegExp> = {
   multiple: /[\s\S]/,
   unsure: /[\s\S]/,
 };
+
+export function inferTradeFromTask(task: string, selectedTrade: Trade = "unsure"): Trade {
+  if (selectedTrade !== "unsure") return selectedTrade;
+  const candidates = (["carpentry", "electrical", "plumbing", "hvac", "mechanical", "construction"] as const)
+    .filter((trade) => TRADE_TERMS[trade].test(task));
+  if (candidates.length === 1) return candidates[0];
+  if (candidates.length > 1) return "multiple";
+  return "unsure";
+}
 
 const ELECTRICAL_HIGH_RISK = /\b(rewire|mains wiring|distribution board|breaker panel|replace breaker|install circuit|repair wiring|exposed conductor|live socket|install (?:a )?(?:new )?(?:wall )?(?:socket|outlet|switch|light fitting|lighting circuit)|replace (?:a )?(?:socket|outlet|switch)|connect mains|electrical installation)\b/i;
 
@@ -172,6 +181,18 @@ function addTradeContextQuestions(
     missingInformation.push(missing);
     questions.push(question);
   };
+
+  if (trade === "carpentry" && /\b(cabinet|cupboard)\b/i.test(text) && /\bhinge\w*\b/i.test(text)) {
+    if (!/\b(door will not close|door won't close|not closing|will not stay closed|won't stay closed|soft.?close|slamming|sagging|misalign|loose|detached|leaking)\b/i.test(text)) {
+      add("cabinet hinge symptom", "What is the main problem: the door is misaligned, the hinge is loose, the door will not stay closed, or the soft-close action has stopped working?");
+    }
+    if (!/\b(brand|manufacturer|model|part number|marking|label)\b/i.test(text)) {
+      add("hinge identification", "Can you see a brand, model or part number on the hinge or its mounting plate?");
+    }
+    if (/\bhydraulic\b/i.test(text) && !/\b(soft.?close|damper|damping)\b/i.test(text)) {
+      add("hinge mechanism type", "When you say hydraulic, do you mean the hinge has a soft-close damper?");
+    }
+  }
 
   const carpentryFabrication = trade === "carpentry" && /\b(cut|fit|join|build|make|assemble|measure|fabricat|resize)\w*\b/i.test(text);
   if (carpentryFabrication) {
@@ -244,9 +265,10 @@ export function assessWorkRequest(
   const request = workRequestSchema.parse(input);
   const evidence = z.array(evidenceSourceSchema).max(100).parse(evidenceInput);
   const text = [request.task, ...request.knownFacts].join("\n");
+  const trade = inferTradeFromTask(text, request.trade);
   const matched = HAZARD_RULES.filter((rule) => rule.pattern.test(text));
   const detectedHazards = matched.map((rule) => rule.id);
-  const electricalHighRisk = request.trade === "electrical" && ELECTRICAL_HIGH_RISK.test(text);
+  const electricalHighRisk = trade === "electrical" && ELECTRICAL_HIGH_RISK.test(text);
   const highRisk = matched.some((rule) => rule.level === "high-risk") || electricalHighRisk;
   const stopWork = matched.some((rule) => rule.stopWork) || electricalHighRisk;
   const missingInformation: string[] = [];
@@ -261,14 +283,14 @@ export function assessWorkRequest(
   const jurisdictionRequired = requiresJurisdiction(text, highRisk);
   if (jurisdictionRequired && !request.jurisdiction) missingInformation.push("work jurisdiction");
 
-  if (!TRADE_TERMS[request.trade].test(text) && request.trade !== "multiple" && request.trade !== "unsure") {
+  if (!TRADE_TERMS[trade].test(text) && trade !== "multiple" && trade !== "unsure") {
     missingInformation.push("confirmation that the selected trade matches the task");
   }
 
   if (jurisdictionRequired && !request.jurisdiction) {
     questions.push("Which country or jurisdiction is this work taking place in? Local codes and emergency procedures may differ.");
   }
-  addTradeContextQuestions(request.trade, text, missingInformation, questions);
+  addTradeContextQuestions(trade, text, missingInformation, questions);
   if (request.involvesEquipment && (!request.equipmentMake || !request.equipmentModel)) {
     questions.push("What is the equipment make and exact model?");
   }
@@ -277,7 +299,7 @@ export function assessWorkRequest(
   }
 
   const applicableEvidence = evidence.filter((source) =>
-    source.trade === request.trade &&
+    source.trade === trade &&
     source.reviewed &&
     topicMatchesTask(source.topic, text) &&
     (!source.jurisdiction || (!!request.jurisdiction &&
@@ -302,7 +324,7 @@ export function assessWorkRequest(
 
   return intelligenceAssessmentSchema.parse({
     decision,
-    trade: request.trade,
+    trade,
     safetyLevel: highRisk ? "high-risk" : matched.length > 0 ? "caution" : "routine",
     compatibilityStatus: "undetermined",
     detectedHazards,

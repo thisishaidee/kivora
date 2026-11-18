@@ -104,3 +104,23 @@ The current NWC panel is only the second option. It must not be described as a c
 - Do not fund a wallet with real Bitcoin during the testnet stage.
 
 No API key, domain purchase or paid service is currently required for the planned BDK testnet spike. If a later provider or service introduces a cost, it must be reviewed before activation.
+
+
+## Implementation status — 18 November 2026
+
+The embedded on-chain wallet is no longer a future spike. The existing BDK implementation and BIP39 recovery from PRs #27 and #28 are being integrated into the active application in PR #38.
+
+**Implemented in the integration branch:**
+- Pinned BDK-WASM 0.4.0 testnet wallet engine and local BIP84 address derivation.
+- Standard 12-word English BIP39 phrase generation and phrase restore, with selected-word confirmation.
+- Encrypted IndexedDB persistence for BDK changesets; seed and private descriptors remain in browser memory and are not sent to KIVORA servers.
+- QR receive address and a read-only, address-scoped Bitcoin testnet balance/activity lookup.
+- Separate optional NWC Lightning connection; KIVORA AI remains wallet-optional.
+
+**Still required before treating the wallet as verified:**
+- Passing Cloudflare Preview build and full test suite on the integrated branch.
+- Android browser testing of phrase creation, word confirmation and restore in a clean browser profile/device.
+- Independent QR scan and restore verification.
+- IndexedDB failure/concurrency testing and independent wallet security review.
+
+No mainnet, signing, sending, broadcast or real-fund functionality is enabled. The read-only explorer snapshot covers the displayed address only, not every address in the HD wallet. Keep this stage testnet-only until a separate explicit release decision.

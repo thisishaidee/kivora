@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import PublicHome from "./PublicHome";
 import SpeechPlayback from "./SpeechPlayback";
 import WalletPanel from "./WalletPanel";
+import TestnetWalletPanel from "./TestnetWalletPanel";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -11,7 +12,7 @@ import {
   type Trade,
   type UnitSystem,
 } from "../../shared/src/contracts";
-import type { IntelligenceAssessment } from "../../shared/src/intelligence";
+import { inferTradeFromTask, type IntelligenceAssessment } from "../../shared/src/intelligence";
 
 type IdentityState = "checking" | "welcome" | "sign-in" | "sign-up" | "forgot" | "reset" | "ready";
 type WorkSession = {
@@ -337,6 +338,7 @@ export default function App() {
     const validLanguage = languageSchema.safeParse(language);
     const validUnits = unitSystemSchema.safeParse(units);
     const submittedTask = task.trim();
+    const inferredTrade = inferTradeFromTask(submittedTask, validTrade.success ? validTrade.data : "unsure");
     const knownFacts = [
       measurements.trim() ? `Measurements: ${measurements.trim()}` : "",
       materials.trim() ? `Materials: ${materials.trim()}` : "",
@@ -356,7 +358,7 @@ export default function App() {
       const result = await api<{ session: WorkSession }>("/api/work-sessions", {
         method: "POST",
         body: JSON.stringify({
-          trade: validTrade.data,
+          trade: inferredTrade,
           language: validLanguage.data,
           units: validUnits.data,
           task: sessionDescription,
@@ -384,7 +386,7 @@ export default function App() {
           method: "POST",
           body: JSON.stringify({
             sessionId: result.session.id,
-            trade: validTrade.data,
+            trade: inferredTrade,
             task: submittedTask,
             knownFacts,
             language: validLanguage.data,
@@ -428,11 +430,12 @@ export default function App() {
     setResearchSources([]);
     try {
       const workerContext = messages.filter((message) => message.role === "worker").map((message) => message.content).join("\n\n").slice(-3600);
+      const inferredTrade = inferTradeFromTask(workerContext, activeSession.trade);
       const result = await api<{ sources: ResearchSource[]; notice: string; technicalGuidanceEnabled: false }>("/api/research", {
         method: "POST",
         body: JSON.stringify({
           sessionId: activeSession.id,
-          trade: activeSession.trade,
+          trade: inferredTrade,
           task: workerContext || activeSession.title,
           language: activeSession.language,
           units: activeSession.unit_system,
@@ -461,12 +464,14 @@ export default function App() {
       setResearchNotice("This source link is invalid and cannot be saved.");
       return;
     }
+    const workerContext = messages.filter((message) => message.role === "worker").map((message) => message.content).join("\n\n").slice(-3600);
+    const inferredTrade = inferTradeFromTask(workerContext, activeSession.trade);
     setBusy(true);
     try {
       await api("/api/evidence-sources", {
         method: "POST",
         body: JSON.stringify({
-          trade: activeSession.trade,
+          trade: inferredTrade,
           sourceType: "other",
           publisher,
           title: source.title,
@@ -520,13 +525,14 @@ export default function App() {
       const priorWorkerContext = workerMessages.length > 5 ? [workerMessages[0], ...workerMessages.slice(-4)] : workerMessages;
       const savedContext = priorWorkerContext.join("\n");
       const combinedTask = [...priorWorkerContext, message].join("\n\n").slice(-3900);
+    const inferredTrade = inferTradeFromTask(combinedTask, activeSession.trade);
       const savedJurisdiction = savedContext.split("\n").find(line => line.startsWith("Work jurisdiction: "))?.slice("Work jurisdiction: ".length).trim();
       const equipmentLine = savedContext.split("\n").find(line => line.startsWith("Equipment details: "));
       const savedEquipment = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
       const savedEquipmentFlag = savedContext.includes("Equipment involved: yes");
       const assistantResult = await api<{ assessment: IntelligenceAssessment; response: AssistantResponse }>("/api/assist", {
         method: "POST",
-        body: JSON.stringify({ sessionId: activeSession.id, trade: activeSession.trade, task: combinedTask, language: activeSession.language, units: activeSession.unit_system, jurisdiction: jurisdiction.trim() || savedJurisdiction || undefined, involvesEquipment: involvesEquipment || savedEquipmentFlag || Boolean(savedEquipment), equipmentMake: equipmentMake.trim() || (savedEquipment?.[1].trim() !== "unknown" ? savedEquipment?.[1].trim() : undefined), equipmentModel: equipmentModel.trim() || (savedEquipment?.[2].trim() !== "unknown" ? savedEquipment?.[2].trim() : undefined) }),
+        body: JSON.stringify({ sessionId: activeSession.id, trade: inferredTrade, task: combinedTask, language: activeSession.language, units: activeSession.unit_system, jurisdiction: jurisdiction.trim() || savedJurisdiction || undefined, involvesEquipment: involvesEquipment || savedEquipmentFlag || Boolean(savedEquipment), equipmentMake: equipmentMake.trim() || (savedEquipment?.[1].trim() !== "unknown" ? savedEquipment?.[1].trim() : undefined), equipmentModel: equipmentModel.trim() || (savedEquipment?.[2].trim() !== "unknown" ? savedEquipment?.[2].trim() : undefined) }),
       });
       const assistantText = [assistantResult.response.summary, ...assistantResult.response.blocks.map(block => block.content), ...assistantResult.response.questions].join("\n\n");
       const now = Math.floor(Date.now() / 1000);
@@ -709,8 +715,8 @@ export default function App() {
           <section className="app-welcome-strip">
             <div>
               <p className="eyebrow">YOUR WORKSPACE</p>
-              <h1>{activeScreen === "work" ? "What are we working through?" : activeScreen === "history" ? "Your investigations" : activeScreen === "sources" ? "Evidence library" : activeScreen === "payments" ? "Connected payments" : "Account & access"}</h1>
-              <p>{activeScreen === "work" ? "Bring the question, product or problem. KIVORA helps you work out the next step." : activeScreen === "history" ? "Pick up where you left off." : activeScreen === "sources" ? "Keep useful references and source notes together." : activeScreen === "payments" ? "Optional payment tools. Your KIVORA workspace does not require a wallet." : "Manage this private workspace and its data."}</p>
+              <h1>{activeScreen === "work" ? "What are we working through?" : activeScreen === "history" ? "Your investigations" : activeScreen === "sources" ? "Evidence library" : activeScreen === "payments" ? "Wallets & payments" : "Account & access"}</h1>
+              <p>{activeScreen === "work" ? "Bring the question, product or problem. KIVORA helps you work out the next step." : activeScreen === "history" ? "Pick up where you left off." : activeScreen === "sources" ? "Keep useful references and source notes together." : activeScreen === "payments" ? "Create or restore a testnet Bitcoin wallet, or optionally connect an existing Lightning wallet. KIVORA AI access never requires a wallet." : "Manage this private workspace and its data."}</p>
             </div>
             <div className="intelligence-signature"><span className="sparkle-mark">✦</span><span><strong>KIVORA intelligence</strong><small>Evidence-aware workspace</small></span></div>
           </section>
@@ -1119,7 +1125,7 @@ export default function App() {
             </section>
           )}
 
-          {activeScreen === "payments" && <WalletPanel />}
+          {activeScreen === "payments" && <><TestnetWalletPanel /><WalletPanel /></>}
 
           {activeScreen === "account" && <section className="workspace account-card">
             <div className="workspace-heading">
