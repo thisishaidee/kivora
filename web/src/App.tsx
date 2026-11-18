@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import PublicHome from "./PublicHome";
 import SpeechPlayback from "./SpeechPlayback";
+import WalletPanel from "./WalletPanel";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -924,6 +925,8 @@ export default function App() {
               <p className="privacy-note">Your latest worker updates are checked together with the work-session context. Missing reviewed evidence still prevents unsupported technical procedures.</p>
             </section>
           )}
+
+          <WalletPanel />
 
           <section className="workspace account-card">
             <div className="workspace-heading">
