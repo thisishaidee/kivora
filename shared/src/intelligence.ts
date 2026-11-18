@@ -182,14 +182,14 @@ function addTradeContextQuestions(
     questions.push(question);
   };
 
-  if (trade === "carpentry" && /\\b(cabinet|cupboard)\\b/i.test(text) && /\\bhinge\\b/i.test(text)) {
-    if (!/\\b(door will not close|door won't close|not closing|will not stay closed|won't stay closed|soft.?close|slamming|sagging|misalign|loose|detached|leaking)\\b/i.test(text)) {
+  if (trade === "carpentry" && /\b(cabinet|cupboard)\b/i.test(text) && /\bhinge\b/i.test(text)) {
+    if (!/\b(door will not close|door won't close|not closing|will not stay closed|won't stay closed|soft.?close|slamming|sagging|misalign|loose|detached|leaking)\b/i.test(text)) {
       add("cabinet hinge symptom", "What is the main problem: the door is misaligned, the hinge is loose, the door will not stay closed, or the soft-close action has stopped working?");
     }
-    if (!/\\b(brand|manufacturer|model|part number|marking|label)\\b/i.test(text)) {
+    if (!/\b(brand|manufacturer|model|part number|marking|label)\b/i.test(text)) {
       add("hinge identification", "Can you see a brand, model or part number on the hinge or its mounting plate?");
     }
-    if (/\\bhydraulic\\b/i.test(text) && !/\\b(soft.?close|damper|damping)\\b/i.test(text)) {
+    if (/\bhydraulic\b/i.test(text) && !/\b(soft.?close|damper|damping)\b/i.test(text)) {
       add("hinge mechanism type", "When you say hydraulic, do you mean the hinge has a soft-close damper?");
     }
   }
