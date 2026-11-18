@@ -13,7 +13,7 @@ import {
 } from "../../shared/src/contracts";
 import type { IntelligenceAssessment } from "../../shared/src/intelligence";
 
-type IdentityState = "checking" | "welcome" | "sign-in" | "ready";
+type IdentityState = "checking" | "welcome" | "sign-in" | "sign-up" | "ready";
 type WorkSession = {
   id: string;
   title: string;
@@ -139,6 +139,10 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [historyQuery, setHistoryQuery] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountNotice, setAccountNotice] = useState("");
 
   async function refreshSessions() {
     const result = await api<{ sessions: WorkSession[] }>("/api/work-sessions");
@@ -266,6 +270,22 @@ export default function App() {
     }
   }
 
+  async function submitAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setAccountBusy(true); setAccountNotice("");
+    try {
+      if (identityState === "sign-up") {
+        const result = await api<{ message: string }>("/api/accounts/register", { method: "POST", body: JSON.stringify({ email: accountEmail.trim(), password: accountPassword }) });
+        setAccountNotice(result.message || "Check your inbox to verify your email address.");
+      } else {
+        const result = await api<{ worker: { id: string } }>("/api/accounts/login", { method: "POST", body: JSON.stringify({ email: accountEmail.trim(), password: accountPassword }) });
+        setWorkerId(result.worker.id); setIdentityState("ready"); setActiveScreen("work"); setAccountPassword("");
+        await Promise.all([refreshSessions(), refreshEvidenceSources()]);
+      }
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "account_request_failed";
+      setAccountNotice(code === "email_delivery_unavailable" ? "Account email delivery is not configured yet. Your details were not registered. Sign-up will remain closed until verification email can be delivered." : code === "invalid_credentials" ? "Those sign-in details could not be verified. Check your email and password." : code === "email_already_registered" ? "An account with this email already exists. Try signing in instead." : code === "password_too_short" ? "Use a password with at least 12 characters." : "We couldn't complete that account request. Please try again.");
+    } finally { setAccountBusy(false); }
+  }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const validTrade = tradeSchema.safeParse(trade);
@@ -583,16 +603,23 @@ export default function App() {
     return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("sign-in"); setNotice(""); }} />;
   }
 
-  if (identityState === "sign-in") {
+  if (identityState === "sign-in" || identityState === "sign-up") {
+    const creatingAccount = identityState === "sign-up";
     return (
       <main className="page-shell auth-shell">
-        <header className="topbar"><a className="brand" href="/" aria-label="KIVORA home"><span className="brand-mark">K</span><span>KIVORA</span></a><span className="topbar-note">Practical intelligence for skilled work</span></header>
+        <header className="topbar"><a className="brand" href="/" aria-label="KIVORA landing page" onClick={(event) => { event.preventDefault(); setIdentityState("welcome"); setAccountNotice(""); }}><span className="brand-mark">K</span><span>KIVORA</span></a><span className="topbar-note">Practical intelligence for skilled work</span></header>
         <section className="workspace identity-card auth-card">
           <p className="eyebrow">KIVORA ACCOUNT</p>
-          <h2>Sign in with your email.</h2>
-          <p className="intro compact-intro">Email and password accounts, including email verification and password reset, are part of the final KIVORA account system. They are not connected to this temporary preview yet.</p>
-          <p className="privacy-note">This preview currently uses a temporary private identity. We are keeping preview recovery separate from your future KIVORA account sign-in, rather than showing a recovery key as if it were a password.</p>
-          <button className="submit-button" type="button" onClick={() => { setIdentityState("welcome"); setNotice(""); }}>Back to KIVORA preview <span aria-hidden="true">↗</span></button>
+          <h2>{creatingAccount ? "Create your account." : "Welcome back."}</h2>
+          <p className="privacy-note">{creatingAccount ? "Use your email and a strong password. Email verification is required before an account can be used." : "Sign in to return to your private investigations and saved evidence."}</p>
+          <form onSubmit={(event) => void submitAccount(event)} className="account-form">
+            <label className="field"><span>Email address</span><input type="email" autoComplete="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} required maxLength={254} placeholder="you@example.com" /></label>
+            <label className="field"><span>Password</span><input type="password" autoComplete={creatingAccount ? "new-password" : "current-password"} value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} required minLength={creatingAccount ? 12 : 1} maxLength={128} placeholder={creatingAccount ? "At least 12 characters" : "Your password"} /></label>
+            <button className="submit-button" type="submit" disabled={accountBusy || !accountEmail.trim() || !accountPassword}>{accountBusy ? "Please wait…" : creatingAccount ? "Create account" : "Sign in"} <span aria-hidden="true">↗</span></button>
+          </form>
+          {accountNotice && <p className="notice" role="status">{accountNotice}</p>}
+          <div className="auth-switch"><span>{creatingAccount ? "Already have an account?" : "New to KIVORA?"}</span><button className="text-button" type="button" onClick={() => { setIdentityState(creatingAccount ? "sign-in" : "sign-up"); setAccountNotice(""); }}>{creatingAccount ? "Sign in" : "Create an account"}</button></div>
+          <button className="text-button auth-back" type="button" onClick={() => { setIdentityState("welcome"); setAccountNotice(""); }}>Back to landing page</button>
         </section>
         <footer className="footer"><span>KIVORA</span><span>Built for the people who make things work.</span></footer>
       </main>
@@ -602,7 +629,7 @@ export default function App() {
   return (
     <main className="page-shell">
       <header className="topbar app-topbar">
-        <a className="brand" href="/" aria-label="KIVORA home">
+        <a className="brand" href="/" aria-label="KIVORA landing page" onClick={(event) => { event.preventDefault(); setIdentityState("welcome"); setNotice(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
           <span className="brand-mark">K</span>
           <span>KIVORA</span>
         </a>
@@ -639,7 +666,7 @@ export default function App() {
             <div className="intelligence-signature"><span className="sparkle-mark">✦</span><span><strong>KIVORA intelligence</strong><small>Evidence-aware workspace</small></span></div>
           </section>
           <nav className="workspace-nav" aria-label="Workspace sections">
-            {([["work","Workspace","⌂"],["history","History","◷"],["sources","Evidence library","▤"],["payments","Payments","⇄"],["account","Account","○"]] as const).map(([screen,label,glyph]) => <button key={screen} type="button" className={activeScreen === screen ? "workspace-nav-item active" : "workspace-nav-item"} aria-current={activeScreen === screen ? "page" : undefined} onClick={() => { setActiveScreen(screen); setNotice(""); }}><span className="nav-glyph" aria-hidden="true">{glyph}</span><span>{label}</span></button>)}
+            {([["work","Home","⌂"],["history","History","◷"],["sources","Evidence","▤"],["payments","Payments","⇄"],["account","Account","○"]] as const).map(([screen,label,glyph]) => <button key={screen} type="button" className={activeScreen === screen ? "workspace-nav-item active" : "workspace-nav-item"} aria-current={activeScreen === screen ? "page" : undefined} onClick={() => { setActiveScreen(screen); setNotice(""); }}><span className="nav-glyph" aria-hidden="true">{glyph}</span><span>{label}</span></button>)}
           </nav>
 
           
