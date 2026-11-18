@@ -364,7 +364,10 @@ describe("KIVORA assessment endpoint", () => {
     expect(evidenceQuery?.sql).toContain("review_status = 'approved'");
     expect(evidenceQuery?.sql).toContain("rights_status IN");
     expect(evidenceQuery?.sql).toContain("reviewer_role IN ('qualified_reviewer', 'manufacturer')");
-    expect(evidenceQuery?.values).toEqual(["plumbing", "Nigeria", "Acme", "K-100"]);
+    expect(evidenceQuery?.values).toEqual(["plumbing", "Nigeria", "Nigeria", "Acme", "K-100"]);
+    expect(evidenceQuery?.sql).toContain("source_type != 'field_observation'");
+    expect(evidenceQuery?.sql).toContain("product_make = ? COLLATE NOCASE AND product_model = ? COLLATE NOCASE");
+    expect(evidenceQuery?.sql).toContain("source_type = 'standard' AND jurisdiction = ? COLLATE NOCASE");
   });
 
   it("returns a stop-work escalation for a reported gas leak", async () => {
