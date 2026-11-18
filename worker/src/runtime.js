@@ -304,6 +304,10 @@ const handleApi = async (request, env, url) => {
   }
 
   if (path === "/api/accounts/forgot" && method === "POST") {
+    if (env.IDENTITY_LIMITER) {
+      const limit = await env.IDENTITY_LIMITER.limit({ key: "account-reset:" + (request.headers.get("cf-connecting-ip") || "unknown") });
+      if (!limit.success) return json({ error: "rate_limited" }, 429);
+    }
     if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
     const body = await readJson(request);
     const email = normalizeEmail(body?.email);
@@ -320,6 +324,10 @@ const handleApi = async (request, env, url) => {
   }
 
   if (path === "/api/accounts/reset" && method === "POST") {
+    if (env.IDENTITY_LIMITER) {
+      const limit = await env.IDENTITY_LIMITER.limit({ key: "account-reset-submit:" + (request.headers.get("cf-connecting-ip") || "unknown") });
+      if (!limit.success) return json({ error: "rate_limited" }, 429);
+    }
     const body = await readJson(request);
     const token = typeof body?.token === "string" ? body.token : "";
     const password = typeof body?.password === "string" ? body.password : "";
