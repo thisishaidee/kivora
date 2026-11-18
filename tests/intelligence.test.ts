@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessWorkRequest } from "../shared/src/intelligence";
+import { assessWorkRequest, inferTradeFromTask } from "../shared/src/intelligence";
 
 const base = {
   trade: "plumbing",
@@ -237,5 +237,31 @@ describe("trade-specific context prompts", () => {
   it("asks an unsure worker to identify the trade", () => {
     const result = assessWorkRequest({ trade: "unsure", task: "I need help fixing this." });
     expect(result.questions).toContain("Which trade best describes this task: carpentry, electrical, plumbing, HVAC, mechanical or construction?");
+  });
+});
+
+
+describe("automatic trade inference", () => {
+  it("recognises cabinet hinge work as carpentry when no trade was selected", () => {
+    const task = "I'm trying to fix my cabinet hinges. They are hydraulic cabinet hinges.";
+    expect(inferTradeFromTask(task)).toBe("carpentry");
+    const result = assessWorkRequest({ trade: "unsure", task });
+    expect(result.trade).toBe("carpentry");
+    expect(result.questions).not.toContain("Which trade best describes this task: carpentry, electrical, plumbing, HVAC, mechanical or construction?");
+    expect(result.questions).toContain("What is the main problem: the door is misaligned, the hinge is loose, the door will not stay closed, or the soft-close action has stopped working?");
+    expect(result.questions).toContain("Can you see a brand, model or part number on the hinge or its mounting plate?");
+    expect(result.questions).toContain("When you say hydraulic, do you mean the hinge has a soft-close damper?");
+  });
+
+  it("keeps an unknown trade when the task contains no clear trade signals", () => {
+    expect(inferTradeFromTask("I need help fixing this")).toBe("unsure");
+  });
+
+  it("marks genuinely cross-trade wording as multiple instead of guessing one trade", () => {
+    expect(inferTradeFromTask("The cabinet hinge is loose and the electrical wire is damaged")).toBe("multiple");
+  });
+
+  it("respects an explicit worker-selected trade", () => {
+    expect(inferTradeFromTask("The cabinet hinge is loose", "mechanical")).toBe("mechanical");
   });
 });
