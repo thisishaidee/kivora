@@ -19,6 +19,9 @@ describe("Tavily research leads", () => {
         { title: "Bad scheme", url: "javascript:alert(1)", content: "not allowed" },
         { title: "Credential URL", url: "https://user:pass@example.com/", content: "not allowed" },
         { title: "Insecure HTTP", url: "http://manual.example.com/guide", content: "not allowed" },
+        { title: "Loopback", url: "https://127.0.0.1/manual", content: "not allowed" },
+        { title: "Private IP", url: "https://192.168.1.1/manual", content: "not allowed" },
+        { title: "Local hostname", url: "https://printer.local/manual", content: "not allowed" },
       ],
     }));
     const result = await searchTavilyLeads({ query: "cabinet hinge installation", apiKey: "server-secret", fetchImpl });
