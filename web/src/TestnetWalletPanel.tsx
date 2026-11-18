@@ -8,6 +8,7 @@ import {
 } from "./bdk-testnet-wallet";
 import {
   deleteEncryptedChangeset,
+  hasEncryptedChangeset,
   loadEncryptedChangeset,
   saveEncryptedChangeset,
 } from "./bdk-testnet-persistence";
@@ -69,7 +70,12 @@ export default function TestnetWalletPanel() {
       let restoredWallet: BdkWallet | null = null;
       try {
         seed = await loadDeviceWalletSeed();
-        if (!seed) return;
+        if (!seed) {
+          if (await hasEncryptedChangeset()) {
+            throw new Error("A wallet is already saved on this browser but needs its recovery phrase to unlock. Restore it below; do not create a replacement.");
+          }
+          return;
+        }
         const savedChangeset = await loadEncryptedChangeset(seed);
         if (!savedChangeset) {
           throw new Error("The saved device wallet has no matching wallet state. Restore with your 12-word phrase; do not create a replacement.");
@@ -127,6 +133,10 @@ export default function TestnetWalletPanel() {
         existingSeed.fill(0);
         setDeviceWalletIssue(true);
         throw new Error("A wallet already exists on this device. Restore it instead of creating a replacement.");
+      }
+      if (await hasEncryptedChangeset()) {
+        setDeviceWalletIssue(true);
+        throw new Error("Wallet data already exists on this browser. Restore with its 12-word phrase instead of creating a replacement.");
       }
       seed = await recoveryPhraseToSeed(phrase);
       const result = await createBdkTestnetWallet(seed);
