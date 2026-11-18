@@ -15,7 +15,7 @@ const safeUrl = (value) => {
 };
 
 const cleanText = (value, max) =>
-  typeof value === "string" ? value.replace(/\\s+/g, " ").trim().slice(0, max) : "";
+  typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
 
 /**
  * Search the web for source leads. Tavily results are deliberately NOT trusted
