@@ -34,6 +34,14 @@ type AssistantResponse = {
   compatibilityStatus: "compatible" | "incompatible" | "undetermined";
   safetyLevel: "routine" | "caution" | "high-risk";
 };
+type ResearchSource = {
+  title: string;
+  url: string;
+  excerpt: string;
+  sourceType: string;
+  reviewStatus: "unverified_lead";
+  evidenceEligible: false;
+};
 type EvidenceSource = {
   id: string;
   trade: Trade;
@@ -101,6 +109,10 @@ export default function App() {
   const [assistantResponse, setAssistantResponse] = useState<AssistantResponse | null>(null);
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [evidenceSources, setEvidenceSources] = useState<EvidenceSource[]>([]);
+  const [researchSources, setResearchSources] = useState<ResearchSource[]>([]);
+  const [researchBusy, setResearchBusy] = useState(false);
+  const [researchNotice, setResearchNotice] = useState("");
+  const [savedResearchUrls, setSavedResearchUrls] = useState<string[]>([]);
   const [evidenceType, setEvidenceType] = useState("manufacturer_manual");
   const [evidencePublisher, setEvidencePublisher] = useState("");
   const [evidenceTitle, setEvidenceTitle] = useState("");
@@ -367,6 +379,71 @@ export default function App() {
       }
     } catch {
       setNotice("Your task could not be saved. It has not been sent to an AI service.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function searchResearchLeads() {
+    if (!activeSession) return;
+    setResearchBusy(true);
+    setResearchNotice("");
+    setResearchSources([]);
+    try {
+      const workerContext = messages.filter((message) => message.role === "worker").map((message) => message.content).join("\n\n").slice(-3600);
+      const result = await api<{ sources: ResearchSource[]; notice: string; technicalGuidanceEnabled: false }>("/api/research", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: activeSession.id,
+          trade: activeSession.trade,
+          task: workerContext || activeSession.title,
+          language: activeSession.language,
+          units: activeSession.unit_system,
+        }),
+      });
+      setResearchSources(result.sources);
+      setResearchNotice(result.sources.length ? result.notice : "No source leads were returned. Try adding the product make, exact model or a more specific description to this investigation.");
+    } catch {
+      setResearchNotice("Research could not be completed. Check your connection and try again. No source has been marked verified.");
+    } finally {
+      setResearchBusy(false);
+    }
+  }
+
+  async function saveResearchLead(source: ResearchSource) {
+    if (!activeSession || savedResearchUrls.includes(source.url)) return;
+    let publisher = "";
+    try {
+      const url = new URL(source.url);
+      if (url.protocol !== "https:") {
+        setResearchNotice("This result does not use HTTPS, so it cannot be saved to the evidence library.");
+        return;
+      }
+      publisher = url.hostname;
+    } catch {
+      setResearchNotice("This source link is invalid and cannot be saved.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api("/api/evidence-sources", {
+        method: "POST",
+        body: JSON.stringify({
+          trade: activeSession.trade,
+          sourceType: "other",
+          publisher,
+          title: source.title,
+          sourceUrl: source.url,
+          topic: activeSession.title.slice(0, 200) || "Research source lead",
+          evidenceNote: source.excerpt,
+          language: activeSession.language,
+        }),
+      });
+      setSavedResearchUrls((current) => [...current, source.url]);
+      await refreshEvidenceSources();
+      setResearchNotice("Saved privately as pending review. It has not been authenticated or approved for technical guidance.");
+    } catch {
+      setResearchNotice("This source could not be saved. It remains an unverified search lead.");
     } finally {
       setBusy(false);
     }
@@ -784,6 +861,43 @@ export default function App() {
                 </form>
               )}
               <p className="privacy-note">Compatibility remains {assistantResponse.compatibilityStatus}. KIVORA only returns model-generated technical content when its evidence references pass validation; this is not a substitute for professional judgement or a site-specific risk assessment.</p>
+            </section>
+          )}
+
+          {activeSession && (
+            <section className="workspace research-card" aria-live="polite">
+              <div className="workspace-heading">
+                <div>
+                  <p className="eyebrow">SOURCE DISCOVERY</p>
+                  <h2>Find technical sources</h2>
+                </div>
+                <span className="step-label">RESEARCH</span>
+              </div>
+              <p className="privacy-note">Search results are unverified leads. A matching website or manufacturer name does not prove that a document is authentic, current or applicable to your exact model. These results cannot authorize a procedure or specification.</p>
+              <button className="submit-button" type="button" onClick={() => void searchResearchLeads()} disabled={researchBusy || busy}>
+                {researchBusy ? "Searching…" : researchSources.length ? "Search again" : "Search for source leads"} <span aria-hidden="true">↗</span>
+              </button>
+              {researchNotice && <p className="research-notice" role="status">{researchNotice}</p>}
+              {researchSources.length > 0 && (
+                <div className="research-list">
+                  {researchSources.map((source) => (
+                    <article className="research-item" key={source.url}>
+                      <div className="research-item-heading">
+                        <span className="evidence-status">UNVERIFIED LEAD</span>
+                        <span className="research-domain">{(() => { try { return new URL(source.url).hostname; } catch { return "External source"; } })()}</span>
+                      </div>
+                      <h3>{source.title}</h3>
+                      <p>{source.excerpt}</p>
+                      <div className="research-actions">
+                        <a href={source.url} target="_blank" rel="noreferrer">Open source</a>
+                        <button className="text-button" type="button" onClick={() => void saveResearchLead(source)} disabled={busy || savedResearchUrls.includes(source.url)}>
+                          {savedResearchUrls.includes(source.url) ? "Saved · pending review" : "Save privately for review"}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
