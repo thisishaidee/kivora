@@ -143,6 +143,7 @@ export default function App() {
   const [historyQuery, setHistoryQuery] = useState("");
   const [accountEmail, setAccountEmail] = useState("");
   const [accountPassword, setAccountPassword] = useState("");
+  const [walletUnlockPassword, setWalletUnlockPassword] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountNotice, setAccountNotice] = useState("");
   const [resetToken, setResetToken] = useState("");
@@ -323,7 +324,7 @@ export default function App() {
         setAccountNotice("Your password has been reset. Sign in with your new password.");
       } else {
         const result = await api<{ worker: { id: string } }>("/api/accounts/login", { method: "POST", body: JSON.stringify({ email: accountEmail.trim(), password: accountPassword }) });
-        setWorkerId(result.worker.id); setAccountMode(true); setIdentityState("ready"); setActiveScreen("work"); setAccountPassword("");
+        setWorkerId(result.worker.id); setAccountMode(true); setIdentityState("ready"); setActiveScreen("work"); setWalletUnlockPassword(accountPassword); setAccountPassword("");
         await Promise.all([refreshSessions(), refreshEvidenceSources()]);
       }
     } catch (error) {
@@ -1125,7 +1126,7 @@ export default function App() {
             </section>
           )}
 
-          {activeScreen === "payments" && <><TestnetWalletPanel /><WalletPanel /></>}
+          {activeScreen === "payments" && <><TestnetWalletPanel accountWorkerId={accountMode ? workerId : undefined} accountPassword={walletUnlockPassword} /><WalletPanel /></>}
 
           {activeScreen === "account" && <section className="workspace account-card">
             <div className="workspace-heading">
