@@ -274,6 +274,29 @@ const handleApi = async (request, env, url) => {
     }
   }
 
+  if (path === "/api/accounts/resend-verification" && method === "POST") {
+    if (env.IDENTITY_LIMITER) {
+      const limit = await env.IDENTITY_LIMITER.limit({ key: "account-verify-resend:" + (request.headers.get("cf-connecting-ip") || "unknown") });
+      if (!limit.success) return json({ error: "rate_limited" }, 429);
+    }
+    if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
+    const body = await readJson(request);
+    const email = normalizeEmail(body?.email);
+    if (validEmail(email)) {
+      const account = await env.DB.prepare("SELECT worker_id FROM worker_accounts WHERE email_normalized = ? AND email_verified_at IS NULL LIMIT 1").bind(email).first();
+      if (account) {
+        const now = nowSeconds();
+        const token = randomToken();
+        await env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE worker_id = ? AND purpose = 'verify' AND consumed_at IS NULL").bind(now, account.worker_id).run();
+        await accountTokenRecord(env.DB, String(account.worker_id), "verify", token, now, 86400);
+        const link = env.APP_BASE_URL.replace(/\/$/, "") + "/?verify=" + encodeURIComponent(token);
+        const sent = await sendAccountEmail(env, email, "Verify your KIVORA account", "<p>Confirm your email address to activate your KIVORA account.</p><p><a href=\"" + link + "\">Verify email address</a></p><p>This link expires in 24 hours.</p>");
+        if (!sent) return json({ error: "email_delivery_unavailable" }, 503);
+      }
+    }
+    return json({ message: "If that address has an unverified account, a new verification link has been sent." });
+  }
+
   if (path === "/api/accounts/verify" && method === "POST") {
     const body = await readJson(request);
     const token = typeof body?.token === "string" ? body.token : "";
@@ -304,7 +327,11 @@ const handleApi = async (request, env, url) => {
     const password = typeof body?.password === "string" ? body.password : "";
     if (!validEmail(email) || !password || password.length > 128) return json({ error: "invalid_credentials" }, 401);
     const account = await env.DB.prepare("SELECT worker_id, password_salt, password_hash, email_verified_at FROM worker_accounts WHERE email_normalized = ? LIMIT 1").bind(email).first();
-    if (!account || !(await verifyPassword(password, String(account.password_salt), String(account.password_hash)))) return json({ error: "invalid_credentials" }, 401);
+    if (!account) {
+      await derivePasswordHash(password, "00000000000000000000000000000000");
+      return json({ error: "invalid_credentials" }, 401);
+    }
+    if (!(await verifyPassword(password, String(account.password_salt), String(account.password_hash)))) return json({ error: "invalid_credentials" }, 401);
     if (!account.email_verified_at) return json({ error: "email_not_verified" }, 403);
     const sessionToken = randomToken();
     const now = nowSeconds();
