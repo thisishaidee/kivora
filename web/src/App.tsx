@@ -138,6 +138,7 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState("");
 
   async function refreshSessions() {
     const result = await api<{ sessions: WorkSession[] }>("/api/work-sessions");
@@ -576,7 +577,7 @@ export default function App() {
     }
   }
 
-  const visibleSessions = sessions.filter((session) => showArchived || !session.archived_at);
+  const visibleSessions = sessions.filter((session) => (showArchived || !session.archived_at) && session.title.toLowerCase().includes(historyQuery.trim().toLowerCase()));
 
   if (identityState === "welcome") {
     return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("sign-in"); setNotice(""); }} />;
@@ -886,8 +887,13 @@ export default function App() {
                 {showArchived ? "Hide archived" : "Show archived"}
               </button>
             </div>
+            <label className="history-search">
+              <span>Search your investigations</span>
+              <input type="search" value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Search by product, problem or topic" />
+            </label>
+            <div className="history-summary"><span>{visibleSessions.length} {visibleSessions.length === 1 ? "investigation" : "investigations"}</span><span>{showArchived ? "Including archived" : "Active investigations"}</span></div>
             {visibleSessions.length === 0 ? (
-              <p className="privacy-note">Your recent conversations appear here. Start a new one whenever you want to understand something different. They remain private to this preview identity.</p>
+              <p className="history-empty">{historyQuery.trim() ? "No investigations match that search. Try another word." : "Your investigations will appear here. Start a new one whenever you need to understand a product, material, machine or problem."}</p>
             ) : (
               <div className="session-list">
                 {visibleSessions.map((session) => (
@@ -1018,7 +1024,7 @@ export default function App() {
               </div>
               <div className="message-list">
                 {messages.map((message) => (
-                  <article className="message-card" key={message.id}>
+                  <article className={message.role === "assistant" ? "message-card assistant-message" : "message-card worker-message"} key={message.id}>
                     <span className="message-role">{message.role === "worker" ? "YOU" : message.role.toUpperCase()}</span>
                     <p>{message.content}</p>
                   </article>
