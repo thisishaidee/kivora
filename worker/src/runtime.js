@@ -9,7 +9,7 @@
 /** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
 /** @typedef {{ put(key: string, value: ReadableStream<Uint8Array>, options?: Record<string, unknown>): Promise<unknown>, get(key: string, options?: { range?: { offset: number, length?: number } }): Promise<{ body: ReadableStream<Uint8Array>, size: number, httpMetadata?: { contentType?: string } } | null>, delete(keys: string | string[]): Promise<void> }} R2Bucket */
-/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, TAVILY_API_KEY?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> } }} Env */
+/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, TAVILY_API_KEY?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> }, RESEND_API_KEY?: string, EMAIL_FROM?: string, APP_BASE_URL?: string }} Env */
 
 import { assessWorkRequest, parseWorkRequest } from "../../shared/src/intelligence-runtime.js";
 import { parsePrivateEvidenceCapture } from "../../shared/src/evidence-runtime.js";
@@ -113,6 +113,38 @@ const hashToken = async (token) => {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
 
+const PASSWORD_ITERATIONS = 600000;
+const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+const validEmail = (value) => value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const derivePasswordHash = async (password, saltHex) => {
+  const salt = saltHex ? Uint8Array.from(saltHex.match(/.{2}/g) || [], byte => parseInt(byte, 16)) : crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PASSWORD_ITERATIONS }, key, 256);
+  const hex = value => Array.from(new Uint8Array(value), byte => byte.toString(16).padStart(2, "0")).join("");
+  return { salt: hex(salt), hash: hex(bits) };
+};
+const verifyPassword = async (password, salt, expected) => {
+  const actual = await derivePasswordHash(password, salt);
+  if (actual.hash.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < expected.length; index += 1) mismatch |= actual.hash.charCodeAt(index) ^ expected.charCodeAt(index);
+  return mismatch === 0;
+};
+const sendAccountEmail = async (env, to, subject, html) => {
+  if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL || !/^https:\/\//i.test(env.APP_BASE_URL)) return false;
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
+    body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html }),
+  });
+  return response.ok;
+};
+const accountTokenRecord = async (db, workerId, purpose, token, now, ttl) => {
+  await db.prepare("INSERT INTO account_email_tokens (id, worker_id, purpose, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(newId(), workerId, purpose, await hashToken(token), now + ttl, now).run();
+};
+
+
 /** @param {Request} request */
 const cookieValue = (request) => {
   const cookie = request.headers.get("cookie");
@@ -198,6 +230,114 @@ const handleApi = async (request, env, url) => {
 
   if (!env.DB) return json({ error: "service_unavailable" }, 503);
   if (method !== "GET" && !validOrigin(request, url)) return json({ error: "origin_not_allowed" }, 403);
+
+  if (path === "/api/accounts/register" && method === "POST") {
+    if (env.IDENTITY_LIMITER) {
+      const limit = await env.IDENTITY_LIMITER.limit({ key: "account-register:" + (request.headers.get("cf-connecting-ip") || "unknown") });
+      if (!limit.success) return json({ error: "rate_limited" }, 429);
+    }
+    if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
+    const body = await readJson(request);
+    const email = normalizeEmail(body?.email);
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!validEmail(email) || password.length < 12 || password.length > 128) return json({ error: password.length < 12 ? "password_too_short" : "invalid_account_request" }, 400);
+    const existing = await env.DB.prepare("SELECT id FROM worker_accounts WHERE email_normalized = ? LIMIT 1").bind(email).first();
+    if (existing) return json({ error: "email_already_registered" }, 409);
+    const workerId = newId();
+    const now = nowSeconds();
+    const sessionSecret = randomToken();
+    const passwordRecord = await derivePasswordHash(password);
+    const verifyToken = randomToken();
+    try {
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO workers (id, recovery_token_hash, created_at, updated_at) VALUES (?, ?, ?, ?)").bind(workerId, await hashToken(sessionSecret), now, now),
+        env.DB.prepare("INSERT INTO worker_accounts (id, worker_id, email_normalized, password_salt, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(newId(), workerId, email, passwordRecord.salt, passwordRecord.hash, now, now),
+        env.DB.prepare("INSERT INTO account_email_tokens (id, worker_id, purpose, token_hash, expires_at, created_at) VALUES (?, ?, 'verify', ?, ?, ?)").bind(newId(), workerId, await hashToken(verifyToken), now + 86400, now),
+      ]);
+      const link = env.APP_BASE_URL.replace(/\/$/, "") + "/?verify=" + encodeURIComponent(verifyToken);
+      const sent = await sendAccountEmail(env, email, "Verify your KIVORA account", "<p>Confirm your email address to activate your KIVORA account.</p><p><a href=\"" + link + "\">Verify email address</a></p><p>This link expires in 24 hours. If you did not create this account, you can ignore this message.</p>");
+      if (!sent) {
+        await env.DB.prepare("DELETE FROM workers WHERE id = ?").bind(workerId).run();
+        return json({ error: "email_delivery_unavailable" }, 503);
+      }
+      return json({ message: "Account created. Check your inbox for the verification link." }, 201);
+    } catch {
+      await env.DB.prepare("DELETE FROM workers WHERE id = ?").bind(workerId).run().catch(() => {});
+      return json({ error: "account_registration_failed" }, 503);
+    }
+  }
+
+  if (path === "/api/accounts/verify" && method === "POST") {
+    const body = await readJson(request);
+    const token = typeof body?.token === "string" ? body.token : "";
+    if (!/^[0-9a-f]{64}$/.test(token)) return json({ error: "invalid_or_expired_token" }, 400);
+    const now = nowSeconds();
+    const record = await env.DB.prepare("SELECT worker_id FROM account_email_tokens WHERE purpose = 'verify' AND token_hash = ? AND consumed_at IS NULL AND expires_at > ? LIMIT 1")
+      .bind(await hashToken(token), now).first();
+    if (!record) return json({ error: "invalid_or_expired_token" }, 400);
+    const sessionToken = randomToken();
+    await env.DB.batch([
+      env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE token_hash = ? AND consumed_at IS NULL").bind(now, await hashToken(token)),
+      env.DB.prepare("UPDATE worker_accounts SET email_verified_at = ?, updated_at = ? WHERE worker_id = ?").bind(now, now, record.worker_id),
+      env.DB.prepare("INSERT INTO worker_sessions (id, worker_id, session_token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)").bind(newId(), record.worker_id, await hashToken(sessionToken), now, now + SESSION_TTL_SECONDS),
+    ]);
+    return json({ worker: { id: record.worker_id } }, 200, { "set-cookie": cookieHeader(sessionToken) });
+  }
+
+  if (path === "/api/accounts/login" && method === "POST") {
+    if (env.IDENTITY_LIMITER) {
+      const limit = await env.IDENTITY_LIMITER.limit({ key: "account-login:" + (request.headers.get("cf-connecting-ip") || "unknown") });
+      if (!limit.success) return json({ error: "rate_limited" }, 429);
+    }
+    const body = await readJson(request);
+    const email = normalizeEmail(body?.email);
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!validEmail(email) || !password || password.length > 128) return json({ error: "invalid_credentials" }, 401);
+    const account = await env.DB.prepare("SELECT worker_id, password_salt, password_hash, email_verified_at FROM worker_accounts WHERE email_normalized = ? LIMIT 1").bind(email).first();
+    if (!account || !(await verifyPassword(password, String(account.password_salt), String(account.password_hash)))) return json({ error: "invalid_credentials" }, 401);
+    if (!account.email_verified_at) return json({ error: "email_not_verified" }, 403);
+    const sessionToken = randomToken();
+    const now = nowSeconds();
+    await env.DB.prepare("INSERT INTO worker_sessions (id, worker_id, session_token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)")
+      .bind(newId(), account.worker_id, await hashToken(sessionToken), now, now + SESSION_TTL_SECONDS).run();
+    return json({ worker: { id: account.worker_id } }, 200, { "set-cookie": cookieHeader(sessionToken) });
+  }
+
+  if (path === "/api/accounts/forgot" && method === "POST") {
+    if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
+    const body = await readJson(request);
+    const email = normalizeEmail(body?.email);
+    if (!validEmail(email)) return json({ message: "If an account matches that address, a reset link will be sent." });
+    const account = await env.DB.prepare("SELECT worker_id FROM worker_accounts WHERE email_normalized = ? AND email_verified_at IS NOT NULL LIMIT 1").bind(email).first();
+    if (account) {
+      const token = randomToken();
+      const now = nowSeconds();
+      await accountTokenRecord(env.DB, String(account.worker_id), "reset", token, now, 3600);
+      const link = env.APP_BASE_URL.replace(/\/$/, "") + "/?reset=" + encodeURIComponent(token);
+      await sendAccountEmail(env, email, "Reset your KIVORA password", "<p>A password reset was requested for your KIVORA account.</p><p><a href=\"" + link + "\">Reset password</a></p><p>This link expires in one hour. If you did not request this, ignore this email.</p>");
+    }
+    return json({ message: "If an account matches that address, a reset link will be sent." });
+  }
+
+  if (path === "/api/accounts/reset" && method === "POST") {
+    const body = await readJson(request);
+    const token = typeof body?.token === "string" ? body.token : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (password.length < 12 || password.length > 128) return json({ error: "password_too_short" }, 400);
+    if (!/^[0-9a-f]{64}$/.test(token)) return json({ error: "invalid_or_expired_token" }, 400);
+    const now = nowSeconds();
+    const tokenHash = await hashToken(token);
+    const record = await env.DB.prepare("SELECT worker_id FROM account_email_tokens WHERE purpose = 'reset' AND token_hash = ? AND consumed_at IS NULL AND expires_at > ? LIMIT 1").bind(tokenHash, now).first();
+    if (!record) return json({ error: "invalid_or_expired_token" }, 400);
+    const passwordRecord = await derivePasswordHash(password);
+    await env.DB.batch([
+      env.DB.prepare("UPDATE worker_accounts SET password_salt = ?, password_hash = ?, updated_at = ? WHERE worker_id = ?").bind(passwordRecord.salt, passwordRecord.hash, now, record.worker_id),
+      env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE token_hash = ? AND consumed_at IS NULL").bind(now, tokenHash),
+      env.DB.prepare("UPDATE worker_sessions SET revoked_at = ? WHERE worker_id = ? AND revoked_at IS NULL").bind(now, record.worker_id),
+      env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE worker_id = ? AND purpose = 'reset' AND consumed_at IS NULL").bind(now, record.worker_id),
+    ]);
+    return json({ reset: true });
+  }
 
   if (path === "/api/identity" && method === "POST" && env.IDENTITY_LIMITER) {
     const clientKey = request.headers.get("cf-connecting-ip") || "unknown-client";
