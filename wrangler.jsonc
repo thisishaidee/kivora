@@ -2,11 +2,5 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kivora",
   "compatibility_date": "2026-11-13",
-  "pages_build_output_dir": "./dist",
-  "services": [
-    {
-      "binding": "KIVORA_API",
-      "service": "kivora"
-    }
-  ]
+  "pages_build_output_dir": "./dist"
 }
