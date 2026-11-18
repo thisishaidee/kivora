@@ -160,7 +160,10 @@ export async function decryptAccountWalletBackup(
     const bytes = new Uint8Array(plaintext);
     try {
       const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-      if (password && typeof indexedDB !== "undefined") {\n        try { await cacheUnlockKey(workerId, key); } catch { /* Unlock still succeeded; caching is best-effort. */ }\n      }\n      return decoded;
+      if (password && typeof indexedDB !== "undefined") {
+        try { await cacheUnlockKey(workerId, key); } catch { /* Unlock still succeeded; caching is best-effort. */ }
+      }
+      return decoded;
     } finally {
       bytes.fill(0);
     }
