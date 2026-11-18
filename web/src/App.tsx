@@ -212,10 +212,10 @@ export default function App() {
     const reset = params.get("reset");
     if (verifyToken) {
       window.history.replaceState({}, "", window.location.pathname);
-      void api<{ worker: { id: string } }>("/api/accounts/verify", { method: "POST", body: JSON.stringify({ token: verifyToken }) })
+      void api<{ worker: { id: string; email?: string } }>("/api/accounts/verify", { method: "POST", body: JSON.stringify({ token: verifyToken }) })
         .then(async (result) => {
           if (!alive) return;
-          setWorkerId(result.worker.id); setAccountMode(true); setIdentityState("ready"); setActiveScreen("work");
+          setWorkerId(result.worker.id); setAccountMode(true); if (result.worker.email) setAccountEmail(result.worker.email); setIdentityState("ready"); setActiveScreen("work");
           setNotice("Your email is verified. Your KIVORA account is ready.");
           try { await Promise.all([refreshSessions(), refreshEvidenceSources()]); } catch { setNotice("Your account is ready, but saved workspace data could not be loaded."); }
         })
