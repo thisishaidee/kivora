@@ -9,11 +9,12 @@
 /** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
 /** @typedef {{ put(key: string, value: ReadableStream<Uint8Array>, options?: Record<string, unknown>): Promise<unknown>, get(key: string, options?: { range?: { offset: number, length?: number } }): Promise<{ body: ReadableStream<Uint8Array>, size: number, httpMetadata?: { contentType?: string } } | null>, delete(keys: string | string[]): Promise<void> }} R2Bucket */
-/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> } }} Env */
+/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, TAVILY_API_KEY?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> } }} Env */
 
 import { assessWorkRequest, parseWorkRequest } from "../../shared/src/intelligence-runtime.js";
 import { parsePrivateEvidenceCapture } from "../../shared/src/evidence-runtime.js";
 import { composeWorkerAssistantResponse } from "../../shared/src/response-runtime.js";
+import { searchTavilyLeads } from "./tavily-runtime.js";
 
 
 const IMAGE_MIME_LIMITS = new Map([
@@ -293,6 +294,46 @@ const handleApi = async (request, env, url) => {
   if (env.WORKER_LIMITER) {
     const limit = await env.WORKER_LIMITER.limit({ key: String(worker.worker_id) });
     if (!limit.success) return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
+  }
+
+  if (path === "/api/research" && method === "POST") {
+    const body = await readJson(request);
+    if (!body) return json({ error: "invalid_research_request" }, 400);
+    const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
+    if (!/^[0-9a-f-]{36}$/i.test(sessionId)) return json({ error: "invalid_research_request" }, 400);
+    let workRequest;
+    try {
+      workRequest = parseWorkRequest(body);
+    } catch {
+      return json({ error: "invalid_research_request" }, 400);
+    }
+    const session = await env.DB.prepare(
+      "SELECT id, trade FROM work_sessions WHERE id = ? AND worker_id = ? LIMIT 1",
+    ).bind(sessionId, worker.worker_id).first();
+    if (!session || session.trade !== workRequest.trade) return json({ error: "work_session_not_found" }, 404);
+    if (!env.TAVILY_API_KEY) return json({ error: "research_unavailable" }, 503);
+    if (!env.AI_LIMITER) return json({ error: "research_unavailable" }, 503);
+    const researchLimit = await env.AI_LIMITER.limit({ key: String(worker.worker_id) });
+    if (!researchLimit.success) return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
+
+    const query = [
+      workRequest.trade,
+      workRequest.task,
+      workRequest.involvesEquipment ? workRequest.equipmentMake : "",
+      workRequest.involvesEquipment ? workRequest.equipmentModel : "",
+      "manufacturer documentation technical manual official guidance",
+    ].filter(Boolean).join(" ").slice(0, 600);
+    const result = await searchTavilyLeads({ query, apiKey: env.TAVILY_API_KEY });
+    if (!result.ok) {
+      const status = result.error === "research_rate_limited" ? 429 : result.error === "research_unavailable" ? 503 : 502;
+      return json({ error: result.error }, status);
+    }
+    return json({
+      sources: result.sources,
+      sourceStatus: "unverified_leads",
+      technicalGuidanceEnabled: false,
+      notice: "Search results are leads for review, not verified technical evidence. They cannot authorize procedures or specifications.",
+    });
   }
 
   if (path === "/api/assess" && method === "POST") {
