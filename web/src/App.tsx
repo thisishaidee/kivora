@@ -211,6 +211,7 @@ export default function App() {
       .then(async (result) => {
         window.clearTimeout(timeout);
         if (!alive || identityCheckCancelled.current) return;
+        setNotice("");
         setWorkerId(result.worker.id);
         setActiveScreen("work");
         setIdentityState("ready");
