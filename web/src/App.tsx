@@ -430,11 +430,12 @@ export default function App() {
     setResearchSources([]);
     try {
       const workerContext = messages.filter((message) => message.role === "worker").map((message) => message.content).join("\n\n").slice(-3600);
+      const inferredTrade = inferTradeFromTask(workerContext, activeSession.trade);
       const result = await api<{ sources: ResearchSource[]; notice: string; technicalGuidanceEnabled: false }>("/api/research", {
         method: "POST",
         body: JSON.stringify({
           sessionId: activeSession.id,
-          trade: activeSession.trade,
+          trade: inferredTrade,
           task: workerContext || activeSession.title,
           language: activeSession.language,
           units: activeSession.unit_system,
