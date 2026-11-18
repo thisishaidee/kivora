@@ -217,34 +217,8 @@ const handleApi = async (request, env, url) => {
         .bind(newId(), workerId, await hashToken(sessionToken), now, now + SESSION_TTL_SECONDS),
     ]);
     return json(
-      { worker: { id: workerId }, recovery_code: recoveryToken, recovery_code_displayed_once: true },
+      { worker: { id: workerId } },
       201,
-      { "set-cookie": cookieHeader(sessionToken) },
-    );
-  }
-
-  if (path === "/api/identity/recover" && method === "POST") {
-    const body = await readJson(request);
-    const oldCode = typeof body?.recovery_code === "string" ? body.recovery_code.trim() : "";
-    if (!/^[0-9a-f]{64}$/.test(oldCode)) return json({ error: "invalid_recovery_code" }, 400);
-    const replacementCode = randomToken();
-    const sessionToken = randomToken();
-    const now = nowSeconds();
-    const newHash = await hashToken(replacementCode);
-    const sessionHash = await hashToken(sessionToken);
-    const results = await env.DB.batch([
-      env.DB.prepare("UPDATE workers SET recovery_token_hash = ?, updated_at = ? WHERE recovery_token_hash = ? AND revoked_at IS NULL RETURNING id")
-        .bind(newHash, now, await hashToken(oldCode)),
-      env.DB.prepare("DELETE FROM worker_sessions WHERE worker_id = (SELECT id FROM workers WHERE recovery_token_hash = ?)")
-        .bind(newHash),
-      env.DB.prepare("INSERT INTO worker_sessions (id, worker_id, session_token_hash, created_at, expires_at) SELECT ?, id, ?, ?, ? FROM workers WHERE recovery_token_hash = ? AND revoked_at IS NULL")
-        .bind(newId(), sessionHash, now, now + SESSION_TTL_SECONDS, newHash),
-    ]);
-    const worker = results[0]?.results?.[0];
-    if (!worker?.id || (results[2]?.meta?.changes ?? 0) !== 1) return json({ error: "invalid_recovery_code" }, 401);
-    return json(
-      { worker: { id: worker.id }, recovery_code: replacementCode, recovery_code_displayed_once: true },
-      200,
       { "set-cookie": cookieHeader(sessionToken) },
     );
   }
@@ -253,17 +227,6 @@ const handleApi = async (request, env, url) => {
     const worker = await authenticate(request, env.DB);
     if (!worker) return json({ error: "unauthorized" }, 401);
     return json({ worker: { id: worker.worker_id } });
-  }
-
-  if (path === "/api/identity/recovery/rotate" && method === "POST") {
-    const worker = await authenticate(request, env.DB);
-    if (!worker) return json({ error: "unauthorized" }, 401);
-    const recoveryCode = randomToken();
-    const result = await env.DB.prepare(
-      "UPDATE workers SET recovery_token_hash = ?, updated_at = ? WHERE id = ? AND revoked_at IS NULL",
-    ).bind(await hashToken(recoveryCode), nowSeconds(), worker.worker_id).run();
-    if ((result.meta?.changes ?? 0) !== 1) return json({ error: "unauthorized" }, 401);
-    return json({ recovery_code: recoveryCode, recovery_code_displayed_once: true });
   }
 
   if (path === "/api/identity/logout" && method === "POST") {
