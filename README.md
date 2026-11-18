@@ -76,6 +76,10 @@ Requires Node.js 22 or newer.
     npm run test
     npm run build
 
+### Cloudflare Pages preview bindings
+
+The Pages Functions runtime imports the Worker handler directly and requires a D1 binding named `DB`. Configure the **Preview** environment to use the isolated `kivora-preview` D1 database; do not point Preview at the production `kivora` database. Keep provider secrets such as `TAVILY_API_KEY` in Preview only when testing source discovery. The production environment must be configured separately and is not changed by preview setup.
+
 ## Current limitations
 
 Private worker identity and work-session endpoints are implemented and a preview D1 schema is provisioned. The optional NWC/NIP-47 Lightning panel supports connecting an existing wallet, reading advertised wallet details/balance and creating receive-only invoices; it does not send payments, custody funds or collect seed phrases. Real Android wallet/relay interoperability remains unverified. Tavily source discovery is integrated on the feature branch: results are unverified leads, HTTPS links only, and may be saved privately as pending review. The current schema does not yet support an independently recorded official-publisher verification status or a reviewer approval UI; do not treat a hostname match as proof of publisher identity. Only existing shared evidence records that pass the server-side reviewer, rights, trade, jurisdiction and product applicability gates may support guided technical content. AI inference remains disabled in the isolated Pages preview; the deterministic assessment is not a live AI answer. Private media upload remains feature-gated and unavailable in the UI. On-device speech playback is available for current preview responses; speech-to-text and a validated remote TTS provider are not implemented. Compatibility assessment and trade-specific safety enforcement remain partial and require further validation.
