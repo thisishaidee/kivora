@@ -252,6 +252,10 @@ const handleApi = async (request, env, url) => {
     return json({ deleted: true }, 200, { "set-cookie": clearCookieHeader() });
   }
 
+  if (path === "/api/identity/recover" || path === "/api/identity/recovery/rotate") {
+    return json({ error: "not_found" }, 404);
+  }
+
   const worker = await authenticate(request, env.DB);
   if (!worker) return json({ error: "unauthorized" }, 401);
   if (env.WORKER_LIMITER) {
