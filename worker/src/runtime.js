@@ -344,7 +344,7 @@ const handleApi = async (request, env, url) => {
       // from the server-side registry may support an assessment.
       const request = parseWorkRequest(body);
       const evidenceResult = await env.DB.prepare(
-        `SELECT id, publisher, title, source_url, document_ref, product_make,
+        `SELECT id, source_type, publisher, title, source_url, document_ref, product_make,
           product_model, trade, topic, revision_date, retrieved_at,
           jurisdiction, page_or_section, evidence_note
          FROM evidence_sources
@@ -353,14 +353,17 @@ const handleApi = async (request, env, url) => {
            AND reviewer_role IN ('qualified_reviewer', 'manufacturer')
            AND trade = ?
            AND (jurisdiction IS NULL OR jurisdiction = ? COLLATE NOCASE)
-           AND (product_make IS NULL OR product_make = ? COLLATE NOCASE)
-           AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)
+           AND source_type != 'field_observation'
+           ${request.involvesEquipment
+             ? "AND ((source_type = 'standard' AND jurisdiction = ? COLLATE NOCASE) OR (product_make = ? COLLATE NOCASE AND product_model = ? COLLATE NOCASE))"
+             : "AND (product_make IS NULL OR product_make = ? COLLATE NOCASE) AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)"}
          ORDER BY updated_at DESC LIMIT 100`,
       ).bind(
         request.trade,
         request.jurisdiction ?? "",
-        request.involvesEquipment ? request.equipmentMake ?? "" : "",
-        request.involvesEquipment ? request.equipmentModel ?? "" : "",
+        ...(request.involvesEquipment
+          ? [request.jurisdiction ?? "", request.equipmentMake ?? "", request.equipmentModel ?? ""]
+          : ["", ""]),
       ).all();
       const evidence = (evidenceResult.results ?? []).map((source) => ({
         id: String(source.id),
@@ -402,7 +405,7 @@ const handleApi = async (request, env, url) => {
       request.language = typeof body.language === "string" && LANGUAGES.has(body.language) ? body.language : "en";
       request.units = typeof body.units === "string" && UNITS.has(body.units) ? body.units : "metric";
       const evidenceResult = await env.DB.prepare(
-        `SELECT id, publisher, title, source_url, document_ref, product_make,
+        `SELECT id, source_type, publisher, title, source_url, document_ref, product_make,
           product_model, trade, topic, revision_date, retrieved_at,
           jurisdiction, page_or_section, evidence_note
          FROM evidence_sources
@@ -411,14 +414,17 @@ const handleApi = async (request, env, url) => {
            AND reviewer_role IN ('qualified_reviewer', 'manufacturer')
            AND trade = ?
            AND (jurisdiction IS NULL OR jurisdiction = ? COLLATE NOCASE)
-           AND (product_make IS NULL OR product_make = ? COLLATE NOCASE)
-           AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)
+           AND source_type != 'field_observation'
+           ${request.involvesEquipment
+             ? "AND ((source_type = 'standard' AND jurisdiction = ? COLLATE NOCASE) OR (product_make = ? COLLATE NOCASE AND product_model = ? COLLATE NOCASE))"
+             : "AND (product_make IS NULL OR product_make = ? COLLATE NOCASE) AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)"}
          ORDER BY updated_at DESC LIMIT 100`,
       ).bind(
         request.trade,
         request.jurisdiction ?? "",
-        request.involvesEquipment ? request.equipmentMake ?? "" : "",
-        request.involvesEquipment ? request.equipmentModel ?? "" : "",
+        ...(request.involvesEquipment
+          ? [request.jurisdiction ?? "", request.equipmentMake ?? "", request.equipmentModel ?? ""]
+          : ["", ""]),
       ).all();
       const evidence = (evidenceResult.results ?? []).map(source => ({
         id: String(source.id),
