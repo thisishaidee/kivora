@@ -63,7 +63,7 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
   const [backupPassword, setBackupPassword] = useState(props.accountPassword ?? "");
   const [accountBackupState, setAccountBackupState] = useState<"checking" | "missing" | "ready" | "error">("checking");
   const [accountBackupMessage, setAccountBackupMessage] = useState("");
-  const [, setAccountBackupRevision] = useState<number | null>(null);
+  const [accountBackupRevision, setAccountBackupRevision] = useState<number | null>(null);
   const [localWalletDetected, setLocalWalletDetected] = useState(false);
   const [localWalletCheckComplete, setLocalWalletCheckComplete] = useState(false);
   const pendingAccountBackupRef = useRef<string | null>(null);
@@ -222,7 +222,7 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
     setBusy(true);
     try {
       const encrypted = await encryptAccountWalletBackup(pendingAccountBackupRef.current, backupPassword, props.accountWorkerId);
-      const saved = await accountBackupRequest<{ saved: boolean; revision: number }>("PUT", encrypted);
+      const saved = await accountBackupRequest<{ saved: boolean; revision: number }>("PUT", { ...encrypted, ...(accountBackupExistsRef.current && accountBackupRevision !== null ? { revision: accountBackupRevision } : {}) });
       await rememberAccountWalletUnlockKey(encrypted, backupPassword, props.accountWorkerId);
       accountBackupExistsRef.current = true;
       setAccountBackupRevision(saved.revision);
@@ -418,14 +418,14 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
             <button className="unit-option selected" type="button" onClick={() => void copyAddress()}>Copy address</button>
             <button className="unit-option" type="button" onClick={() => void discardWallet()} disabled={busy || syncBusy}>Discard wallet</button>
           </div>
-          {props.accountWorkerId && pendingAccountBackupRef.current && !accountBackupExistsRef.current && <div className="backup-controls">
+          {props.accountWorkerId && pendingAccountBackupRef.current && <div className="backup-controls">
             <p className="eyebrow">LINK THIS WALLET TO YOUR ACCOUNT</p>
             <label className="field">
               <span>KIVORA account password</span>
               <input type="password" value={backupPassword} onChange={(event) => setBackupPassword(event.target.value)} autoComplete="current-password" minLength={12} />
             </label>
             <button className="unit-option" type="button" onClick={() => void linkExistingWalletToAccount()} disabled={busy || backupPassword.length < 12}>
-              {busy ? "Encrypting and linking…" : "Link existing wallet to my account"}
+              {busy ? "Encrypting and linking…" : accountBackupExistsRef.current ? "Replace account backup using recovery phrase" : "Link existing wallet to my account"}
             </button>
             <p className="privacy-note">This is an explicit action. The recovery phrase and private keys stay on this device; only the encrypted backup is uploaded.</p>
           </div>}
