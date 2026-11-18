@@ -30,7 +30,7 @@ type AssistantResponse = {
   summary: string;
   blocks: { kind: string; content: string; evidenceIds: string[] }[];
   questions: string[];
-  citations: { id: string; publisher: string; title: string; url?: string; documentId?: string; pageOrSection?: string }[];
+  citations: { id: string; publisher: string; title: string; sourceType?: string; sourceVersion?: string; revisionDate?: string; productMake?: string; productModels?: string[]; jurisdiction?: string; url?: string; documentId?: string; pageOrSection?: string }[];
   compatibilityStatus: "compatible" | "incompatible" | "undetermined";
   safetyLevel: "routine" | "caution" | "high-risk";
 };
@@ -826,7 +826,7 @@ export default function App() {
                       assistantResponse.summary,
                       ...assistantResponse.blocks.map((block) => block.content),
                       ...assistantResponse.questions,
-                      ...assistantResponse.citations.map((source) => "Source: " + source.publisher + ". " + source.title + (source.pageOrSection ? ". " + source.pageOrSection : "")),
+                      ...assistantResponse.citations.map((source) => "Source: " + source.publisher + ". " + source.title + ". " + [source.productMake, source.productModels?.join(", "), source.sourceVersion, source.revisionDate, source.jurisdiction, source.pageOrSection].filter(Boolean).join(". ")),
                       "Compatibility status: " + assistantResponse.compatibilityStatus + ".",
                       "Check the cited sources before acting. This is not a substitute for professional judgement or a site-specific risk assessment.",
                     ].join("\n\n")}
@@ -852,7 +852,9 @@ export default function App() {
                   <ul>{assistantResponse.citations.map(source => (
                     <li key={source.id}>
                       {source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.publisher} — {source.title}</a> : <span>{source.publisher} — {source.title}</span>}
-                      {source.pageOrSection ? " · " + source.pageOrSection : ""}
+                      {[source.productMake, source.productModels?.join(", "), source.sourceVersion, source.revisionDate, source.jurisdiction, source.pageOrSection].filter(Boolean).join(" · ") && (
+                        <small className="citation-meta">{[source.productMake, source.productModels?.join(", "), source.sourceVersion, source.revisionDate, source.jurisdiction, source.pageOrSection].filter(Boolean).join(" · ")}</small>
+                      )}
                     </li>
                   ))}</ul>
                 </div>
