@@ -522,13 +522,14 @@ export default function App() {
       const priorWorkerContext = workerMessages.length > 5 ? [workerMessages[0], ...workerMessages.slice(-4)] : workerMessages;
       const savedContext = priorWorkerContext.join("\n");
       const combinedTask = [...priorWorkerContext, message].join("\n\n").slice(-3900);
+    const inferredTrade = inferTradeFromTask(combinedTask, activeSession.trade);
       const savedJurisdiction = savedContext.split("\n").find(line => line.startsWith("Work jurisdiction: "))?.slice("Work jurisdiction: ".length).trim();
       const equipmentLine = savedContext.split("\n").find(line => line.startsWith("Equipment details: "));
       const savedEquipment = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
       const savedEquipmentFlag = savedContext.includes("Equipment involved: yes");
       const assistantResult = await api<{ assessment: IntelligenceAssessment; response: AssistantResponse }>("/api/assist", {
         method: "POST",
-        body: JSON.stringify({ sessionId: activeSession.id, trade: activeSession.trade, task: combinedTask, language: activeSession.language, units: activeSession.unit_system, jurisdiction: jurisdiction.trim() || savedJurisdiction || undefined, involvesEquipment: involvesEquipment || savedEquipmentFlag || Boolean(savedEquipment), equipmentMake: equipmentMake.trim() || (savedEquipment?.[1].trim() !== "unknown" ? savedEquipment?.[1].trim() : undefined), equipmentModel: equipmentModel.trim() || (savedEquipment?.[2].trim() !== "unknown" ? savedEquipment?.[2].trim() : undefined) }),
+        body: JSON.stringify({ sessionId: activeSession.id, trade: inferredTrade, task: combinedTask, language: activeSession.language, units: activeSession.unit_system, jurisdiction: jurisdiction.trim() || savedJurisdiction || undefined, involvesEquipment: involvesEquipment || savedEquipmentFlag || Boolean(savedEquipment), equipmentMake: equipmentMake.trim() || (savedEquipment?.[1].trim() !== "unknown" ? savedEquipment?.[1].trim() : undefined), equipmentModel: equipmentModel.trim() || (savedEquipment?.[2].trim() !== "unknown" ? savedEquipment?.[2].trim() : undefined) }),
       });
       const assistantText = [assistantResult.response.summary, ...assistantResult.response.blocks.map(block => block.content), ...assistantResult.response.questions].join("\n\n");
       const now = Math.floor(Date.now() / 1000);
