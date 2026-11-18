@@ -44,6 +44,22 @@ describe("KIVORA Worker routes", () => {
     });
   });
 
+  it("keeps account registration closed until transactional email is configured", async () => {
+    const db = makeDb();
+    const response = await worker.fetch(
+      new Request("https://kivora.test/api/accounts/register", {
+        method: "POST",
+        headers: { origin: "https://kivora.test", "content-type": "application/json" },
+        body: JSON.stringify({ email: "worker@example.com", password: "a-long-test-passphrase" }),
+      }),
+      { ASSETS: { fetch: vi.fn() }, DB: db as never },
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "email_delivery_unavailable" });
+    expect(db.statements).toHaveLength(0);
+  });
+
   it("fails closed when the D1 binding is absent", async () => {
     const response = await worker.fetch(
       new Request("https://kivora.test/api/identity", {
