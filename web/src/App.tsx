@@ -1003,7 +1003,7 @@ export default function App() {
                 {evidenceSources.map((source) => (
                   <article className="evidence-item" key={source.id}>
                     <div>
-                      <span className="evidence-status">PENDING REVIEW · PRIVATE</span>
+                      <span className="evidence-status">{source.source_type === "field_observation" ? "FIELD OBSERVATION · NOT INDEPENDENTLY VERIFIED" : "PENDING REVIEW · PRIVATE"}</span>
                       <h3>{source.title}</h3>
                       <p>{source.publisher} · {source.topic}</p>
                     </div>
