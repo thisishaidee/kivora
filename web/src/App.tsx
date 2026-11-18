@@ -334,6 +334,9 @@ export default function App() {
       setMaterials("");
       setAvailableTools("");
       setConstraints("");
+      setResearchSources([]);
+      setResearchNotice("");
+      setSavedResearchUrls([]);
       setActiveSession(result.session);
       setMessages([{
         id: "initial-task",
@@ -510,6 +513,9 @@ export default function App() {
     setNotice("");
     try {
       const result = await api<{ session: WorkSession; messages: WorkMessage[] }>(`/api/work-sessions/${id}`);
+      setResearchSources([]);
+      setResearchNotice("");
+      setSavedResearchUrls([]);
       setActiveSession(result.session);
       setMessages(result.messages);
       const firstWorkerMessage = result.messages.find(message => message.role === "worker")?.content ?? "";
