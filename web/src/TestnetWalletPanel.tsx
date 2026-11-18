@@ -12,6 +12,7 @@ import {
   saveEncryptedChangeset,
 } from "./bdk-testnet-persistence";
 import { createRecoveryPhrase, recoveryPhraseToSeed } from "./bip39-recovery";
+import { deleteDeviceWalletSeed, loadDeviceWalletSeed, saveDeviceWalletSeed } from "./device-wallet-vault";
 import { fetchTestnetAddressSnapshot, formatSats, type AddressSnapshot } from "./testnet-esplora";
 
 async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Promise<void> {
@@ -38,6 +39,8 @@ export default function TestnetWalletPanel() {
   const [snapshot, setSnapshot] = useState<AddressSnapshot | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncError, setSyncError] = useState("");
+  const [initializing, setInitializing] = useState(true);
+  const [deviceWalletIssue, setDeviceWalletIssue] = useState(false);
 
   const phraseWords = recoveryPhrase ? recoveryPhrase.split(" ") : [];
   const verificationPositions = [2, 7, 11];
@@ -57,6 +60,39 @@ export default function TestnetWalletPanel() {
     walletRef.current = null;
     walletSeedRef.current?.fill(0);
     walletSeedRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      let seed: Uint8Array | null = null;
+      let restoredWallet: BdkWallet | null = null;
+      try {
+        seed = await loadDeviceWalletSeed();
+        if (!seed) return;
+        const savedChangeset = await loadEncryptedChangeset(seed);
+        if (!savedChangeset) {
+          throw new Error("The saved device wallet has no matching wallet state. Restore with your 12-word phrase; do not create a replacement.");
+        }
+        const result = await restoreBdkTestnetWallet(seed, savedChangeset);
+        restoredWallet = result.wallet;
+        if (!active) return;
+        walletRef.current = restoredWallet;
+        restoredWallet = null;
+        walletSeedRef.current = seed.slice();
+        setAddress(result.address);
+        setStatus("Your saved wallet is ready. You do not need to enter the recovery phrase on this device.");
+      } catch (error) {
+        if (!active) return;
+        setDeviceWalletIssue(true);
+        setStatus(error instanceof Error ? error.message : "The saved wallet could not be opened. Restore with your 12-word phrase.");
+      } finally {
+        restoredWallet?.free();
+        seed?.fill(0);
+        if (active) setInitializing(false);
+      }
+    })();
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -86,8 +122,13 @@ export default function TestnetWalletPanel() {
     let createdWallet: BdkWallet | null = null;
     try {
       const phrase = createRecoveryPhrase();
+      const existingSeed = await loadDeviceWalletSeed();
+      if (existingSeed) {
+        existingSeed.fill(0);
+        setDeviceWalletIssue(true);
+        throw new Error("A wallet already exists on this device. Restore it instead of creating a replacement.");
+      }
       seed = await recoveryPhraseToSeed(phrase);
-      await deleteEncryptedChangeset();
       const result = await createBdkTestnetWallet(seed);
       createdWallet = result.wallet;
       await persistStagedWalletState(createdWallet, seed);
@@ -111,7 +152,7 @@ export default function TestnetWalletPanel() {
     }
   }
 
-  function confirmRecoveryPhrase() {
+  async function confirmRecoveryPhrase() {
     const correct = verificationPositions.every((position, index) =>
       verificationWords[index].trim().toLowerCase() === phraseWords[position],
     );
@@ -119,10 +160,20 @@ export default function TestnetWalletPanel() {
       setStatus("Those words do not match. Check your written recovery phrase and try again.");
       return;
     }
-    setRecoveryPhrase("");
-    setVerificationWords(["", "", ""]);
-    setShowPhrase(false);
-    setStatus("Recovery phrase verified. Keep it offline and private. You can now use the testnet wallet.");
+    setBusy(true);
+    try {
+      if (!walletSeedRef.current) throw new Error("Wallet seed is not available in memory. Restore with your recovery phrase.");
+      await saveDeviceWalletSeed(walletSeedRef.current);
+      setDeviceWalletIssue(false);
+      setRecoveryPhrase("");
+      setVerificationWords(["", "", ""]);
+      setShowPhrase(false);
+      setStatus("Recovery phrase verified and this browser is set to reopen your wallet automatically. Keep the phrase offline for recovery on another device.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not enable automatic wallet access on this device.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function restoreFromPhrase() {
@@ -141,6 +192,8 @@ export default function TestnetWalletPanel() {
         : await createBdkTestnetWallet(seed);
       restoredWallet = result.wallet;
       if (!savedChangeset) await persistStagedWalletState(restoredWallet, seed);
+      await saveDeviceWalletSeed(seed);
+      setDeviceWalletIssue(false);
       walletRef.current = restoredWallet;
       restoredWallet = null;
       walletSeedRef.current = seed.slice();
@@ -184,7 +237,9 @@ export default function TestnetWalletPanel() {
     setBusy(true);
     try {
       await deleteEncryptedChangeset();
+      await deleteDeviceWalletSeed();
       clearWallet();
+      setDeviceWalletIssue(false);
       setRecoveryPhrase("");
       setShowPhrase(false);
       setDiagnostic("");
@@ -212,9 +267,11 @@ export default function TestnetWalletPanel() {
         Experimental testnet wallet. A standard 12-word English BIP39 phrase derives the wallet locally. No seed phrase or private key is sent to KIVORA servers.
         It can check the displayed receive address on Bitcoin testnet. It cannot send transactions. Do not use it for real BTC.
       </p>
-      {!address ? (
+      {initializing && !address ? (
+        <p className="privacy-note">Checking this browser for your saved KIVORA wallet…</p>
+      ) : !address ? (
         <>
-          <div className="wallet-preflight">
+          {!deviceWalletIssue && <div className="wallet-preflight">
             <p className="eyebrow">BEFORE YOU CREATE A WALLET</p>
             <h3>Protect your recovery phrase</h3>
             <ul>
@@ -225,11 +282,11 @@ export default function TestnetWalletPanel() {
               <li>This is a Bitcoin testnet prototype. It can show read-only testnet address activity, but it cannot send Bitcoin or access real BTC.</li>
             </ul>
             <p className="privacy-note">Your phrase is shown once during setup. You will be asked to verify selected words before the wallet is ready.</p>
-          </div>
-          <button className="submit-button" type="button" onClick={() => void createWallet()} disabled={busy}>
+          </div>}
+          {!deviceWalletIssue && <button className="submit-button" type="button" onClick={() => void createWallet()} disabled={busy}>
             <span>{busy ? "Creating testnet wallet…" : "I understand — create testnet wallet"}</span>
             <span aria-hidden="true">↗</span>
-          </button>
+          </button>}
           <div className="backup-controls">
             <p className="eyebrow">RESTORE WITH 12 WORDS</p>
             <label className="field">
@@ -261,7 +318,7 @@ export default function TestnetWalletPanel() {
               <input value={verificationWords[index]} onChange={(event) => setVerificationWords((current) => current.map((word, i) => i === index ? event.target.value : word))} autoComplete="off" spellCheck={false} disabled={busy} />
             </label>
           ))}
-          <button className="submit-button" type="button" onClick={confirmRecoveryPhrase} disabled={busy || verificationWords.some((word) => !word.trim())}>I've saved and verified my phrase</button>
+          <button className="submit-button" type="button" onClick={() => void confirmRecoveryPhrase()} disabled={busy || verificationWords.some((word) => !word.trim())}>I've saved and verified my phrase</button>
         </div>
       ) : (
         <div className="testnet-result">
@@ -309,7 +366,7 @@ export default function TestnetWalletPanel() {
               {snapshot && snapshot.transactionCount > snapshot.transactions.length && <p className="privacy-note">Showing the latest {snapshot.transactions.length} transactions returned by the explorer. Older activity is not loaded yet.</p>}
             </div>
           </div>
-          <p className="privacy-note">This is a read-only balance and activity check for the displayed receive address, not a full scan of every address in the wallet. The BDK state remains encrypted in this browser. No seed or private key is sent to the explorer. Sending is not enabled.</p>
+          <p className="privacy-note">This is a read-only balance and activity check for the displayed receive address, not a full scan of every address in the wallet. The BDK state and device-unlock seed are encrypted in this browser. No seed or private key is sent to the explorer. Sending is not enabled.</p>
         </div>
       )}
       {status && <p className="notice" role="status">{status}</p>}
