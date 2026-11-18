@@ -510,6 +510,40 @@ describe("KIVORA research endpoint access control", () => {
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "work_session_not_found" });
   });
+  it("returns Tavily results only as unverified leads and never auto-saves evidence", async () => {
+    const db = authenticatedDb({ id: sessionId, trade: "plumbing" });
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      results: [{
+        title: "Manufacturer installation guide",
+        url: "https://docs.example.com/manual",
+        content: "Check the exact cartridge reference in the product table.",
+      }],
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    const limiter = { limit: vi.fn().mockResolvedValue({ success: true }) };
+    vi.stubGlobal("fetch", fetchImpl);
+    let response: Response | undefined;
+    try {
+      response = await worker.fetch(request(), {
+        ASSETS: { fetch: vi.fn() },
+        DB: db as never,
+        TAVILY_API_KEY: "test-only-key",
+        AI_LIMITER: limiter,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    const body = await response!.json();
+    expect(response!.status).toBe(200);
+    expect(body.sourceStatus).toBe("unverified_leads");
+    expect(body.technicalGuidanceEnabled).toBe(false);
+    expect(body.sources[0]).toMatchObject({
+      reviewStatus: "unverified_lead",
+      evidenceEligible: false,
+      url: "https://docs.example.com/manual",
+    });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(db.statements.some((statement) => statement.sql.includes("INSERT INTO evidence_sources"))).toBe(false);
+  });
 });
 
 describe("KIVORA assist evidence applicability", () => {
