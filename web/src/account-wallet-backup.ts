@@ -192,5 +192,7 @@ export async function rememberAccountWalletUnlockKey(
   const salt = fromBase64(backup.salt, 16);
   if (salt.byteLength !== 16) throw new Error("The encrypted wallet backup is malformed.");
   const key = await deriveEncryptionKey(password, salt, backup.iterations);
-  if (typeof indexedDB !== "undefined") {\n    try { await cacheUnlockKey(workerId, key); } catch { /* The backup is saved even if device caching is unavailable. */ }\n  }
+  if (typeof indexedDB !== "undefined") {
+    try { await cacheUnlockKey(workerId, key); } catch { /* The backup is saved even if device caching is unavailable. */ }
+  }
 }
