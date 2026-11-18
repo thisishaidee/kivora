@@ -21,7 +21,12 @@ function jsonError(message: string, status: number): Response {
 export async function onRequest({ request, params }: PagesContext): Promise<Response> {
   if (request.method !== "GET") return jsonError("Method not allowed.", 405);
 
-  const path = (params.path ?? "").replace(/^\/+|\/+$/g, "");
+  // Pages catch-all params can be absent in some runtime adapters.
+  // Derive only from this fixed API prefix as a safe fallback.
+  const routePath = new URL(request.url).pathname.replace(/^\/api\/testnet\/?/, "");
+  const rawPath = params?.path;
+  const parameterPath = Array.isArray(rawPath) ? rawPath.join("/") : rawPath;
+  const path = (parameterPath || routePath).replace(/^\/+|\/+$/g, "");
   let upstreamPath: string;
 
   if (path === "blocks/tip/height") {
