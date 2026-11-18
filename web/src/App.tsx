@@ -1032,12 +1032,13 @@ export default function App() {
                 {evidenceSources.map((source) => (
                   <article className="evidence-item" key={source.id}>
                     <div>
-                      <span className="evidence-status">{source.source_type === "field_observation" ? "FIELD OBSERVATION · NOT INDEPENDENTLY VERIFIED" : "PENDING REVIEW · PRIVATE"}</span>
+                      <span className="evidence-status">{source.source_type === "field_observation" ? "FIELD OBSERVATION · PENDING REVIEW · PRIVATE" : "PENDING REVIEW · PRIVATE"}</span>
                       <h3>{source.title}</h3>
                       <p>{source.publisher} · {source.topic}</p>
                       <p className="evidence-meta">
                         {[source.product_make, source.product_model, source.source_version, source.revision_date, source.jurisdiction, source.page_or_section].filter(Boolean).join(" · ") || "Product model, revision and scope not recorded"}
                       </p>
+                      {source.source_type === "field_observation" && <p className="evidence-meta">One-job report only. It is not independent proof of a general procedure or compatibility.</p>}
                     </div>
                     {source.source_url && <a href={source.source_url} target="_blank" rel="noreferrer">Open source</a>}
                   </article>
