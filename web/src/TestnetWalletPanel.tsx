@@ -104,7 +104,7 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
           setAddress(result.address);
           setAccountBackupState("ready");
           setAccountBackupMessage("Your account wallet was unlocked. Its encrypted backup is linked to this KIVORA account.");
-          if (props.accountPassword) props.onWalletPasswordConsumed?.();
+          if (props.accountPassword) props.onWalletPasswordConsumed?.();\n          setBackupPassword("");
         } finally {
           restored?.free();
           seed.fill(0);
@@ -236,6 +236,28 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
     }
   }
 
+  async function linkExistingWalletToAccount() {
+    if (!props.accountWorkerId || !pendingAccountBackupRef.current || !backupPassword || busy) return;
+    setBusy(true);
+    setAccountBackupMessage("");
+    try {
+      if (backupPassword.length < 12) throw new Error("Use your KIVORA account password to encrypt this wallet backup.");
+      const encrypted = await encryptAccountWalletBackup(pendingAccountBackupRef.current, backupPassword, props.accountWorkerId);
+      const saved = await accountBackupRequest<{ saved: boolean; revision: number }>("PUT", encrypted);
+      accountBackupExistsRef.current = true;
+      setAccountBackupRevision(saved.revision);
+      setAccountBackupState("ready");
+      setAccountBackupMessage("This existing wallet is now linked to your KIVORA account with client-side encryption.");
+      pendingAccountBackupRef.current = null;
+      setBackupPassword("");
+    } catch (error) {
+      setAccountBackupMessage(error instanceof Error ? error.message : "The wallet could not be linked.");
+      setAccountBackupState("error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function refreshAddressActivity() {
     if (!address || syncBusy) return;
     setSyncBusy(true);
@@ -360,6 +382,17 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
             <button className="unit-option selected" type="button" onClick={() => void copyAddress()}>Copy address</button>
             <button className="unit-option" type="button" onClick={() => void discardWallet()} disabled={busy || syncBusy}>Discard wallet</button>
           </div>
+          {props.accountWorkerId && pendingAccountBackupRef.current && !accountBackupExistsRef.current && <div className="backup-controls">
+            <p className="eyebrow">LINK THIS WALLET TO YOUR ACCOUNT</p>
+            <label className="field">
+              <span>KIVORA account password</span>
+              <input type="password" value={backupPassword} onChange={(event) => setBackupPassword(event.target.value)} autoComplete="current-password" minLength={12} />
+            </label>
+            <button className="unit-option" type="button" onClick={() => void linkExistingWalletToAccount()} disabled={busy || backupPassword.length < 12}>
+              {busy ? "Encrypting and linking…" : "Link existing wallet to my account"}
+            </button>
+            <p className="privacy-note">This is an explicit action. The recovery phrase and private keys stay on this device; only the encrypted backup is uploaded.</p>
+          </div>}
           <div className="wallet-chain-panel">
             <div className="wallet-chain-heading">
               <div>
