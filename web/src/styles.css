@@ -320,3 +320,5 @@ textarea {
 @media(max-width:650px){.research-item-heading{align-items:flex-start;flex-direction:column}.research-domain{text-align:left}.research-actions{align-items:flex-start;flex-direction:column}}
 
 .evidence-meta{font-size:10px!important;color:#858b81!important;line-height:1.6;margin-top:5px!important;overflow-wrap:anywhere}
+
+.citation-meta{display:block;font-size:10px;line-height:1.6;color:#777f73;margin-top:4px;overflow-wrap:anywhere}
