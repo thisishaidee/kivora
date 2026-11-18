@@ -130,7 +130,7 @@ export async function encryptAccountWalletBackup(
 /** Decrypts only in the browser. Wrong passwords, altered ciphertext, or cross-account copies fail closed. */
 export async function decryptAccountWalletBackup(
   backup: EncryptedAccountWalletBackup,
-  password: string,
+  password: string | null,
   workerId: string,
 ): Promise<string> {
   if (
