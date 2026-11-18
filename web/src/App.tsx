@@ -377,6 +377,9 @@ export default function App() {
       setMaterials("");
       setAvailableTools("");
       setConstraints("");
+      setInvolvesEquipment(false);
+      setEquipmentMake("");
+      setEquipmentModel("");
       setResearchSources([]);
       setResearchNotice("");
       setSavedResearchUrls([]);
@@ -787,7 +790,7 @@ export default function App() {
                   <input value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} placeholder="For example, Nigeria" />
                 </label>
                 <label className="intake-flag">
-                  <input type="checkbox" checked={involvesEquipment} onChange={(event) => setInvolvesEquipment(event.target.checked)} />
+                  <input type="checkbox" checked={involvesEquipment} onChange={(event) => { setInvolvesEquipment(event.target.checked); if (!event.target.checked) { setEquipmentMake(""); setEquipmentModel(""); } }} />
                   <span>A specific product, component or machine is involved</span>
                 </label>
                 {involvesEquipment && <div className="field-grid">
