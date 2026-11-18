@@ -166,6 +166,42 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
     return () => controller.abort();
   }, [address, showPhrase]);
 
+  async function unlockAccountBackupWithPassword() {
+    if (!props.accountWorkerId || backupPassword.length < 12 || busy) return;
+    setBusy(true);
+    setAccountBackupMessage("");
+    let seed: Uint8Array | null = null;
+    let restoredWallet: BdkWallet | null = null;
+    try {
+      const { backup } = await accountBackupRequest<{ backup: (EncryptedAccountWalletBackup & { revision: number }) | null }>("GET");
+      if (!backup) throw new Error("No encrypted wallet backup is linked to this account.");
+      setAccountBackupRevision(backup.revision);
+      accountBackupExistsRef.current = true;
+      const serialized = await decryptAccountWalletBackup(backup, backupPassword, props.accountWorkerId);
+      const parsed = JSON.parse(serialized) as { seedHex?: string; changeset?: string };
+      if (!parsed.seedHex || !parsed.changeset) throw new Error("The account wallet backup is incomplete.");
+      seed = hexToBytes(parsed.seedHex);
+      const result = await restoreBdkTestnetWallet(seed, parsed.changeset);
+      restoredWallet = result.wallet;
+      walletRef.current = restoredWallet;
+      restoredWallet = null;
+      walletSeedRef.current = seed.slice();
+      setAddress(result.address);
+      setAccountBackupState("ready");
+      setAccountBackupMessage("Your encrypted account wallet is unlocked on this device.");
+      setStatus("Your account wallet is ready. Keep the 12-word phrase for emergency recovery only.");
+      setBackupPassword("");
+      props.onWalletPasswordConsumed?.();
+    } catch (error) {
+      setAccountBackupState("error");
+      setAccountBackupMessage(error instanceof Error ? error.message : "The account wallet could not be unlocked.");
+    } finally {
+      restoredWallet?.free();
+      seed?.fill(0);
+      setBusy(false);
+    }
+  }
+
   async function createWallet() {
     setBusy(true);
     setStatus("");
@@ -370,6 +406,10 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
             {props.accountWorkerId && accountBackupState === "checking" && <p className="privacy-note">Checking your account wallet…</p>}
             {localWalletDetected && <p className="privacy-note">An encrypted wallet already exists in this browser. Restore it with its 12 words first. KIVORA will not replace it with a new wallet.</p>}
             {props.accountWorkerId && accountBackupState === "error" && <p className="wallet-sync-error" role="alert">{accountBackupMessage}</p>}
+            {props.accountWorkerId && accountBackupState === "error" && accountBackupExistsRef.current && <button className="unit-option" type="button" onClick={() => void unlockAccountBackupWithPassword()} disabled={busy || backupPassword.length < 12}>
+              {busy ? "Unlocking account wallet…" : "Unlock account wallet with password"}
+            </button>}
+
           </div>
           <button className="submit-button" type="button" onClick={() => void createWallet()} disabled={busy || accountBackupState === "checking" || accountBackupExistsRef.current || localWalletDetected || !localWalletCheckComplete}>
             <span>{busy ? "Creating testnet wallet…" : "I understand — create testnet wallet"}</span>
