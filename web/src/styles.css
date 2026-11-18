@@ -402,3 +402,67 @@ textarea {
  .history-summary{font-size:8px}
  .message-card{max-width:96%;padding:13px 14px}
 }
+
+
+/* Responsive product navigation: desktop rail and mobile dock */
+.page-shell:has(.app-topbar) .workspace-nav{
+ position:fixed;z-index:20;top:158px;left:max(18px,calc((100vw - 1440px)/2 + 26px));width:190px;
+ margin:0;padding:8px;display:flex;flex-direction:column;gap:5px;overflow:visible;
+ border:1px solid #e4e5df;border-radius:13px;background:#fff;box-shadow:0 8px 28px #22220a08
+}
+.page-shell:has(.app-topbar) .workspace-nav-item{width:100%;justify-content:flex-start;min-height:46px;padding:11px 13px;border-radius:8px}
+.page-shell:has(.app-topbar)>.app-welcome-strip,
+.page-shell:has(.app-topbar)>.workspace-nav~section,
+.page-shell:has(.app-topbar)>.global-notice{margin-left:220px}
+.page-shell:has(.app-topbar)>.footer{margin-left:220px}
+.page-shell:has(.app-topbar) .app-welcome-strip{padding-top:38px}
+.auth-card{max-width:520px;margin:70px auto}
+.account-form{display:grid;gap:15px;margin-top:24px}
+.account-form .submit-button{width:100%}
+.auth-switch{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px;font-size:11px;color:#7b8277}
+.auth-back{display:block;margin:18px auto 0}
+.notice{font-size:12px;line-height:1.65;color:#58634f;background:#f5f7f2;border:1px solid #e3e8dd;padding:12px;border-radius:8px}
+.public-demo{position:relative;overflow:hidden}
+.demo-context{display:flex;align-items:center;gap:11px;margin:21px 0 0;padding:11px 12px;border:1px solid #e8eae4;border-radius:9px;background:#fafbf8}
+.demo-context-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:#20231f;color:#fff;font-size:19px}
+.demo-context strong,.demo-context small{display:block}
+.demo-context strong{font-size:10px;color:#343a32}
+.demo-context small{font-size:9px;color:#858c80;margin-top:4px}
+.demo-checks{display:grid;gap:0;margin-top:10px}
+.demo-checks>div{display:grid;grid-template-columns:28px 1fr;column-gap:9px;padding:12px 0;border-top:1px solid #eceee8}
+.demo-checks>div>span{grid-row:span 2;font-family:"DM Mono",monospace;color:#92988e;font-size:9px;padding-top:2px}
+.demo-checks strong{font-size:11px;font-weight:600;color:#394036}
+.demo-checks small{font-size:9px;line-height:1.5;color:#7c8478;margin-top:4px}
+.demo-context-footer{display:grid;gap:6px;margin-top:12px;padding:12px;border-radius:8px;background:#f2f4ef}
+.demo-context-footer span{font-family:"DM Mono",monospace;font-size:8px;letter-spacing:.1em;color:#899184}
+.demo-context-footer strong{font-size:9px;font-weight:500;color:#535c4e}
+@media(max-width:900px) and (min-width:761px){
+ .page-shell:has(.app-topbar) .workspace-nav{width:158px;left:14px}
+ .page-shell:has(.app-topbar)>.app-welcome-strip,
+ .page-shell:has(.app-topbar)>.workspace-nav~section,
+ .page-shell:has(.app-topbar)>.global-notice{margin-left:178px}
+ .page-shell:has(.app-topbar)>.footer{margin-left:178px}
+ .page-shell:has(.app-topbar) .workspace-nav-item{padding:10px;font-size:10px}
+}
+@media(max-width:760px){
+ .page-shell:has(.app-topbar){padding:0 18px 104px}
+ .page-shell:has(.app-topbar) .workspace-nav{
+  position:fixed;top:auto;bottom:max(10px,env(safe-area-inset-bottom));left:12px;right:12px;width:auto;
+  margin:0;padding:7px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;
+  border:1px solid #dfe3da;border-radius:16px;background:#fffffff2;backdrop-filter:blur(16px);
+  box-shadow:0 8px 30px #171b1420
+ }
+ .page-shell:has(.app-topbar) .workspace-nav-item{min-width:0;min-height:54px;padding:7px 2px;display:flex;flex-direction:column;justify-content:center;gap:4px;border-radius:10px;font-size:9px}
+ .page-shell:has(.app-topbar) .nav-glyph{display:block;font-size:16px}
+ .page-shell:has(.app-topbar)>.app-welcome-strip,
+ .page-shell:has(.app-topbar)>.workspace-nav~section,
+ .page-shell:has(.app-topbar)>.global-notice,
+ .page-shell:has(.app-topbar)>.footer{margin-left:0}
+ .page-shell:has(.app-topbar) .app-welcome-strip{padding-top:28px}
+ .page-shell:has(.app-topbar)>.footer{padding-bottom:12px}
+ .auth-card{margin:38px auto}
+}
+@media(max-width:380px){
+ .page-shell:has(.app-topbar) .workspace-nav-item{font-size:8px}
+ .page-shell:has(.app-topbar) .nav-glyph{font-size:14px}
+}
