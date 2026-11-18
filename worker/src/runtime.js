@@ -344,7 +344,7 @@ const handleApi = async (request, env, url) => {
       // from the server-side registry may support an assessment.
       const request = parseWorkRequest(body);
       const evidenceResult = await env.DB.prepare(
-        `SELECT id, source_type, publisher, title, source_url, document_ref, product_make,
+        `SELECT id, source_type, publisher, title, source_url, document_ref, source_version, product_make,
           product_model, trade, topic, revision_date, retrieved_at,
           jurisdiction, page_or_section, evidence_note
          FROM evidence_sources
@@ -367,6 +367,8 @@ const handleApi = async (request, env, url) => {
       ).all();
       const evidence = (evidenceResult.results ?? []).map((source) => ({
         id: String(source.id),
+        sourceType: String(source.source_type),
+        ...(source.source_version ? { sourceVersion: String(source.source_version) } : {}),
         publisher: String(source.publisher),
         title: String(source.title),
         ...(source.source_url ? { url: String(source.source_url) } : {}),
@@ -405,7 +407,7 @@ const handleApi = async (request, env, url) => {
       request.language = typeof body.language === "string" && LANGUAGES.has(body.language) ? body.language : "en";
       request.units = typeof body.units === "string" && UNITS.has(body.units) ? body.units : "metric";
       const evidenceResult = await env.DB.prepare(
-        `SELECT id, source_type, publisher, title, source_url, document_ref, product_make,
+        `SELECT id, source_type, publisher, title, source_url, document_ref, source_version, product_make,
           product_model, trade, topic, revision_date, retrieved_at,
           jurisdiction, page_or_section, evidence_note
          FROM evidence_sources
@@ -428,6 +430,8 @@ const handleApi = async (request, env, url) => {
       ).all();
       const evidence = (evidenceResult.results ?? []).map(source => ({
         id: String(source.id),
+        sourceType: String(source.source_type),
+        ...(source.source_version ? { sourceVersion: String(source.source_version) } : {}),
         publisher: String(source.publisher),
         title: String(source.title),
         ...(source.source_url ? { url: String(source.source_url) } : {}),
