@@ -13,18 +13,37 @@ import {
 } from "./bdk-testnet-persistence";
 import { createRecoveryPhrase, recoveryPhraseToSeed } from "./bip39-recovery";
 import { fetchTestnetAddressSnapshot, formatSats, type AddressSnapshot } from "./testnet-esplora";
+import { decryptAccountWalletBackup, encryptAccountWalletBackup, type EncryptedAccountWalletBackup } from "./account-wallet-backup";
 
-async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Promise<void> {
+async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Promise<string> {
   const staged = wallet.take_staged();
   if (!staged) throw new Error("BDK did not return the wallet changes needed for safe local recovery.");
   try {
-    await saveEncryptedChangeset(staged.to_json(), seed);
+    const delta = staged.to_json();\n    await saveEncryptedChangeset(delta, seed);\n    return await loadEncryptedChangeset(seed) ?? delta;
   } finally {
     staged.free();
   }
 }
 
-export default function TestnetWalletPanel(_props: { accountWorkerId?: string; accountPassword?: string }) {
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function hexToBytes(value: string): Uint8Array {
+  if (!/^(?:[0-9a-f]{2})+$/i.test(value) || value.length > 128) throw new Error("The account wallet backup seed is invalid.");
+  return Uint8Array.from(value.match(/.{2}/g) ?? [], (byte) => Number.parseInt(byte, 16));
+}
+async function accountBackupRequest<T>(method: "GET" | "PUT", body?: unknown): Promise<T> {
+  const response = await fetch("/api/wallet/backup", {
+    method, credentials: "same-origin",
+    headers: body ? { "content-type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const result = await response.json().catch(() => ({})) as T & { error?: string };
+  if (!response.ok) throw new Error(result.error || "The account wallet backup could not be reached.");
+  return result;
+}
+
+export default function TestnetWalletPanel(props: { accountWorkerId?: string; accountPassword?: string; onWalletPasswordConsumed?: () => void }) {
   const walletRef = useRef<BdkWallet | null>(null);
   const walletSeedRef = useRef<Uint8Array | null>(null);
   const [address, setAddress] = useState("");
@@ -38,8 +57,67 @@ export default function TestnetWalletPanel(_props: { accountWorkerId?: string; a
   const [snapshot, setSnapshot] = useState<AddressSnapshot | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncError, setSyncError] = useState("");
+  const [backupPassword, setBackupPassword] = useState(props.accountPassword ?? "");
+  const [accountBackupState, setAccountBackupState] = useState<"checking" | "missing" | "ready" | "error">("checking");
+  const [accountBackupMessage, setAccountBackupMessage] = useState("");
+  const [accountBackupRevision, setAccountBackupRevision] = useState<number | null>(null);
+  const pendingAccountBackupRef = useRef<string | null>(null);
+  const accountBackupExistsRef = useRef(false);
 
   const phraseWords = recoveryPhrase ? recoveryPhrase.split(" ") : [];
+
+  useEffect(() => {
+    if (props.accountPassword) setBackupPassword(props.accountPassword);
+  }, [props.accountPassword]);
+
+  useEffect(() => {
+    if (!props.accountWorkerId) {
+      setAccountBackupState("missing");
+      return;
+    }
+    let cancelled = false;
+    setAccountBackupState("checking");
+    void accountBackupRequest<{ backup: (EncryptedAccountWalletBackup & { revision: number }) | null }>("GET")
+      .then(async ({ backup }) => {
+        if (cancelled) return;
+        if (!backup) {
+          accountBackupExistsRef.current = false;
+          setAccountBackupRevision(null);
+          setAccountBackupState("missing");
+          return;
+        }
+        accountBackupExistsRef.current = true;
+        setAccountBackupRevision(backup.revision);
+        const serialized = await decryptAccountWalletBackup(backup, props.accountPassword || null, props.accountWorkerId!);
+        const parsed = JSON.parse(serialized) as { seedHex?: string; changeset?: string };
+        if (!parsed.seedHex || !parsed.changeset) throw new Error("The account wallet backup is incomplete.");
+        const seed = hexToBytes(parsed.seedHex);
+        let restored: BdkWallet | null = null;
+        try {
+          const result = await restoreBdkTestnetWallet(seed, parsed.changeset);
+          restored = result.wallet;
+          if (cancelled) { restored.free(); restored = null; seed.fill(0); return; }
+          await saveEncryptedChangeset(parsed.changeset, seed);
+          walletRef.current = restored;
+          restored = null;
+          walletSeedRef.current = seed.slice();
+          setAddress(result.address);
+          setAccountBackupState("ready");
+          setAccountBackupMessage("Your account wallet was unlocked. Its encrypted backup is linked to this KIVORA account.");
+          if (props.accountPassword) props.onWalletPasswordConsumed?.();
+        } finally {
+          restored?.free();
+          seed.fill(0);
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setAccountBackupState("error");
+        setAccountBackupMessage(error instanceof Error ? error.message : "The account wallet could not be unlocked.");
+        if (props.accountPassword) props.onWalletPasswordConsumed?.();
+      });
+    return () => { cancelled = true; };
+  }, [props.accountWorkerId]);
   const verificationPositions = [2, 7, 11];
 
   function clearWallet() {
@@ -90,7 +168,8 @@ export default function TestnetWalletPanel(_props: { accountWorkerId?: string; a
       await deleteEncryptedChangeset();
       const result = await createBdkTestnetWallet(seed);
       createdWallet = result.wallet;
-      await persistStagedWalletState(createdWallet, seed);
+      const changeset = await persistStagedWalletState(createdWallet, seed);
+      pendingAccountBackupRef.current = JSON.stringify({ seedHex: bytesToHex(seed), changeset });
       walletRef.current = createdWallet;
       createdWallet = null;
       walletSeedRef.current = seed.slice();
@@ -141,6 +220,7 @@ export default function TestnetWalletPanel(_props: { accountWorkerId?: string; a
         : await createBdkTestnetWallet(seed);
       restoredWallet = result.wallet;
       if (!savedChangeset) await persistStagedWalletState(restoredWallet, seed);
+      pendingAccountBackupRef.current = JSON.stringify({ seedHex: bytesToHex(seed), changeset: await loadEncryptedChangeset(seed) ?? savedChangeset ?? "" });
       walletRef.current = restoredWallet;
       restoredWallet = null;
       walletSeedRef.current = seed.slice();
@@ -225,8 +305,14 @@ export default function TestnetWalletPanel(_props: { accountWorkerId?: string; a
               <li>This is a Bitcoin testnet prototype. It can show read-only testnet address activity, but it cannot send Bitcoin or access real BTC.</li>
             </ul>
             <p className="privacy-note">Your phrase is shown once during setup. You will be asked to verify selected words before the wallet is ready.</p>
+            {props.accountWorkerId && <label className="field">
+              <span>KIVORA account password (encrypts the account backup)</span>
+              <input type="password" value={backupPassword} onChange={(event) => setBackupPassword(event.target.value)} autoComplete="current-password" minLength={12} />
+            </label>}
+            {props.accountWorkerId && accountBackupState === "checking" && <p className="privacy-note">Checking your account wallet…</p>}
+            {props.accountWorkerId && accountBackupState === "error" && <p className="wallet-sync-error" role="alert">{accountBackupMessage}</p>}
           </div>
-          <button className="submit-button" type="button" onClick={() => void createWallet()} disabled={busy}>
+          <button className="submit-button" type="button" onClick={() => void createWallet()} disabled={busy || accountBackupState === "checking" || accountBackupExistsRef.current}>
             <span>{busy ? "Creating testnet wallet…" : "I understand — create testnet wallet"}</span>
             <span aria-hidden="true">↗</span>
           </button>
@@ -312,6 +398,7 @@ export default function TestnetWalletPanel(_props: { accountWorkerId?: string; a
           <p className="privacy-note">This is a read-only balance and activity check for the displayed receive address, not a full scan of every address in the wallet. The BDK state remains encrypted in this browser. No seed or private key is sent to the explorer. Sending is not enabled.</p>
         </div>
       )}
+      {props.accountWorkerId && accountBackupMessage && <p className="privacy-note" role="status">{accountBackupMessage}</p>}
       {status && <p className="notice" role="status">{status}</p>}
       {diagnostic && <p className="privacy-note" role="status">Diagnostic: {diagnostic}</p>}
     </section>
