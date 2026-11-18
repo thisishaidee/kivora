@@ -277,7 +277,7 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
     try {
       if (backupPassword.length < 12) throw new Error("Use your KIVORA account password to encrypt this wallet backup.");
       const encrypted = await encryptAccountWalletBackup(pendingAccountBackupRef.current, backupPassword, props.accountWorkerId);
-      const saved = await accountBackupRequest<{ saved: boolean; revision: number }>("PUT", encrypted);
+      const saved = await accountBackupRequest<{ saved: boolean; revision: number }>("PUT", { ...encrypted, ...(accountBackupExistsRef.current && accountBackupRevision !== null ? { revision: accountBackupRevision } : {}) });
       await rememberAccountWalletUnlockKey(encrypted, backupPassword, props.accountWorkerId);
       accountBackupExistsRef.current = true;
       setAccountBackupRevision(saved.revision);
