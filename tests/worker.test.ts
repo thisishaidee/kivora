@@ -407,6 +407,82 @@ describe("KIVORA assessment endpoint", () => {
 });
 
 
+describe("KIVORA research endpoint access control", () => {
+  const sessionId = "123e4567-e89b-12d3-a456-426614174000";
+  const request = () => new Request("https://kivora.test/api/research", {
+    method: "POST",
+    headers: {
+      origin: "https://kivora.test",
+      "content-type": "application/json",
+      cookie: `__Host-kivora_session=${"a".repeat(64)}`,
+    },
+    body: JSON.stringify({
+      sessionId,
+      trade: "plumbing",
+      task: "Identify the exact replacement cartridge for this tap.",
+      language: "en",
+      units: "metric",
+    }),
+  });
+  const authenticatedDb = (session: unknown) => {
+    const statements: { sql: string; values: unknown[] }[] = [];
+    const db = {
+      prepare: (sql: string) => {
+        const statement = {
+          sql,
+          values: [] as unknown[],
+          bind(...values: unknown[]) { this.values = values; return this; },
+          first: async () => sql.includes("JOIN workers")
+            ? { worker_id: "worker-a" }
+            : sql.includes("FROM work_sessions") ? session : null,
+          all: async () => ({ results: [] }),
+          run: async () => ({ success: true, meta: { changes: 1 } }),
+        };
+        statements.push(statement);
+        return statement;
+      },
+      batch: async () => [],
+      statements,
+    };
+    return db;
+  };
+
+  it("requires an authenticated worker before starting research", async () => {
+    const db = makeDb(null);
+    const response = await worker.fetch(request(), { ASSETS: { fetch: vi.fn() }, DB: db as never });
+    expect(response.status).toBe(401);
+  });
+
+  it("rejects a work session that does not belong to the worker", async () => {
+    const db = authenticatedDb(null);
+    const response = await worker.fetch(request(), { ASSETS: { fetch: vi.fn() }, DB: db as never });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "work_session_not_found" });
+  });
+
+  it("fails closed when Tavily is not configured for this environment", async () => {
+    const db = authenticatedDb({ id: sessionId, trade: "plumbing" });
+    const response = await worker.fetch(request(), {
+      ASSETS: { fetch: vi.fn() },
+      DB: db as never,
+      TAVILY_API_KEY: "",
+    });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "research_unavailable" });
+  });
+
+  it("rejects a trade mismatch for an owned work session", async () => {
+    const db = authenticatedDb({ id: sessionId, trade: "electrical" });
+    const response = await worker.fetch(request(), {
+      ASSETS: { fetch: vi.fn() },
+      DB: db as never,
+      TAVILY_API_KEY: "test-only-key",
+    });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "work_session_not_found" });
+  });
+});
+
 describe("private evidence source API", () => {
   it("stores a new source as private and pending", async () => {
     const db = makeDb({ worker_id: "worker-a" });
