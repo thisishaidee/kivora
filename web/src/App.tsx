@@ -220,14 +220,19 @@ export default function App() {
           if (alive) setNotice("Your private preview could not be loaded. Refresh to retry.");
         }
       })
-      .catch(() => {
+      .catch((error) => {
         window.clearTimeout(timeout);
-        if (alive && !identityCheckCancelled.current) {
-          setIdentityState("welcome");
-          setNotice(controller.signal.aborted
-            ? "The private preview check timed out. You can retry or open a new preview identity."
-            : "We couldn't check your private preview identity. You can retry or restore access.");
+        if (!alive || identityCheckCancelled.current) return;
+        setIdentityState("welcome");
+        // A first-time visitor has no session cookie yet. The API's 401 is
+        // the expected anonymous state, not a preview-identity failure.
+        if (error instanceof Error && error.message === "unauthorized") {
+          setNotice("");
+          return;
         }
+        setNotice(controller.signal.aborted
+          ? "The preview check timed out. Try opening the preview again."
+          : "KIVORA couldn't connect to the preview service. Check your connection and try again.");
       });
 
     return () => {
