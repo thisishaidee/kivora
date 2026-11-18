@@ -318,3 +318,5 @@ textarea {
 .research-actions a{font-size:10px;color:#52664b;text-decoration:underline;text-underline-offset:3px}
 .research-actions .text-button{padding:5px 0}
 @media(max-width:650px){.research-item-heading{align-items:flex-start;flex-direction:column}.research-domain{text-align:left}.research-actions{align-items:flex-start;flex-direction:column}}
+
+.evidence-meta{font-size:10px!important;color:#858b81!important;line-height:1.6;margin-top:5px!important;overflow-wrap:anywhere}
