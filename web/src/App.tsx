@@ -1124,15 +1124,15 @@ export default function App() {
           {activeScreen === "account" && <section className="workspace account-card">
             <div className="workspace-heading">
               <div>
-                <p className="eyebrow">PREVIEW ACCESS</p>
-                <h2>Your preview identity</h2>
+                <p className="eyebrow">{accountMode ? "KIVORA ACCOUNT" : "LIMITED PREVIEW ACCESS"}</p>
+                <h2>{accountMode ? "Your account" : "Your preview identity"}</h2>
               </div>
               <span className="step-label">ACTIVE</span>
             </div>
-            <p className="privacy-note">Temporary anonymous preview ID: {workerId.slice(0, 8)}…{workerId.slice(-4)}. This is not your final KIVORA account. Final accounts will use email and password, with email verification and password reset. Your preview sessions remain private.</p>
+            <p className="privacy-note">{accountMode ? "Signed in as " + accountEmail + ". Your investigations and saved evidence are private to this account." : "Temporary anonymous preview ID: " + workerId.slice(0, 8) + "…" + workerId.slice(-4) + ". This is limited preview access, not a permanent account. Create an email-verified KIVORA account when email delivery is available."}</p>
             <div className="account-actions">
-              <button className="unit-option" type="button" onClick={() => void logout()} disabled={busy}>Log out on this device</button>
-              <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete preview identity and all data</button>
+              <button className="unit-option" type="button" onClick={() => void logout()} disabled={busy}>Sign out on this device</button>
+              <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete account and all private data</button>
             </div>
           </section>}
 
