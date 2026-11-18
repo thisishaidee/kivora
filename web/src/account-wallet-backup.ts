@@ -104,7 +104,7 @@ export async function encryptAccountWalletBackup(
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveEncryptionKey(password, salt, KDF_ITERATIONS);
-  await cacheUnlockKey(workerId, key);
+  if (typeof indexedDB !== "undefined") await cacheUnlockKey(workerId, key);
   const plaintext = new TextEncoder().encode(serializedBackup);
   try {
     const encrypted = await crypto.subtle.encrypt(
@@ -148,8 +148,9 @@ export async function decryptAccountWalletBackup(
   if (salt.byteLength !== 16 || iv.byteLength !== 12 || ciphertext.byteLength < 17) {
     throw new Error("The encrypted wallet backup is malformed.");
   }
-  const key = password\n    ? await deriveEncryptionKey(password, salt, backup.iterations)\n    : await loadUnlockKey(workerId);\n  if (!key) throw new Error("Sign in with your account password to unlock this wallet on this device.");\n  if (password) await cacheUnlockKey(workerId, key);
-  try {
+  const key = password
+    ? await deriveEncryptionKey(password, salt, backup.iterations)\n    : await loadUnlockKey(workerId);
+  if (!key) throw new Error("Sign in with your account password to unlock this wallet on this device.");\n  try {
     const plaintext = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv, additionalData: associatedData(workerId), tagLength: 128 },
       key,
@@ -157,7 +158,9 @@ export async function decryptAccountWalletBackup(
     );
     const bytes = new Uint8Array(plaintext);
     try {
-      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      if (password && typeof indexedDB !== "undefined") await cacheUnlockKey(workerId, key);
+      return decoded;
     } finally {
       bytes.fill(0);
     }
