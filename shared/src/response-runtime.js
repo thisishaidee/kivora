@@ -55,7 +55,7 @@ const validateDraft = (input, evidence) => {
   }
   const citations = [...cited].map(id => {
     const source = sourceById.get(id);
-    return { id, publisher: source.publisher, title: source.title, ...(source.url ? { url: source.url } : {}), ...(source.documentId ? { documentId: source.documentId } : {}), ...(source.pageOrSection ? { pageOrSection: source.pageOrSection } : {}) };
+    return { id, publisher: source.publisher, title: source.title, ...(source.sourceType ? { sourceType: source.sourceType } : {}), ...(source.sourceVersion ? { sourceVersion: source.sourceVersion } : {}), ...(source.revisionDate ? { revisionDate: source.revisionDate } : {}), ...(source.productMake ? { productMake: source.productMake } : {}), ...(source.productModels?.length ? { productModels: source.productModels } : {}), ...(source.jurisdiction ? { jurisdiction: source.jurisdiction } : {}), ...(source.url ? { url: source.url } : {}), ...(source.documentId ? { documentId: source.documentId } : {}), ...(source.pageOrSection ? { pageOrSection: source.pageOrSection } : {}) };
   });
   return { summary, blocks: validatedBlocks, followUpQuestions, citations };
 };
@@ -63,7 +63,7 @@ export async function composeWorkerAssistantResponse({ request, assessment, ai }
   if (assessment.decision === "escalate") return empty("escalate", "Stop the task where indicated and get help from a qualified professional. Do not use this assessment as permission to continue.", assessment, assessment.questions, assessment.permittedGuidance.map(content => ({ kind: "safety", content, evidenceIds: [] })));
   if (assessment.decision === "clarify") return empty("clarify", "More context or reviewed, applicable evidence is required before technical guidance can be provided.", assessment, assessment.questions.length ? assessment.questions : assessment.missingInformation.map(item => "Please provide " + item + "."));
   if (!ai || typeof ai.run !== "function") return empty("unavailable", "The evidence checks passed, but the free AI service is not currently available. No technical procedure was generated.", assessment);
-  const evidence = assessment.evidenceSources.slice(0, 8).map(source => ({ id: source.id, publisher: source.publisher, title: source.title, url: source.url, documentId: source.documentId, pageOrSection: source.pageOrSection, excerpt: source.excerpt.slice(0, 1200), reviewed: source.reviewed === true }));
+  const evidence = assessment.evidenceSources.slice(0, 8).map(source => ({ id: source.id, sourceType: source.sourceType, sourceVersion: source.sourceVersion, revisionDate: source.revisionDate, productMake: source.productMake, productModels: source.productModels, jurisdiction: source.jurisdiction, trade: source.trade, topic: source.topic, publisher: source.publisher, title: source.title, url: source.url, documentId: source.documentId, pageOrSection: source.pageOrSection, excerpt: source.excerpt.slice(0, 1200), reviewed: source.reviewed === true }));
   const prompt = {
     workerRequest: { trade: request.trade, task: request.task, knownFacts: request.knownFacts, jurisdiction: request.jurisdiction ?? null, equipmentMake: request.equipmentMake ?? null, equipmentModel: request.equipmentModel ?? null, language: request.language ?? "en", units: request.units ?? "metric" },
     deterministicAssessment: { decision: assessment.decision, safetyLevel: assessment.safetyLevel, missingInformation: assessment.missingInformation, questions: assessment.questions, limitations: assessment.limitations },

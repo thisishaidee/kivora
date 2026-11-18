@@ -17,6 +17,12 @@ const assessment = {
     id: "manual-k100",
     publisher: "Acme",
     title: "K-100 service manual",
+    sourceType: "manufacturer_manual",
+    sourceVersion: "Revision 3",
+    revisionDate: "2025-01-15",
+    productMake: "Acme",
+    productModels: ["K-100"],
+    jurisdiction: "Nigeria",
     url: "https://example.com/manual",
     trade: "plumbing",
     topic: "cartridge identification",
@@ -84,6 +90,23 @@ describe("Workers AI grounded response adapter", () => {
     const result = await composeWorkerAssistantResponse({ request, assessment, ai: { run } });
     expect(result.status).toBe("guided");
     expect(result.citations.map(source => source.id)).toEqual(["manual-k100"]);
+    expect(result.citations[0]).toMatchObject({
+      sourceType: "manufacturer_manual",
+      sourceVersion: "Revision 3",
+      revisionDate: "2025-01-15",
+      productMake: "Acme",
+      productModels: ["K-100"],
+      jurisdiction: "Nigeria",
+    });
+    const prompt = JSON.parse(run.mock.calls[0][1].messages[1].content);
+    expect(prompt.approvedEvidence[0]).toMatchObject({
+      sourceType: "manufacturer_manual",
+      sourceVersion: "Revision 3",
+      revisionDate: "2025-01-15",
+      productMake: "Acme",
+      productModels: ["K-100"],
+      jurisdiction: "Nigeria",
+    });
     expect(run).toHaveBeenCalledWith("@cf/zai-org/glm-4.7-flash", expect.objectContaining({
       response_format: { type: "json_object" },
       max_tokens: 1400,

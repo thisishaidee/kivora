@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PublicHome from "./PublicHome";
 import SpeechPlayback from "./SpeechPlayback";
+import WalletPanel from "./WalletPanel";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -12,7 +13,7 @@ import {
 } from "../../shared/src/contracts";
 import type { IntelligenceAssessment } from "../../shared/src/intelligence";
 
-type IdentityState = "checking" | "welcome" | "recovery" | "recovery-code" | "ready";
+type IdentityState = "checking" | "welcome" | "sign-in" | "sign-up" | "forgot" | "reset" | "ready";
 type WorkSession = {
   id: string;
   title: string;
@@ -29,9 +30,17 @@ type AssistantResponse = {
   summary: string;
   blocks: { kind: string; content: string; evidenceIds: string[] }[];
   questions: string[];
-  citations: { id: string; publisher: string; title: string; url?: string; documentId?: string; pageOrSection?: string }[];
+  citations: { id: string; publisher: string; title: string; sourceType?: string; sourceVersion?: string; revisionDate?: string; productMake?: string; productModels?: string[]; jurisdiction?: string; url?: string; documentId?: string; pageOrSection?: string }[];
   compatibilityStatus: "compatible" | "incompatible" | "undetermined";
   safetyLevel: "routine" | "caution" | "high-risk";
+};
+type ResearchSource = {
+  title: string;
+  url: string;
+  excerpt: string;
+  sourceType: string;
+  reviewStatus: "unverified_lead";
+  evidenceEligible: false;
 };
 type EvidenceSource = {
   id: string;
@@ -40,6 +49,12 @@ type EvidenceSource = {
   publisher: string;
   title: string;
   source_url: string | null;
+  source_version?: string | null;
+  revision_date?: string | null;
+  jurisdiction?: string | null;
+  product_make?: string | null;
+  product_model?: string | null;
+  page_or_section?: string | null;
   topic: string;
   rights_status: string;
   review_status: string;
@@ -79,11 +94,10 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export default function App() {
   const [identityState, setIdentityState] = useState<IdentityState>("checking");
+  const identityCheckCancelled = useRef(false);
+  const [activeScreen, setActiveScreen] = useState<"work" | "history" | "sources" | "payments" | "account">("work");
   const [workerId, setWorkerId] = useState("");
-  const [recoveryCode, setRecoveryCode] = useState("");
-  const [recoveryInput, setRecoveryInput] = useState("");
-  const [recoverySaved, setRecoverySaved] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [accountMode, setAccountMode] = useState(false);
   const [trade, setTrade] = useState<Trade>("unsure");
   const [language, setLanguage] = useState<Language>("en");
   const [units, setUnits] = useState<UnitSystem>("metric");
@@ -100,6 +114,10 @@ export default function App() {
   const [assistantResponse, setAssistantResponse] = useState<AssistantResponse | null>(null);
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [evidenceSources, setEvidenceSources] = useState<EvidenceSource[]>([]);
+  const [researchSources, setResearchSources] = useState<ResearchSource[]>([]);
+  const [researchBusy, setResearchBusy] = useState(false);
+  const [researchNotice, setResearchNotice] = useState("");
+  const [savedResearchUrls, setSavedResearchUrls] = useState<string[]>([]);
   const [evidenceType, setEvidenceType] = useState("manufacturer_manual");
   const [evidencePublisher, setEvidencePublisher] = useState("");
   const [evidenceTitle, setEvidenceTitle] = useState("");
@@ -108,6 +126,9 @@ export default function App() {
   const [evidenceNote, setEvidenceNote] = useState("");
   const [evidenceMake, setEvidenceMake] = useState("");
   const [evidenceModel, setEvidenceModel] = useState("");
+  const [evidenceVersion, setEvidenceVersion] = useState("");
+  const [evidenceRevisionDate, setEvidenceRevisionDate] = useState("");
+  const [evidenceJurisdiction, setEvidenceJurisdiction] = useState("");
   const [evidenceSection, setEvidenceSection] = useState("");
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [messages, setMessages] = useState<WorkMessage[]>([]);
@@ -118,6 +139,13 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountNotice, setAccountNotice] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [showResendVerification, setShowResendVerification] = useState(false);
 
   async function refreshSessions() {
     const result = await api<{ sessions: WorkSession[] }>("/api/work-sessions");
@@ -148,6 +176,9 @@ export default function App() {
           sourceUrl: evidenceUrl.trim() || undefined,
           productMake: evidenceMake.trim() || undefined,
           productModel: evidenceModel.trim() || undefined,
+          sourceVersion: evidenceVersion.trim() || undefined,
+          revisionDate: evidenceRevisionDate || undefined,
+          jurisdiction: evidenceJurisdiction.trim() || undefined,
           topic: evidenceTopic.trim(),
           pageOrSection: evidenceSection.trim() || undefined,
           evidenceNote: evidenceNote.trim(),
@@ -161,6 +192,9 @@ export default function App() {
       setEvidenceNote("");
       setEvidenceMake("");
       setEvidenceModel("");
+      setEvidenceVersion("");
+      setEvidenceRevisionDate("");
+      setEvidenceJurisdiction("");
       setEvidenceSection("");
       await refreshEvidenceSources();
       setNotice("Source saved privately. It is pending review and cannot be used for AI guidance yet.");
@@ -173,14 +207,39 @@ export default function App() {
 
   useEffect(() => {
     let alive = true;
+    const params = new URLSearchParams(window.location.search);
+    const verifyToken = params.get("verify");
+    const reset = params.get("reset");
+    if (verifyToken) {
+      window.history.replaceState({}, "", window.location.pathname);
+      void api<{ worker: { id: string; email?: string } }>("/api/accounts/verify", { method: "POST", body: JSON.stringify({ token: verifyToken }) })
+        .then(async (result) => {
+          if (!alive) return;
+          setWorkerId(result.worker.id); setAccountMode(true); if (result.worker.email) setAccountEmail(result.worker.email); setIdentityState("ready"); setActiveScreen("work");
+          setNotice("Your email is verified. Your KIVORA account is ready.");
+          try { await Promise.all([refreshSessions(), refreshEvidenceSources()]); } catch { setNotice("Your account is ready, but saved workspace data could not be loaded."); }
+        })
+        .catch(() => { if (alive) { setIdentityState("welcome"); setNotice("That verification link is invalid or has expired. Request a new one."); } });
+      return () => { alive = false; };
+    }
+    if (reset) {
+      window.history.replaceState({}, "", window.location.pathname);
+      setResetToken(reset); setIdentityState("reset");
+      return () => { alive = false; };
+    }
     const controller = new AbortController();
+    identityCheckCancelled.current = false;
     const timeout = window.setTimeout(() => controller.abort(), 10000);
 
-    void api<{ worker: { id: string } }>("/api/identity", { signal: controller.signal })
+    void api<{ worker: { id: string; email?: string } }>("/api/identity", { signal: controller.signal })
       .then(async (result) => {
         window.clearTimeout(timeout);
-        if (!alive) return;
+        if (!alive || identityCheckCancelled.current) return;
+        setNotice("");
         setWorkerId(result.worker.id);
+        setAccountMode(Boolean(result.worker.email));
+        if (result.worker.email) setAccountEmail(result.worker.email);
+        setActiveScreen("work");
         setIdentityState("ready");
         try {
           const list = await api<{ sessions: WorkSession[] }>("/api/work-sessions");
@@ -191,14 +250,19 @@ export default function App() {
           if (alive) setNotice("Your private preview could not be loaded. Refresh to retry.");
         }
       })
-      .catch(() => {
+      .catch((error) => {
         window.clearTimeout(timeout);
-        if (alive) {
-          setIdentityState("welcome");
-          setNotice(controller.signal.aborted
-            ? "The private preview check timed out. You can retry or open a new preview identity."
-            : "We couldn't check your private preview identity. You can retry or restore access.");
+        if (!alive || identityCheckCancelled.current) return;
+        setIdentityState("welcome");
+        // A first-time visitor has no session cookie yet. The API's 401 is
+        // the expected anonymous state, not a preview-identity failure.
+        if (error instanceof Error && error.message === "unauthorized") {
+          setNotice("");
+          return;
         }
+        setNotice(controller.signal.aborted
+          ? "The preview check timed out. Try opening the preview again."
+          : "KIVORA couldn't connect to the preview service. Check your connection and try again.");
       });
 
     return () => {
@@ -209,82 +273,64 @@ export default function App() {
   }, []);
 
   async function createIdentity() {
+    identityCheckCancelled.current = true;
     setBusy(true);
     setNotice("");
     try {
-      const result = await api<{ worker: { id: string }; recovery_code: string }>("/api/identity", { method: "POST" });
+      const result = await api<{ worker: { id: string } }>("/api/identity", { method: "POST" });
       setWorkerId(result.worker.id);
-      setRecoveryCode(result.recovery_code);
-      setRecoverySaved(false);
-      setCopied(false);
-      setIdentityState("recovery-code");
-    } catch {
-      setNotice("We couldn't open your private preview. Please try again.");
+      setAccountMode(false);
+      setActiveScreen("work");
+      setIdentityState("ready");
+      try {
+        await Promise.all([refreshSessions(), refreshEvidenceSources()]);
+        setNotice("Your private preview is ready.");
+      } catch {
+        setNotice("Your preview is open, but saved history could not be loaded. Refresh to retry.");
+      }
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "request_failed";
+      setNotice("We couldn't open your private preview (" + code + "). Please try again.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function restoreIdentity(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setNotice("");
+  async function resendVerification() {
+    setAccountBusy(true);
     try {
-      const result = await api<{ worker: { id: string }; recovery_code: string }>("/api/identity/recover", {
-        method: "POST",
-        body: JSON.stringify({ recovery_code: recoveryInput.replace(/\s+/g, "") }),
-      });
-      setWorkerId(result.worker.id);
-      setRecoveryCode(result.recovery_code);
-      setRecoveryInput("");
-      setRecoverySaved(false);
-      setCopied(false);
-      setIdentityState("recovery-code");
+      const result = await api<{ message: string }>("/api/accounts/resend-verification", { method: "POST", body: JSON.stringify({ email: accountEmail.trim() }) });
+      setAccountNotice(result.message);
+      setShowResendVerification(false);
     } catch {
-      setNotice("That recovery code could not be used. Check it and try again.");
-    } finally {
-      setBusy(false);
-    }
+      setAccountNotice("A verification email could not be sent. Email delivery may not be configured yet.");
+    } finally { setAccountBusy(false); }
   }
 
-  async function rotateRecoveryCode() {
-    setBusy(true);
-    setNotice("");
+  async function submitAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setAccountBusy(true); setAccountNotice("");
     try {
-      const result = await api<{ recovery_code: string }>("/api/identity/recovery/rotate", { method: "POST" });
-      setRecoveryCode(result.recovery_code);
-      setRecoverySaved(false);
-      setCopied(false);
-      setIdentityState("recovery-code");
-    } catch {
-      setNotice("A new recovery code could not be created.");
-    } finally {
-      setBusy(false);
-    }
+      if (identityState === "sign-up") {
+        const result = await api<{ message: string }>("/api/accounts/register", { method: "POST", body: JSON.stringify({ email: accountEmail.trim(), password: accountPassword }) });
+        setAccountNotice(result.message || "Check your inbox to verify your email address.");
+      } else if (identityState === "forgot") {
+        const result = await api<{ message: string }>("/api/accounts/forgot", { method: "POST", body: JSON.stringify({ email: accountEmail.trim() }) });
+        setAccountNotice(result.message);
+      } else if (identityState === "reset") {
+        await api("/api/accounts/reset", { method: "POST", body: JSON.stringify({ token: resetToken, password: accountPassword }) });
+        setIdentityState("sign-in"); setAccountPassword(""); setResetToken("");
+        setAccountNotice("Your password has been reset. Sign in with your new password.");
+      } else {
+        const result = await api<{ worker: { id: string } }>("/api/accounts/login", { method: "POST", body: JSON.stringify({ email: accountEmail.trim(), password: accountPassword }) });
+        setWorkerId(result.worker.id); setAccountMode(true); setIdentityState("ready"); setActiveScreen("work"); setAccountPassword("");
+        await Promise.all([refreshSessions(), refreshEvidenceSources()]);
+      }
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "account_request_failed";
+      if (code === "email_not_verified") setShowResendVerification(true);
+      setAccountNotice(code === "email_delivery_unavailable" ? "Account email delivery is not configured yet. Your details were not registered. Sign-up will remain closed until verification email can be delivered." : code === "email_not_verified" ? "Your email address still needs verification. You can request a fresh verification link below." : code === "invalid_credentials" ? "Those sign-in details could not be verified. Check your email and password." : code === "email_already_registered" ? "An account with this email already exists. Try signing in instead." : code === "password_too_short" ? "Use a password with at least 12 characters." : "We couldn't complete that account request. Please try again.");
+    } finally { setAccountBusy(false); }
   }
-
-  async function copyRecoveryCode() {
-    try {
-      await navigator.clipboard.writeText(recoveryCode);
-      setCopied(true);
-      setNotice("Recovery code copied. Store it somewhere private.");
-    } catch {
-      setNotice("Clipboard access is unavailable. Select and copy the code manually.");
-    }
-  }
-
-  async function finishRecoverySetup() {
-    if (!recoverySaved) return;
-    setRecoveryCode("");
-    setIdentityState("ready");
-    setNotice("Your private preview is ready.");
-    try {
-      await Promise.all([refreshSessions(), refreshEvidenceSources()]);
-    } catch {
-      setNotice("Your preview is ready, but saved history could not be loaded.");
-    }
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const validTrade = tradeSchema.safeParse(trade);
@@ -321,6 +367,10 @@ export default function App() {
       setMaterials("");
       setAvailableTools("");
       setConstraints("");
+      setResearchSources([]);
+      setResearchNotice("");
+      setSavedResearchUrls([]);
+      setActiveScreen("work");
       setActiveSession(result.session);
       setMessages([{
         id: "initial-task",
@@ -366,6 +416,71 @@ export default function App() {
       }
     } catch {
       setNotice("Your task could not be saved. It has not been sent to an AI service.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function searchResearchLeads() {
+    if (!activeSession) return;
+    setResearchBusy(true);
+    setResearchNotice("");
+    setResearchSources([]);
+    try {
+      const workerContext = messages.filter((message) => message.role === "worker").map((message) => message.content).join("\n\n").slice(-3600);
+      const result = await api<{ sources: ResearchSource[]; notice: string; technicalGuidanceEnabled: false }>("/api/research", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: activeSession.id,
+          trade: activeSession.trade,
+          task: workerContext || activeSession.title,
+          language: activeSession.language,
+          units: activeSession.unit_system,
+        }),
+      });
+      setResearchSources(result.sources);
+      setResearchNotice(result.sources.length ? result.notice : "No source leads were returned. Try adding the product make, exact model or a more specific description to this investigation.");
+    } catch {
+      setResearchNotice("Research could not be completed. Check your connection and try again. No source has been marked verified.");
+    } finally {
+      setResearchBusy(false);
+    }
+  }
+
+  async function saveResearchLead(source: ResearchSource) {
+    if (!activeSession || savedResearchUrls.includes(source.url)) return;
+    let publisher = "";
+    try {
+      const url = new URL(source.url);
+      if (url.protocol !== "https:") {
+        setResearchNotice("This result does not use HTTPS, so it cannot be saved to the evidence library.");
+        return;
+      }
+      publisher = "Unverified host: " + url.hostname;
+    } catch {
+      setResearchNotice("This source link is invalid and cannot be saved.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api("/api/evidence-sources", {
+        method: "POST",
+        body: JSON.stringify({
+          trade: activeSession.trade,
+          sourceType: "other",
+          publisher,
+          title: source.title,
+          sourceUrl: source.url,
+          topic: activeSession.title.slice(0, 200) || "Research source lead",
+          evidenceNote: source.excerpt,
+          language: activeSession.language,
+        }),
+      });
+      setSavedResearchUrls((current) => [...current, source.url]);
+      await refreshEvidenceSources();
+      setResearchNotice("Saved privately as pending review. It has not been authenticated or approved for technical guidance.");
+    } catch {
+      setResearchNotice("This source could not be saved. It remains an unverified search lead.");
     } finally {
       setBusy(false);
     }
@@ -432,6 +547,9 @@ export default function App() {
     setNotice("");
     try {
       const result = await api<{ session: WorkSession; messages: WorkMessage[] }>(`/api/work-sessions/${id}`);
+      setResearchSources([]);
+      setResearchNotice("");
+      setSavedResearchUrls([]);
       setActiveSession(result.session);
       setMessages(result.messages);
       const firstWorkerMessage = result.messages.find(message => message.role === "worker")?.content ?? "";
@@ -498,7 +616,7 @@ export default function App() {
       setActiveSession(null);
       setMessages([]);
       setIdentityState("welcome");
-      setNotice("You have been logged out. Your private preview remains available with your recovery code.");
+      setNotice("You have been logged out on this device. Start a new preview to continue.");
     } catch {
       setNotice("You could not be logged out. Please try again.");
     } finally {
@@ -524,20 +642,50 @@ export default function App() {
     }
   }
 
-  const visibleSessions = sessions.filter((session) => showArchived || !session.archived_at);
+  const visibleSessions = sessions.filter((session) => (showArchived || !session.archived_at) && session.title.toLowerCase().includes(historyQuery.trim().toLowerCase()));
 
   if (identityState === "welcome") {
-    return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("recovery"); setNotice(""); }} />;
+    return <PublicHome busy={busy} notice={notice} onGetStarted={() => { if (workerId) setIdentityState("ready"); else void createIdentity(); }} onSignIn={() => { setIdentityState("sign-in"); setAccountNotice(""); setNotice(""); }} onCreateAccount={() => { setIdentityState("sign-up"); setAccountNotice(""); setNotice(""); }} />
+  }
+
+  if (identityState === "sign-in" || identityState === "sign-up" || identityState === "forgot" || identityState === "reset") {
+    const creatingAccount = identityState === "sign-up";
+    const requestingReset = identityState === "forgot";
+    const settingNewPassword = identityState === "reset";
+    return (
+      <main className="page-shell auth-shell">
+        <header className="topbar"><a className="brand" href="/" aria-label="KIVORA landing page" onClick={(event) => { event.preventDefault(); setIdentityState("welcome"); setAccountNotice(""); }}><span className="brand-mark">K</span><span>KIVORA</span></a><span className="topbar-note">Practical intelligence for skilled work</span></header>
+        <section className="workspace identity-card auth-card">
+          <p className="eyebrow">KIVORA ACCOUNT</p>
+          <h2>{creatingAccount ? "Create your account." : requestingReset ? "Reset your password." : settingNewPassword ? "Choose a new password." : "Welcome back."}</h2>
+          <p className="privacy-note">{creatingAccount ? "Use your email and a strong password. Email verification is required before an account can be used." : requestingReset ? "Enter your email and we will send a secure reset link if an account matches." : settingNewPassword ? "Choose a new password with at least 12 characters." : "Sign in to return to your private investigations and saved evidence."}</p>
+          <form onSubmit={(event) => void submitAccount(event)} className="account-form">
+            {!settingNewPassword && <label className="field"><span>Email address</span><input type="email" autoComplete="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} required maxLength={254} placeholder="you@example.com" /></label>}
+            {!requestingReset && <label className="field"><span>Password</span><input type="password" autoComplete={creatingAccount || settingNewPassword ? "new-password" : "current-password"} value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} required minLength={creatingAccount || settingNewPassword ? 12 : 1} maxLength={128} placeholder={creatingAccount || settingNewPassword ? "At least 12 characters" : "Your password"} /></label>}
+            <button className="submit-button" type="submit" disabled={accountBusy || (!settingNewPassword && !accountEmail.trim()) || (!requestingReset && !accountPassword)}>{accountBusy ? "Please wait…" : creatingAccount ? "Create account" : requestingReset ? "Send reset link" : settingNewPassword ? "Update password" : "Sign in"} <span aria-hidden="true">↗</span></button>
+          </form>
+          {accountNotice && <p className="notice" role="status">{accountNotice}</p>}
+          {showResendVerification && <button className="text-button auth-forgot" type="button" onClick={() => void resendVerification()} disabled={accountBusy}>Resend verification email</button>}
+          {identityState === "sign-in" && <button className="text-button auth-forgot" type="button" onClick={() => { setIdentityState("forgot"); setAccountNotice(""); }}>Forgot password?</button>}
+          <div className="auth-switch"><span>{creatingAccount ? "Already have an account?" : requestingReset || settingNewPassword ? "Remember your password?" : "New to KIVORA?"}</span><button className="text-button" type="button" onClick={() => { setIdentityState(creatingAccount || requestingReset || settingNewPassword ? "sign-in" : "sign-up"); setAccountNotice(""); setAccountPassword(""); }}>{creatingAccount || requestingReset || settingNewPassword ? "Sign in" : "Create an account"}</button></div>
+          <button className="text-button auth-back" type="button" onClick={() => { setIdentityState("welcome"); setAccountNotice(""); }}>Back to landing page</button>
+        </section>
+        <footer className="footer"><span>KIVORA</span><span>Built for the people who make things work.</span></footer>
+      </main>
+    );
   }
 
   return (
     <main className="page-shell">
-      <header className="topbar">
-        <a className="brand" href="/" aria-label="KIVORA home">
+      <header className="topbar app-topbar">
+        <a className="brand" href="/" aria-label="KIVORA landing page" onClick={(event) => { event.preventDefault(); setIdentityState("welcome"); setNotice(""); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
           <span className="brand-mark">K</span>
           <span>KIVORA</span>
         </a>
-        <span className="topbar-note">Practical intelligence for skilled work</span>
+        <div className="app-topbar-right">
+          <span className="workspace-status"><span className="status-dot" /> PRIVATE WORKSPACE</span>
+          <span className="topbar-note">Practical intelligence for skilled work</span>
+        </div>
       </header>
 
       {identityState !== "ready" && (
@@ -556,44 +704,22 @@ export default function App() {
         </section>
       )}
 
-      {identityState === "recovery" && (
-        <section className="workspace identity-card">
-          <p className="eyebrow">RESTORE ACCESS</p>
-          <h2>Restore your KIVORA preview access.</h2>
-          <form onSubmit={(event) => void restoreIdentity(event)}>
-            <label className="field">
-              <span>Preview recovery key</span>
-              <input value={recoveryInput} onChange={(event) => setRecoveryInput(event.target.value)} autoComplete="off" spellCheck={false} placeholder="Paste your saved recovery key" />
-            </label>
-            <button className="submit-button" type="submit" disabled={busy || !recoveryInput.trim()}>
-              {busy ? "Restoring…" : "Restore preview"} <span aria-hidden="true">↗</span>
-            </button>
-          </form>
-          <button className="secondary-action" type="button" onClick={() => { setIdentityState("welcome"); setNotice(""); }}>Back</button>
-          {notice && <p className="notice" role="status">{notice}</p>}
-        </section>
-      )}
-
-      {identityState === "recovery-code" && (
-        <section className="workspace identity-card">
-          <p className="eyebrow">SAVE THIS ONCE</p>
-          <h2>Your recovery code.</h2>
-          <p className="wallet-copy">Save this key somewhere private, such as a password manager or a secure note. You can use it to return to this same KIVORA preview identity if you change phones or lose access to this browser. KIVORA cannot see or recreate it. Anyone with the key may be able to access your private preview, so do not share it.</p>
-          <div className="recovery-code">{recoveryCode.match(/.{1,8}/g)?.join(" ") ?? recoveryCode}</div>
-          <button className="unit-option selected" type="button" onClick={() => void copyRecoveryCode()}>{copied ? "Copied" : "Copy recovery key"}</button>
-          <label className="recovery-confirm">
-            <input type="checkbox" checked={recoverySaved} onChange={(event) => setRecoverySaved(event.target.checked)} />
-            <span>I have saved this key somewhere private and can retrieve it later.</span>
-          </label>
-          <button className="submit-button" type="button" onClick={() => void finishRecoverySetup()} disabled={!recoverySaved}>
-            Continue to KIVORA <span aria-hidden="true">↗</span>
-          </button>
-          {notice && <p className="notice" role="status">{notice}</p>}
-        </section>
-      )}
-
       {identityState === "ready" && (
         <>
+          <section className="app-welcome-strip">
+            <div>
+              <p className="eyebrow">YOUR WORKSPACE</p>
+              <h1>{activeScreen === "work" ? "What are we working through?" : activeScreen === "history" ? "Your investigations" : activeScreen === "sources" ? "Evidence library" : activeScreen === "payments" ? "Connected payments" : "Account & access"}</h1>
+              <p>{activeScreen === "work" ? "Bring the question, product or problem. KIVORA helps you work out the next step." : activeScreen === "history" ? "Pick up where you left off." : activeScreen === "sources" ? "Keep useful references and source notes together." : activeScreen === "payments" ? "Optional payment tools. Your KIVORA workspace does not require a wallet." : "Manage this private workspace and its data."}</p>
+            </div>
+            <div className="intelligence-signature"><span className="sparkle-mark">✦</span><span><strong>KIVORA intelligence</strong><small>Evidence-aware workspace</small></span></div>
+          </section>
+          <nav className="workspace-nav" aria-label="Workspace sections">
+            {([["work","Home","⌂"],["history","History","◷"],["sources","Evidence","▤"],["payments","Payments","⇄"],["account","Account","○"]] as const).map(([screen,label,glyph]) => <button key={screen} type="button" className={activeScreen === screen ? "workspace-nav-item active" : "workspace-nav-item"} aria-current={activeScreen === screen ? "page" : undefined} onClick={() => { setActiveScreen(screen); setNotice(""); }}><span className="nav-glyph" aria-hidden="true">{glyph}</span><span>{label}</span></button>)}
+          </nav>
+
+          
+          {activeScreen === "work" && <>
           <section className="workspace" aria-labelledby="start-title">
             <div className="workspace-heading">
               <div>
@@ -716,7 +842,7 @@ export default function App() {
             <section className="workspace assistant-card" aria-live="polite">
               <div className="workspace-heading">
                 <div>
-                  <p className="eyebrow">KIVORA RESPONSE</p>
+                  <p className="eyebrow response-eyebrow"><span className="sparkle-mark small">✦</span> KIVORA RESPONSE</p>
                   <h2>{assistantResponse.status === "guided" ? "What the reviewed evidence says" : assistantResponse.status === "escalate" ? "Safety comes first" : assistantResponse.status === "clarify" ? "A few things need confirming" : "AI response unavailable"}</h2>
                 </div>
                 <div className="assessment-heading-actions">
@@ -727,7 +853,7 @@ export default function App() {
                       assistantResponse.summary,
                       ...assistantResponse.blocks.map((block) => block.content),
                       ...assistantResponse.questions,
-                      ...assistantResponse.citations.map((source) => "Source: " + source.publisher + ". " + source.title + (source.pageOrSection ? ". " + source.pageOrSection : "")),
+                      ...assistantResponse.citations.map((source) => "Source: " + source.publisher + ". " + source.title + ". " + [source.productMake, source.productModels?.join(", "), source.sourceVersion, source.revisionDate, source.jurisdiction, source.pageOrSection].filter(Boolean).join(". ")),
                       "Compatibility status: " + assistantResponse.compatibilityStatus + ".",
                       "Check the cited sources before acting. This is not a substitute for professional judgement or a site-specific risk assessment.",
                     ].join("\n\n")}
@@ -753,7 +879,9 @@ export default function App() {
                   <ul>{assistantResponse.citations.map(source => (
                     <li key={source.id}>
                       {source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.publisher} — {source.title}</a> : <span>{source.publisher} — {source.title}</span>}
-                      {source.pageOrSection ? " · " + source.pageOrSection : ""}
+                      {[source.productMake, source.productModels?.join(", "), source.sourceVersion, source.revisionDate, source.jurisdiction, source.pageOrSection].filter(Boolean).join(" · ") && (
+                        <small className="citation-meta">{[source.productMake, source.productModels?.join(", "), source.sourceVersion, source.revisionDate, source.jurisdiction, source.pageOrSection].filter(Boolean).join(" · ")}</small>
+                      )}
                     </li>
                   ))}</ul>
                 </div>
@@ -786,7 +914,46 @@ export default function App() {
             </section>
           )}
 
-          <section className="workspace session-library">
+          {activeSession && (
+            <section className="workspace research-card" aria-live="polite">
+              <div className="workspace-heading">
+                <div>
+                  <p className="eyebrow">SOURCE DISCOVERY</p>
+                  <h2>Find technical sources</h2>
+                </div>
+                <span className="step-label">RESEARCH</span>
+              </div>
+              <p className="privacy-note">Search results are unverified leads. A matching website or manufacturer name does not prove that a document is authentic, current or applicable to your exact model. These results cannot authorize a procedure or specification.</p>
+              <button className="submit-button" type="button" onClick={() => void searchResearchLeads()} disabled={researchBusy || busy}>
+                {researchBusy ? "Searching…" : researchSources.length ? "Search again" : "Search for source leads"} <span aria-hidden="true">↗</span>
+              </button>
+              {researchNotice && <p className="research-notice" role="status">{researchNotice}</p>}
+              {researchSources.length > 0 && (
+                <div className="research-list">
+                  {researchSources.map((source) => (
+                    <article className="research-item" key={source.url}>
+                      <div className="research-item-heading">
+                        <span className="evidence-status">UNVERIFIED LEAD</span>
+                        <span className="research-domain">{(() => { try { return new URL(source.url).hostname; } catch { return "External source"; } })()}</span>
+                      </div>
+                      <h3>{source.title}</h3>
+                      <p>{source.excerpt}</p>
+                      <div className="research-actions">
+                        <a href={source.url} target="_blank" rel="noreferrer">Open source</a>
+                        <button className="text-button" type="button" onClick={() => void saveResearchLead(source)} disabled={busy || savedResearchUrls.includes(source.url)}>
+                          {savedResearchUrls.includes(source.url) ? "Saved · pending review" : "Save privately for review"}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          </>}
+
+          {activeScreen === "history" && <section className="workspace session-library">
             <div className="workspace-heading">
               <div>
                 <p className="eyebrow">YOUR PRIVATE HISTORY</p>
@@ -796,8 +963,13 @@ export default function App() {
                 {showArchived ? "Hide archived" : "Show archived"}
               </button>
             </div>
+            <label className="history-search">
+              <span>Search your investigations</span>
+              <input type="search" value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Search by product, problem or topic" />
+            </label>
+            <div className="history-summary"><span>{visibleSessions.length} {visibleSessions.length === 1 ? "investigation" : "investigations"}</span><span>{showArchived ? "Including archived" : "Active investigations"}</span></div>
             {visibleSessions.length === 0 ? (
-              <p className="privacy-note">Your recent conversations appear here. Start a new one whenever you want to understand something different. They remain private to this preview identity.</p>
+              <p className="history-empty">{historyQuery.trim() ? "No investigations match that search. Try another word." : "Your investigations will appear here. Start a new one whenever you need to understand a product, material, machine or problem."}</p>
             ) : (
               <div className="session-list">
                 {visibleSessions.map((session) => (
@@ -816,7 +988,9 @@ export default function App() {
             )}
           </section>
 
-          <section className="workspace evidence-library">
+          }
+
+          {activeScreen === "sources" && <section className="workspace evidence-library">
             <div className="workspace-heading">
               <div>
                 <p className="eyebrow">TECHNICAL SOURCES</p>
@@ -861,6 +1035,20 @@ export default function App() {
                   <input value={evidenceModel} onChange={(event) => setEvidenceModel(event.target.value)} placeholder="Model number" />
                 </label>
               </div>
+              <div className="field-grid">
+                <label className="field">
+                  <span>Document version / revision</span>
+                  <input value={evidenceVersion} onChange={(event) => setEvidenceVersion(event.target.value)} maxLength={120} placeholder="Revision, edition or version" />
+                </label>
+                <label className="field">
+                  <span>Revision date</span>
+                  <input type="date" value={evidenceRevisionDate} onChange={(event) => setEvidenceRevisionDate(event.target.value)} />
+                </label>
+              </div>
+              <label className="field">
+                <span>Jurisdiction / region (if relevant)</span>
+                <input value={evidenceJurisdiction} onChange={(event) => setEvidenceJurisdiction(event.target.value)} maxLength={120} placeholder="For example, Nigeria or UK" />
+              </label>
               <label className="field">
                 <span>Topic this source supports</span>
                 <input value={evidenceTopic} onChange={(event) => setEvidenceTopic(event.target.value)} maxLength={200} placeholder="For example, tap cartridge identification" required />
@@ -882,9 +1070,13 @@ export default function App() {
                 {evidenceSources.map((source) => (
                   <article className="evidence-item" key={source.id}>
                     <div>
-                      <span className="evidence-status">PENDING REVIEW · PRIVATE</span>
+                      <span className="evidence-status">{source.source_type === "field_observation" ? "FIELD OBSERVATION · PENDING REVIEW · PRIVATE" : "PENDING REVIEW · PRIVATE"}</span>
                       <h3>{source.title}</h3>
                       <p>{source.publisher} · {source.topic}</p>
+                      <p className="evidence-meta">
+                        {[source.product_make, source.product_model, source.source_version, source.revision_date, source.jurisdiction, source.page_or_section].filter(Boolean).join(" · ") || "Product model, revision and scope not recorded"}
+                      </p>
+                      {source.source_type === "field_observation" && <p className="evidence-meta">One-job report only. It is not independent proof of a general procedure or compatibility.</p>}
                     </div>
                     {source.source_url && <a href={source.source_url} target="_blank" rel="noreferrer">Open source</a>}
                   </article>
@@ -895,7 +1087,9 @@ export default function App() {
 
 
 
-          {activeSession && (
+          }
+
+          {activeScreen === "work" && activeSession && (
             <section className="workspace active-session">
               <div className="workspace-heading">
                 <div>
@@ -906,7 +1100,7 @@ export default function App() {
               </div>
               <div className="message-list">
                 {messages.map((message) => (
-                  <article className="message-card" key={message.id}>
+                  <article className={message.role === "assistant" ? "message-card assistant-message" : "message-card worker-message"} key={message.id}>
                     <span className="message-role">{message.role === "worker" ? "YOU" : message.role.toUpperCase()}</span>
                     <p>{message.content}</p>
                   </article>
@@ -925,21 +1119,22 @@ export default function App() {
             </section>
           )}
 
-          <section className="workspace account-card">
+          {activeScreen === "payments" && <WalletPanel />}
+
+          {activeScreen === "account" && <section className="workspace account-card">
             <div className="workspace-heading">
               <div>
-                <p className="eyebrow">PREVIEW ACCESS</p>
-                <h2>Your preview identity</h2>
+                <p className="eyebrow">{accountMode ? "KIVORA ACCOUNT" : "LIMITED PREVIEW ACCESS"}</p>
+                <h2>{accountMode ? "Your account" : "Your preview identity"}</h2>
               </div>
               <span className="step-label">ACTIVE</span>
             </div>
-            <p className="privacy-note">Temporary anonymous preview ID: {workerId.slice(0, 8)}…{workerId.slice(-4)}. This is not your final KIVORA account. Final accounts will use email and password, with email verification and password reset. Your preview sessions remain private.</p>
+            <p className="privacy-note">{accountMode ? "Signed in as " + accountEmail + ". Your investigations and saved evidence are private to this account." : "Temporary anonymous preview ID: " + workerId.slice(0, 8) + "…" + workerId.slice(-4) + ". This is limited preview access, not a permanent account. Create an email-verified KIVORA account when email delivery is available."}</p>
             <div className="account-actions">
-              <button className="unit-option" type="button" onClick={() => void rotateRecoveryCode()} disabled={busy}>Generate new preview recovery code</button>
-              <button className="unit-option" type="button" onClick={() => void logout()} disabled={busy}>Log out on this device</button>
-              <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete preview identity and all data</button>
+              <button className="unit-option" type="button" onClick={() => void logout()} disabled={busy}>Sign out on this device</button>
+              <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete account and all private data</button>
             </div>
-          </section>
+          </section>}
 
         </>
       )}

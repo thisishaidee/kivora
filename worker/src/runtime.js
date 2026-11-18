@@ -9,11 +9,12 @@
 /** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
 /** @typedef {{ put(key: string, value: ReadableStream<Uint8Array>, options?: Record<string, unknown>): Promise<unknown>, get(key: string, options?: { range?: { offset: number, length?: number } }): Promise<{ body: ReadableStream<Uint8Array>, size: number, httpMetadata?: { contentType?: string } } | null>, delete(keys: string | string[]): Promise<void> }} R2Bucket */
-/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> } }} Env */
+/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, TAVILY_API_KEY?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> }, RESEND_API_KEY?: string, EMAIL_FROM?: string, APP_BASE_URL?: string }} Env */
 
 import { assessWorkRequest, parseWorkRequest } from "../../shared/src/intelligence-runtime.js";
 import { parsePrivateEvidenceCapture } from "../../shared/src/evidence-runtime.js";
 import { composeWorkerAssistantResponse } from "../../shared/src/response-runtime.js";
+import { searchTavilyLeads } from "./tavily-runtime.js";
 
 
 const IMAGE_MIME_LIMITS = new Map([
@@ -112,6 +113,49 @@ const hashToken = async (token) => {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
 
+const PASSWORD_ITERATIONS = 600000;
+/** @param {unknown} value */
+const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+/** @param {string} value */
+const validEmail = (value) => value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+/** @param {string} password @param {string} [saltHex] */
+const derivePasswordHash = async (password, saltHex) => {
+  const salt = saltHex ? Uint8Array.from(saltHex.match(/.{2}/g) || [], byte => parseInt(byte, 16)) : crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PASSWORD_ITERATIONS }, key, 256);
+  /** @param {ArrayBuffer} value */
+  const hex = value => Array.from(new Uint8Array(value), byte => byte.toString(16).padStart(2, "0")).join("");
+  return { salt: hex(salt), hash: hex(bits) };
+};
+/** @param {string} password @param {string} salt @param {string} expected */
+const verifyPassword = async (password, salt, expected) => {
+  const actual = await derivePasswordHash(password, salt);
+  if (actual.hash.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < expected.length; index += 1) mismatch |= actual.hash.charCodeAt(index) ^ expected.charCodeAt(index);
+  return mismatch === 0;
+};
+/** @param {Env} env @param {string} to @param {string} subject @param {string} html */
+const sendAccountEmail = async (env, to, subject, html) => {
+  if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL || !/^https:\/\//i.test(env.APP_BASE_URL)) return false;
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
+      body: JSON.stringify({ from: env.EMAIL_FROM, to: [to], subject, html }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+/** @param {D1Database} db @param {string} workerId @param {"verify" | "reset"} purpose @param {string} token @param {number} now @param {number} ttl */
+const accountTokenRecord = async (db, workerId, purpose, token, now, ttl) => {
+  await db.prepare("INSERT INTO account_email_tokens (id, worker_id, purpose, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(newId(), workerId, purpose, await hashToken(token), now + ttl, now).run();
+};
+
+
 /** @param {Request} request */
 const cookieValue = (request) => {
   const cookie = request.headers.get("cookie");
@@ -198,7 +242,174 @@ const handleApi = async (request, env, url) => {
   if (!env.DB) return json({ error: "service_unavailable" }, 503);
   if (method !== "GET" && !validOrigin(request, url)) return json({ error: "origin_not_allowed" }, 403);
 
-  if ((path === "/api/identity" || path === "/api/identity/recover") && method === "POST" && env.IDENTITY_LIMITER) {
+  if (path === "/api/accounts/register" && method === "POST") {
+    if (env.IDENTITY_LIMITER) {
+      const limit = await env.IDENTITY_LIMITER.limit({ key: "account-register:" + (request.headers.get("cf-connecting-ip") || "unknown") });
+      if (!limit.success) return json({ error: "rate_limited" }, 429);
+    }
+    if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
+    const body = await readJson(request);
+    const email = normalizeEmail(body?.email);
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!validEmail(email) || password.length < 12 || password.length > 128) return json({ error: password.length < 12 ? "password_too_short" : "invalid_account_request" }, 400);
+    const existing = await env.DB.prepare("SELECT id FROM worker_accounts WHERE email_normalized = ? LIMIT 1").bind(email).first();
+    if (existing) return json({ error: "email_already_registered" }, 409);
+    const currentWorker = await authenticate(request, env.DB);
+    const currentAccount = currentWorker
+      ? await env.DB.prepare("SELECT id FROM worker_accounts WHERE worker_id = ? LIMIT 1").bind(currentWorker.worker_id).first()
+      : null;
+    if (currentAccount) return json({ error: "account_already_linked" }, 409);
+    const workerId = currentWorker ? String(currentWorker.worker_id) : newId();
+    const createdWorker = !currentWorker;
+    const now = nowSeconds();
+    const sessionSecret = randomToken();
+    const passwordRecord = await derivePasswordHash(password);
+    const verifyToken = randomToken();
+    try {
+      const statements = [];
+      if (createdWorker) statements.push(
+        env.DB.prepare("INSERT INTO workers (id, recovery_token_hash, created_at, updated_at) VALUES (?, ?, ?, ?)").bind(workerId, await hashToken(sessionSecret), now, now),
+      );
+      statements.push(
+        env.DB.prepare("INSERT INTO worker_accounts (id, worker_id, email_normalized, password_salt, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(newId(), workerId, email, passwordRecord.salt, passwordRecord.hash, now, now),
+        env.DB.prepare("INSERT INTO account_email_tokens (id, worker_id, purpose, token_hash, expires_at, created_at) VALUES (?, ?, 'verify', ?, ?, ?)").bind(newId(), workerId, await hashToken(verifyToken), now + 86400, now),
+      );
+      await env.DB.batch(statements);
+      const link = env.APP_BASE_URL.replace(/\/$/, "") + "/?verify=" + encodeURIComponent(verifyToken);
+      const sent = await sendAccountEmail(env, email, "Verify your KIVORA account", "<p>Confirm your email address to activate your KIVORA account.</p><p><a href=\"" + link + "\">Verify email address</a></p><p>This link expires in 24 hours. If you did not create this account, you can ignore this message.</p>");
+      if (!sent) {
+        if (createdWorker) await env.DB.prepare("DELETE FROM workers WHERE id = ?").bind(workerId).run();
+        else {
+          await env.DB.prepare("DELETE FROM account_email_tokens WHERE worker_id = ? AND purpose = 'verify' AND consumed_at IS NULL").bind(workerId).run();
+          await env.DB.prepare("DELETE FROM worker_accounts WHERE worker_id = ?").bind(workerId).run();
+        }
+        return json({ error: "email_delivery_unavailable" }, 503);
+      }
+      return json({ message: "Account created. Check your inbox for the verification link. Your current private preview history will stay with this account." }, 201);
+    } catch {
+      if (createdWorker) await env.DB.prepare("DELETE FROM workers WHERE id = ?").bind(workerId).run().catch(() => {});
+      else {
+        await env.DB.prepare("DELETE FROM account_email_tokens WHERE worker_id = ? AND purpose = 'verify' AND consumed_at IS NULL").bind(workerId).run().catch(() => {});
+        await env.DB.prepare("DELETE FROM worker_accounts WHERE worker_id = ?").bind(workerId).run().catch(() => {});
+      }
+      return json({ error: "account_registration_failed" }, 503);
+    }
+  }
+
+  if (path === "/api/accounts/resend-verification" && method === "POST") {
+    if (env.IDENTITY_LIMITER) {
+      const limit = await env.IDENTITY_LIMITER.limit({ key: "account-verify-resend:" + (request.headers.get("cf-connecting-ip") || "unknown") });
+      if (!limit.success) return json({ error: "rate_limited" }, 429);
+    }
+    if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
+    const body = await readJson(request);
+    const email = normalizeEmail(body?.email);
+    if (validEmail(email)) {
+      const account = await env.DB.prepare("SELECT worker_id FROM worker_accounts WHERE email_normalized = ? AND email_verified_at IS NULL LIMIT 1").bind(email).first();
+      if (account) {
+        const now = nowSeconds();
+        const token = randomToken();
+        await env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE worker_id = ? AND purpose = 'verify' AND consumed_at IS NULL").bind(now, account.worker_id).run();
+        await accountTokenRecord(env.DB, String(account.worker_id), "verify", token, now, 86400);
+        const link = env.APP_BASE_URL.replace(/\/$/, "") + "/?verify=" + encodeURIComponent(token);
+        const sent = await sendAccountEmail(env, email, "Verify your KIVORA account", "<p>Confirm your email address to activate your KIVORA account.</p><p><a href=\"" + link + "\">Verify email address</a></p><p>This link expires in 24 hours.</p>");
+        if (!sent) return json({ error: "email_delivery_unavailable" }, 503);
+      }
+    }
+    return json({ message: "If that address has an unverified account, a new verification link has been sent." });
+  }
+
+  if (path === "/api/accounts/verify" && method === "POST") {
+    const body = await readJson(request);
+    const token = typeof body?.token === "string" ? body.token : "";
+    if (!/^[0-9a-f]{64}$/.test(token)) return json({ error: "invalid_or_expired_token" }, 400);
+    const now = nowSeconds();
+    const record = await env.DB.prepare("SELECT worker_id FROM account_email_tokens WHERE purpose = 'verify' AND token_hash = ? AND consumed_at IS NULL AND expires_at > ? LIMIT 1")
+      .bind(await hashToken(token), now).first();
+    if (!record) return json({ error: "invalid_or_expired_token" }, 400);
+    const tokenHash = await hashToken(token);
+    const consumed = await env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE token_hash = ? AND purpose = 'verify' AND consumed_at IS NULL AND expires_at > ?")
+      .bind(now, tokenHash, now).run();
+    if ((consumed.meta?.changes ?? 0) !== 1) return json({ error: "invalid_or_expired_token" }, 400);
+    const sessionToken = randomToken();
+    await env.DB.batch([
+      env.DB.prepare("UPDATE worker_accounts SET email_verified_at = ?, updated_at = ? WHERE worker_id = ?").bind(now, now, record.worker_id),
+      env.DB.prepare("INSERT INTO worker_sessions (id, worker_id, session_token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)").bind(newId(), record.worker_id, await hashToken(sessionToken), now, now + SESSION_TTL_SECONDS),
+    ]);
+    const verifiedAccount = await env.DB.prepare("SELECT email_normalized FROM worker_accounts WHERE worker_id = ? LIMIT 1").bind(record.worker_id).first();
+    return json({ worker: { id: record.worker_id, ...(verifiedAccount ? { email: String(verifiedAccount.email_normalized) } : {}) } }, 200, { "set-cookie": cookieHeader(sessionToken) });
+  }
+
+  if (path === "/api/accounts/login" && method === "POST") {
+    if (env.IDENTITY_LIMITER) {
+      const limit = await env.IDENTITY_LIMITER.limit({ key: "account-login:" + (request.headers.get("cf-connecting-ip") || "unknown") });
+      if (!limit.success) return json({ error: "rate_limited" }, 429);
+    }
+    const body = await readJson(request);
+    const email = normalizeEmail(body?.email);
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!validEmail(email) || !password || password.length > 128) return json({ error: "invalid_credentials" }, 401);
+    const account = await env.DB.prepare("SELECT worker_id, password_salt, password_hash, email_verified_at FROM worker_accounts WHERE email_normalized = ? LIMIT 1").bind(email).first();
+    if (!account) {
+      await derivePasswordHash(password, "00000000000000000000000000000000");
+      return json({ error: "invalid_credentials" }, 401);
+    }
+    if (!(await verifyPassword(password, String(account.password_salt), String(account.password_hash)))) return json({ error: "invalid_credentials" }, 401);
+    if (!account.email_verified_at) return json({ error: "email_not_verified" }, 403);
+    const sessionToken = randomToken();
+    const now = nowSeconds();
+    await env.DB.prepare("INSERT INTO worker_sessions (id, worker_id, session_token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)")
+      .bind(newId(), account.worker_id, await hashToken(sessionToken), now, now + SESSION_TTL_SECONDS).run();
+    return json({ worker: { id: account.worker_id } }, 200, { "set-cookie": cookieHeader(sessionToken) });
+  }
+
+  if (path === "/api/accounts/forgot" && method === "POST") {
+    if (env.IDENTITY_LIMITER) {
+      const limit = await env.IDENTITY_LIMITER.limit({ key: "account-reset:" + (request.headers.get("cf-connecting-ip") || "unknown") });
+      if (!limit.success) return json({ error: "rate_limited" }, 429);
+    }
+    if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
+    const body = await readJson(request);
+    const email = normalizeEmail(body?.email);
+    if (!validEmail(email)) return json({ message: "If an account matches that address, a reset link will be sent." });
+    const account = await env.DB.prepare("SELECT worker_id FROM worker_accounts WHERE email_normalized = ? AND email_verified_at IS NOT NULL LIMIT 1").bind(email).first();
+    if (account) {
+      const token = randomToken();
+      const now = nowSeconds();
+      await accountTokenRecord(env.DB, String(account.worker_id), "reset", token, now, 3600);
+      const link = env.APP_BASE_URL.replace(/\/$/, "") + "/?reset=" + encodeURIComponent(token);
+      await sendAccountEmail(env, email, "Reset your KIVORA password", "<p>A password reset was requested for your KIVORA account.</p><p><a href=\"" + link + "\">Reset password</a></p><p>This link expires in one hour. If you did not request this, ignore this email.</p>");
+    }
+    return json({ message: "If an account matches that address, a reset link will be sent." });
+  }
+
+  if (path === "/api/accounts/reset" && method === "POST") {
+    if (env.IDENTITY_LIMITER) {
+      const limit = await env.IDENTITY_LIMITER.limit({ key: "account-reset-submit:" + (request.headers.get("cf-connecting-ip") || "unknown") });
+      if (!limit.success) return json({ error: "rate_limited" }, 429);
+    }
+    const body = await readJson(request);
+    const token = typeof body?.token === "string" ? body.token : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (password.length < 12 || password.length > 128) return json({ error: "password_too_short" }, 400);
+    if (!/^[0-9a-f]{64}$/.test(token)) return json({ error: "invalid_or_expired_token" }, 400);
+    const now = nowSeconds();
+    const tokenHash = await hashToken(token);
+    const record = await env.DB.prepare("SELECT worker_id FROM account_email_tokens WHERE purpose = 'reset' AND token_hash = ? AND consumed_at IS NULL AND expires_at > ? LIMIT 1").bind(tokenHash, now).first();
+    if (!record) return json({ error: "invalid_or_expired_token" }, 400);
+    const consumed = await env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE token_hash = ? AND purpose = 'reset' AND consumed_at IS NULL AND expires_at > ?")
+      .bind(now, tokenHash, now).run();
+    if ((consumed.meta?.changes ?? 0) !== 1) return json({ error: "invalid_or_expired_token" }, 400);
+    const passwordRecord = await derivePasswordHash(password);
+    await env.DB.batch([
+      env.DB.prepare("UPDATE worker_accounts SET password_salt = ?, password_hash = ?, updated_at = ? WHERE worker_id = ?").bind(passwordRecord.salt, passwordRecord.hash, now, record.worker_id),
+      env.DB.prepare("UPDATE worker_sessions SET revoked_at = ? WHERE worker_id = ? AND revoked_at IS NULL").bind(now, record.worker_id),
+      env.DB.prepare("UPDATE account_email_tokens SET consumed_at = ? WHERE worker_id = ? AND purpose = 'reset' AND consumed_at IS NULL").bind(now, record.worker_id),
+    ]);
+    return json({ reset: true });
+  }
+
+  if (path === "/api/identity" && method === "POST" && env.IDENTITY_LIMITER) {
     const clientKey = request.headers.get("cf-connecting-ip") || "unknown-client";
     const limit = await env.IDENTITY_LIMITER.limit({ key: clientKey });
     if (!limit.success) return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
@@ -216,34 +427,8 @@ const handleApi = async (request, env, url) => {
         .bind(newId(), workerId, await hashToken(sessionToken), now, now + SESSION_TTL_SECONDS),
     ]);
     return json(
-      { worker: { id: workerId }, recovery_code: recoveryToken, recovery_code_displayed_once: true },
+      { worker: { id: workerId } },
       201,
-      { "set-cookie": cookieHeader(sessionToken) },
-    );
-  }
-
-  if (path === "/api/identity/recover" && method === "POST") {
-    const body = await readJson(request);
-    const oldCode = typeof body?.recovery_code === "string" ? body.recovery_code.trim() : "";
-    if (!/^[0-9a-f]{64}$/.test(oldCode)) return json({ error: "invalid_recovery_code" }, 400);
-    const replacementCode = randomToken();
-    const sessionToken = randomToken();
-    const now = nowSeconds();
-    const newHash = await hashToken(replacementCode);
-    const sessionHash = await hashToken(sessionToken);
-    const results = await env.DB.batch([
-      env.DB.prepare("UPDATE workers SET recovery_token_hash = ?, updated_at = ? WHERE recovery_token_hash = ? AND revoked_at IS NULL RETURNING id")
-        .bind(newHash, now, await hashToken(oldCode)),
-      env.DB.prepare("DELETE FROM worker_sessions WHERE worker_id = (SELECT id FROM workers WHERE recovery_token_hash = ?)")
-        .bind(newHash),
-      env.DB.prepare("INSERT INTO worker_sessions (id, worker_id, session_token_hash, created_at, expires_at) SELECT ?, id, ?, ?, ? FROM workers WHERE recovery_token_hash = ? AND revoked_at IS NULL")
-        .bind(newId(), sessionHash, now, now + SESSION_TTL_SECONDS, newHash),
-    ]);
-    const worker = results[0]?.results?.[0];
-    if (!worker?.id || (results[2]?.meta?.changes ?? 0) !== 1) return json({ error: "invalid_recovery_code" }, 401);
-    return json(
-      { worker: { id: worker.id }, recovery_code: replacementCode, recovery_code_displayed_once: true },
-      200,
       { "set-cookie": cookieHeader(sessionToken) },
     );
   }
@@ -251,18 +436,8 @@ const handleApi = async (request, env, url) => {
   if (path === "/api/identity" && method === "GET") {
     const worker = await authenticate(request, env.DB);
     if (!worker) return json({ error: "unauthorized" }, 401);
-    return json({ worker: { id: worker.worker_id } });
-  }
-
-  if (path === "/api/identity/recovery/rotate" && method === "POST") {
-    const worker = await authenticate(request, env.DB);
-    if (!worker) return json({ error: "unauthorized" }, 401);
-    const recoveryCode = randomToken();
-    const result = await env.DB.prepare(
-      "UPDATE workers SET recovery_token_hash = ?, updated_at = ? WHERE id = ? AND revoked_at IS NULL",
-    ).bind(await hashToken(recoveryCode), nowSeconds(), worker.worker_id).run();
-    if ((result.meta?.changes ?? 0) !== 1) return json({ error: "unauthorized" }, 401);
-    return json({ recovery_code: recoveryCode, recovery_code_displayed_once: true });
+    const account = await env.DB.prepare("SELECT email_normalized FROM worker_accounts WHERE worker_id = ? AND email_verified_at IS NOT NULL LIMIT 1").bind(worker.worker_id).first();
+    return json({ worker: { id: worker.worker_id, ...(account ? { email: String(account.email_normalized) } : {}) } });
   }
 
   if (path === "/api/identity/logout" && method === "POST") {
@@ -288,11 +463,55 @@ const handleApi = async (request, env, url) => {
     return json({ deleted: true }, 200, { "set-cookie": clearCookieHeader() });
   }
 
+  if (path === "/api/identity/recover" || path === "/api/identity/recovery/rotate") {
+    return json({ error: "not_found" }, 404);
+  }
+
   const worker = await authenticate(request, env.DB);
   if (!worker) return json({ error: "unauthorized" }, 401);
   if (env.WORKER_LIMITER) {
     const limit = await env.WORKER_LIMITER.limit({ key: String(worker.worker_id) });
     if (!limit.success) return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
+  }
+
+  if (path === "/api/research" && method === "POST") {
+    const body = await readJson(request);
+    if (!body) return json({ error: "invalid_research_request" }, 400);
+    const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
+    if (!/^[0-9a-f-]{36}$/i.test(sessionId)) return json({ error: "invalid_research_request" }, 400);
+    let workRequest;
+    try {
+      workRequest = parseWorkRequest(body);
+    } catch {
+      return json({ error: "invalid_research_request" }, 400);
+    }
+    const session = await env.DB.prepare(
+      "SELECT id, trade FROM work_sessions WHERE id = ? AND worker_id = ? LIMIT 1",
+    ).bind(sessionId, worker.worker_id).first();
+    if (!session || session.trade !== workRequest.trade) return json({ error: "work_session_not_found" }, 404);
+    if (!env.TAVILY_API_KEY) return json({ error: "research_unavailable" }, 503);
+    if (!env.AI_LIMITER) return json({ error: "research_unavailable" }, 503);
+    const researchLimit = await env.AI_LIMITER.limit({ key: String(worker.worker_id) });
+    if (!researchLimit.success) return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
+
+    const query = [
+      workRequest.trade,
+      workRequest.task,
+      workRequest.involvesEquipment ? workRequest.equipmentMake : "",
+      workRequest.involvesEquipment ? workRequest.equipmentModel : "",
+      "manufacturer documentation technical manual official guidance",
+    ].filter(Boolean).join(" ").slice(0, 600);
+    const result = await searchTavilyLeads({ query, apiKey: env.TAVILY_API_KEY });
+    if (!result.ok) {
+      const status = result.error === "research_rate_limited" ? 429 : result.error === "research_unavailable" ? 503 : 502;
+      return json({ error: result.error }, status);
+    }
+    return json({
+      sources: result.sources,
+      sourceStatus: "unverified_leads",
+      technicalGuidanceEnabled: false,
+      notice: "Search results are leads for review, not verified technical evidence. They cannot authorize procedures or specifications.",
+    });
   }
 
   if (path === "/api/assess" && method === "POST") {
@@ -303,7 +522,7 @@ const handleApi = async (request, env, url) => {
       // from the server-side registry may support an assessment.
       const request = parseWorkRequest(body);
       const evidenceResult = await env.DB.prepare(
-        `SELECT id, publisher, title, source_url, document_ref, product_make,
+        `SELECT id, source_type, publisher, title, source_url, document_ref, source_version, product_make,
           product_model, trade, topic, revision_date, retrieved_at,
           jurisdiction, page_or_section, evidence_note
          FROM evidence_sources
@@ -312,17 +531,22 @@ const handleApi = async (request, env, url) => {
            AND reviewer_role IN ('qualified_reviewer', 'manufacturer')
            AND trade = ?
            AND (jurisdiction IS NULL OR jurisdiction = ? COLLATE NOCASE)
-           AND (product_make IS NULL OR product_make = ? COLLATE NOCASE)
-           AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)
+           AND source_type != 'field_observation'
+           ${request.involvesEquipment
+             ? "AND ((source_type = 'standard' AND jurisdiction = ? COLLATE NOCASE) OR (product_make = ? COLLATE NOCASE AND product_model = ? COLLATE NOCASE))"
+             : "AND (product_make IS NULL OR product_make = ? COLLATE NOCASE) AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)"}
          ORDER BY updated_at DESC LIMIT 100`,
       ).bind(
         request.trade,
         request.jurisdiction ?? "",
-        request.involvesEquipment ? request.equipmentMake ?? "" : "",
-        request.involvesEquipment ? request.equipmentModel ?? "" : "",
+        ...(request.involvesEquipment
+          ? [request.jurisdiction ?? "", request.equipmentMake ?? "", request.equipmentModel ?? ""]
+          : ["", ""]),
       ).all();
       const evidence = (evidenceResult.results ?? []).map((source) => ({
         id: String(source.id),
+        sourceType: String(source.source_type),
+        ...(source.source_version ? { sourceVersion: String(source.source_version) } : {}),
         publisher: String(source.publisher),
         title: String(source.title),
         ...(source.source_url ? { url: String(source.source_url) } : {}),
@@ -361,7 +585,7 @@ const handleApi = async (request, env, url) => {
       request.language = typeof body.language === "string" && LANGUAGES.has(body.language) ? body.language : "en";
       request.units = typeof body.units === "string" && UNITS.has(body.units) ? body.units : "metric";
       const evidenceResult = await env.DB.prepare(
-        `SELECT id, publisher, title, source_url, document_ref, product_make,
+        `SELECT id, source_type, publisher, title, source_url, document_ref, source_version, product_make,
           product_model, trade, topic, revision_date, retrieved_at,
           jurisdiction, page_or_section, evidence_note
          FROM evidence_sources
@@ -370,17 +594,22 @@ const handleApi = async (request, env, url) => {
            AND reviewer_role IN ('qualified_reviewer', 'manufacturer')
            AND trade = ?
            AND (jurisdiction IS NULL OR jurisdiction = ? COLLATE NOCASE)
-           AND (product_make IS NULL OR product_make = ? COLLATE NOCASE)
-           AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)
+           AND source_type != 'field_observation'
+           ${request.involvesEquipment
+             ? "AND ((source_type = 'standard' AND jurisdiction = ? COLLATE NOCASE) OR (product_make = ? COLLATE NOCASE AND product_model = ? COLLATE NOCASE))"
+             : "AND (product_make IS NULL OR product_make = ? COLLATE NOCASE) AND (product_model IS NULL OR product_model = ? COLLATE NOCASE)"}
          ORDER BY updated_at DESC LIMIT 100`,
       ).bind(
         request.trade,
         request.jurisdiction ?? "",
-        request.involvesEquipment ? request.equipmentMake ?? "" : "",
-        request.involvesEquipment ? request.equipmentModel ?? "" : "",
+        ...(request.involvesEquipment
+          ? [request.jurisdiction ?? "", request.equipmentMake ?? "", request.equipmentModel ?? ""]
+          : ["", ""]),
       ).all();
       const evidence = (evidenceResult.results ?? []).map(source => ({
         id: String(source.id),
+        sourceType: String(source.source_type),
+        ...(source.source_version ? { sourceVersion: String(source.source_version) } : {}),
         publisher: String(source.publisher),
         title: String(source.title),
         ...(source.source_url ? { url: String(source.source_url) } : {}),

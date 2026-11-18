@@ -29,12 +29,12 @@ The official challenge page highlights usefulness and local impact, security by 
 
 ## KIVORA delivery implications
 
-1. The current application scaffold is not yet a qualifying MVP by itself.
-2. A real, testable Bitcoin/Lightning wallet integration is a required submission workstream, not a nice-to-have.
-3. Do not simulate balances, invoices, payments or confirmations.
-4. Do not store seed phrases or private keys on KIVORA servers.
-5. Choose a wallet integration only after reviewing custody, permissions, recovery, Android/browser support, testability and security.
-6. Preserve wallet-optional access to the core KIVORA work assistant.
+1. The current prototype still needs a coherent end-to-end consultation demonstration to qualify as a compelling MVP.
+2. An optional NWC/NIP-47 Lightning wallet connection and receive-invoice flow has been implemented on a feature branch using the Alby SDK.
+3. The wallet flow is receive-only: no outgoing payments, custody, seed phrase handling or simulated payment confirmations.
+4. Real Android wallet/relay interoperability still needs a dedicated low-permission connection test before claiming the wallet flow is verified.
+5. Preserve wallet-optional access to the core KIVORA work assistant.
+6. Do not enable mainnet or real-fund features without separate security review and explicit release approval.
 7. Reserve time for a public demo URL, a real end-to-end test, a short presentation/video and submission verification.
 
 ## Source links
