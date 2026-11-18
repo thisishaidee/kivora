@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import PublicHome from "./PublicHome";
 import SpeechPlayback from "./SpeechPlayback";
 import WalletPanel from "./WalletPanel";
+import TestnetWalletPanel from "./TestnetWalletPanel";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -709,8 +710,8 @@ export default function App() {
           <section className="app-welcome-strip">
             <div>
               <p className="eyebrow">YOUR WORKSPACE</p>
-              <h1>{activeScreen === "work" ? "What are we working through?" : activeScreen === "history" ? "Your investigations" : activeScreen === "sources" ? "Evidence library" : activeScreen === "payments" ? "Connected payments" : "Account & access"}</h1>
-              <p>{activeScreen === "work" ? "Bring the question, product or problem. KIVORA helps you work out the next step." : activeScreen === "history" ? "Pick up where you left off." : activeScreen === "sources" ? "Keep useful references and source notes together." : activeScreen === "payments" ? "Optional payment tools. Your KIVORA workspace does not require a wallet." : "Manage this private workspace and its data."}</p>
+              <h1>{activeScreen === "work" ? "What are we working through?" : activeScreen === "history" ? "Your investigations" : activeScreen === "sources" ? "Evidence library" : activeScreen === "payments" ? "Wallets & payments" : "Account & access"}</h1>
+              <p>{activeScreen === "work" ? "Bring the question, product or problem. KIVORA helps you work out the next step." : activeScreen === "history" ? "Pick up where you left off." : activeScreen === "sources" ? "Keep useful references and source notes together." : activeScreen === "payments" ? "Create or restore a testnet Bitcoin wallet, or optionally connect an existing Lightning wallet. KIVORA AI access never requires a wallet." : "Manage this private workspace and its data."}</p>
             </div>
             <div className="intelligence-signature"><span className="sparkle-mark">✦</span><span><strong>KIVORA intelligence</strong><small>Evidence-aware workspace</small></span></div>
           </section>
@@ -1119,7 +1120,7 @@ export default function App() {
             </section>
           )}
 
-          {activeScreen === "payments" && <WalletPanel />}
+          {activeScreen === "payments" && <><TestnetWalletPanel /><WalletPanel /></>}
 
           {activeScreen === "account" && <section className="workspace account-card">
             <div className="workspace-heading">
