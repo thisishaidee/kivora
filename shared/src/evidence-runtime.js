@@ -13,7 +13,16 @@ export function parsePrivateEvidenceCapture(input) {
   const optional=(key,max)=>input[key]===undefined||text(input[key],0,max);
   if(!optional("documentRef",200)||!optional("sourceVersion",120)||!optional("jurisdiction",120)||!optional("productMake",120)||!optional("productModel",120)||!optional("pageOrSection",120)) return {success:false};
   if(input.revisionDate!==undefined&&!validDate(input.revisionDate)) return {success:false};
-  if(input.sourceUrl!==undefined){try{const u=new URL(input.sourceUrl);if(u.protocol!=="https:")return {success:false}}catch{return {success:false}}}
+  if(input.sourceUrl!==undefined){
+    try {
+      const u=new URL(input.sourceUrl);
+      const host=u.hostname.toLowerCase().replace(/\\.$/, "");
+      const isIpv4=/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(host);
+      const isLocal=host==="localhost"||host.endsWith(".localhost")||host.endsWith(".local")||host.endsWith(".internal")||host.endsWith(".test");
+      if(u.protocol!=="https:"||u.username||u.password||!host.includes(".")||isIpv4||host.includes(":")||isLocal) return {success:false};
+      if(!/^[a-z0-9.-]+$/.test(host)||host.split(".").some(label=>!label||label.startsWith("-")||label.endsWith("-"))) return {success:false};
+    } catch { return {success:false}; }
+  }
   const language=input.language??"und";
   if(!LANGUAGES.has(language)) return {success:false};
   if(input.sourceSha256!==undefined&&!/^[0-9a-f]{64}$/i.test(input.sourceSha256)) return {success:false};
