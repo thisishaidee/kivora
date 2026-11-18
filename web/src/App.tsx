@@ -12,7 +12,7 @@ import {
   type Trade,
   type UnitSystem,
 } from "../../shared/src/contracts";
-import type { IntelligenceAssessment } from "../../shared/src/intelligence";
+import { inferTradeFromTask, type IntelligenceAssessment } from "../../shared/src/intelligence";
 
 type IdentityState = "checking" | "welcome" | "sign-in" | "sign-up" | "forgot" | "reset" | "ready";
 type WorkSession = {
@@ -338,6 +338,7 @@ export default function App() {
     const validLanguage = languageSchema.safeParse(language);
     const validUnits = unitSystemSchema.safeParse(units);
     const submittedTask = task.trim();
+    const inferredTrade = inferTradeFromTask(submittedTask, validTrade.success ? validTrade.data : "unsure");
     const knownFacts = [
       measurements.trim() ? `Measurements: ${measurements.trim()}` : "",
       materials.trim() ? `Materials: ${materials.trim()}` : "",
@@ -357,7 +358,7 @@ export default function App() {
       const result = await api<{ session: WorkSession }>("/api/work-sessions", {
         method: "POST",
         body: JSON.stringify({
-          trade: validTrade.data,
+          trade: inferredTrade,
           language: validLanguage.data,
           units: validUnits.data,
           task: sessionDescription,
@@ -385,7 +386,7 @@ export default function App() {
           method: "POST",
           body: JSON.stringify({
             sessionId: result.session.id,
-            trade: validTrade.data,
+            trade: inferredTrade,
             task: submittedTask,
             knownFacts,
             language: validLanguage.data,
