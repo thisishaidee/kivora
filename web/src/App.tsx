@@ -324,7 +324,7 @@ export default function App() {
     } catch (error) {
       const code = error instanceof Error ? error.message : "account_request_failed";
       if (code === "email_not_verified") setShowResendVerification(true);
-      setAccountNotice(code === "email_delivery_unavailable" ? "Account email delivery is not configured yet. Your details were not registered. Sign-up will remain closed until verification email can be delivered." : code === "invalid_credentials" ? "Those sign-in details could not be verified. Check your email and password." : code === "email_already_registered" ? "An account with this email already exists. Try signing in instead." : code === "password_too_short" ? "Use a password with at least 12 characters." : "We couldn't complete that account request. Please try again.");
+      setAccountNotice(code === "email_delivery_unavailable" ? "Account email delivery is not configured yet. Your details were not registered. Sign-up will remain closed until verification email can be delivered." : code === "email_not_verified" ? "Your email address still needs verification. You can request a fresh verification link below." : code === "invalid_credentials" ? "Those sign-in details could not be verified. Check your email and password." : code === "email_already_registered" ? "An account with this email already exists. Try signing in instead." : code === "password_too_short" ? "Use a password with at least 12 characters." : "We couldn't complete that account request. Please try again.");
     } finally { setAccountBusy(false); }
   }
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
