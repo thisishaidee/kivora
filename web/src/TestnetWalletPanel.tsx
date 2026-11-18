@@ -222,7 +222,7 @@ export default function TestnetWalletPanel() {
               <li>Write all 12 words down offline, in the exact order, and keep them private.</li>
               <li>Anyone with the phrase can control this wallet. Never share it or save it in a screenshot.</li>
               <li>If you lose the phrase, KIVORA cannot recover the wallet for you.</li>
-              <li>This is a Bitcoin testnet prototype. It cannot currently show a live balance or send Bitcoin.</li>
+              <li>This is a Bitcoin testnet prototype. It can show read-only testnet address activity, but it cannot send Bitcoin or access real BTC.</li>
             </ul>
             <p className="privacy-note">Your phrase is shown once during setup. You will be asked to verify selected words before the wallet is ready.</p>
           </div>
