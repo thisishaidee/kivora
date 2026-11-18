@@ -14,7 +14,7 @@ import {
 } from "./bdk-testnet-persistence";
 import { createRecoveryPhrase, recoveryPhraseToSeed } from "./bip39-recovery";
 import { fetchTestnetAddressSnapshot, formatSats, type AddressSnapshot } from "./testnet-esplora";
-import { decryptAccountWalletBackup, encryptAccountWalletBackup, type EncryptedAccountWalletBackup } from "./account-wallet-backup";
+import { decryptAccountWalletBackup, encryptAccountWalletBackup, rememberAccountWalletUnlockKey, type EncryptedAccountWalletBackup } from "./account-wallet-backup";
 
 async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Promise<string> {
   const staged = wallet.take_staged();
@@ -251,6 +251,7 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
       if (backupPassword.length < 12) throw new Error("Use your KIVORA account password to encrypt this wallet backup.");
       const encrypted = await encryptAccountWalletBackup(pendingAccountBackupRef.current, backupPassword, props.accountWorkerId);
       const saved = await accountBackupRequest<{ saved: boolean; revision: number }>("PUT", encrypted);
+      await rememberAccountWalletUnlockKey(encrypted, backupPassword, props.accountWorkerId);
       accountBackupExistsRef.current = true;
       setAccountBackupRevision(saved.revision);
       setAccountBackupState("ready");
