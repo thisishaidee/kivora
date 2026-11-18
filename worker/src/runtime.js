@@ -212,6 +212,34 @@ const readJson = async (request) => {
   }
 };
 
+/** @param {Request} request @param {number} maxBytes @returns {Promise<Record<string, unknown> | null>} */
+const readJsonLimited = async (request, maxBytes) => {
+  if (!request.headers.get("content-type")?.toLowerCase().includes("application/json") || !request.body) return null;
+  const declaredLength = Number(request.headers.get("content-length") || "0");
+  if (declaredLength > maxBytes) return null;
+  const reader = request.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) { await reader.cancel(); return null; }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    const parsed = JSON.parse(new TextDecoder().decode(bytes));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+};
+
 /** @param {Request} request @param {D1Database} db @returns {Promise<Record<string, unknown> | null>} */
 const authenticate = async (request, db) => {
   const token = cookieValue(request);
@@ -472,6 +500,76 @@ const handleApi = async (request, env, url) => {
   if (env.WORKER_LIMITER) {
     const limit = await env.WORKER_LIMITER.limit({ key: String(worker.worker_id) });
     if (!limit.success) return json({ error: "rate_limited", retry_after_seconds: 60 }, 429);
+  }
+
+  if (path === "/api/wallet/backup" && method === "GET") {
+    const backup = await env.DB.prepare(
+      "SELECT format_version, network, kdf, kdf_iterations, salt_b64, cipher, iv_b64, ciphertext_b64, revision, created_at, updated_at FROM account_wallet_backups WHERE worker_id = ? LIMIT 1",
+    ).bind(worker.worker_id).first();
+    return json({ backup: backup ? {
+      formatVersion: Number(backup.format_version),
+      network: String(backup.network),
+      kdf: String(backup.kdf),
+      iterations: Number(backup.kdf_iterations),
+      salt: String(backup.salt_b64),
+      cipher: String(backup.cipher),
+      iv: String(backup.iv_b64),
+      ciphertext: String(backup.ciphertext_b64),
+      revision: Number(backup.revision),
+      createdAt: Number(backup.created_at),
+      updatedAt: Number(backup.updated_at),
+    } : null });
+  }
+
+  if (path === "/api/wallet/backup" && method === "PUT") {
+    const body = await readJsonLimited(request, 400_000);
+    if (!body) return json({ error: "invalid_wallet_backup" }, 400);
+    const formatVersion = Number(body.formatVersion);
+    const network = body.network;
+    const kdf = body.kdf;
+    const iterations = Number(body.iterations);
+    const salt = typeof body.salt === "string" ? body.salt : "";
+    const cipher = body.cipher;
+    const iv = typeof body.iv === "string" ? body.iv : "";
+    const ciphertext = typeof body.ciphertext === "string" ? body.ciphertext : "";
+    const revision = body.revision === undefined || body.revision === null ? null : Number(body.revision);
+    const validBase64 = value => /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value);
+    if (formatVersion !== 1 || network !== "bitcoin-testnet" || kdf !== "PBKDF2-SHA-256" ||
+        !Number.isInteger(iterations) || iterations < 300000 || iterations > 1000000 ||
+        cipher !== "AES-256-GCM" || !validBase64(salt) || atob(salt).length !== 16 ||
+        !validBase64(iv) || atob(iv).length !== 12 ||
+        !validBase64(ciphertext) || atob(ciphertext).length < 17 || atob(ciphertext).length > 262160 ||
+        (revision !== null && (!Number.isSafeInteger(revision) || revision < 1))) {
+      return json({ error: "invalid_wallet_backup" }, 400);
+    }
+    const now = nowSeconds();
+    if (revision === null) {
+      try {
+        await env.DB.prepare(
+          "INSERT INTO account_wallet_backups (worker_id, format_version, network, kdf, kdf_iterations, salt_b64, cipher, iv_b64, ciphertext_b64, revision, created_at, updated_at) VALUES (?, 1, 'bitcoin-testnet', 'PBKDF2-SHA-256', ?, ?, 'AES-256-GCM', ?, ?, 1, ?, ?)",
+        ).bind(worker.worker_id, iterations, salt, iv, ciphertext, now, now).run();
+        return json({ saved: true, revision: 1 }, 201);
+      } catch {
+        return json({ error: "wallet_backup_already_exists" }, 409);
+      }
+    }
+    const updated = await env.DB.prepare(
+      "UPDATE account_wallet_backups SET format_version = 1, network = 'bitcoin-testnet', kdf = 'PBKDF2-SHA-256', kdf_iterations = ?, salt_b64 = ?, cipher = 'AES-256-GCM', iv_b64 = ?, ciphertext_b64 = ?, revision = revision + 1, updated_at = ? WHERE worker_id = ? AND revision = ?",
+    ).bind(iterations, salt, iv, ciphertext, now, worker.worker_id, revision).run();
+    if ((updated.meta?.changes ?? 0) !== 1) return json({ error: "wallet_backup_revision_conflict" }, 409);
+    return json({ saved: true, revision: revision + 1 });
+  }
+
+  if (path === "/api/wallet/backup" && method === "DELETE") {
+    const body = await readJson(request);
+    if (body?.confirmation !== "DELETE_ENCRYPTED_BACKUP" || !Number.isSafeInteger(Number(body.revision))) {
+      return json({ error: "explicit_confirmation_required" }, 400);
+    }
+    const deleted = await env.DB.prepare(
+      "DELETE FROM account_wallet_backups WHERE worker_id = ? AND revision = ?",
+    ).bind(worker.worker_id, Number(body.revision)).run();
+    if ((deleted.meta?.changes ?? 0) !== 1) return json({ error: "wallet_backup_revision_conflict" }, 409);
+    return json({ deleted: true });
   }
 
   if (path === "/api/research" && method === "POST") {
