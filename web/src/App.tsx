@@ -600,7 +600,7 @@ export default function App() {
   const visibleSessions = sessions.filter((session) => (showArchived || !session.archived_at) && session.title.toLowerCase().includes(historyQuery.trim().toLowerCase()));
 
   if (identityState === "welcome") {
-    return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("sign-in"); setNotice(""); }} />;
+    return <PublicHome busy={busy} notice={notice} onGetStarted={() => { if (workerId) setIdentityState("ready"); else void createIdentity(); }} onSignIn={() => { setIdentityState("sign-in"); setAccountNotice(""); setNotice(""); }} onCreateAccount={() => { setIdentityState("sign-up"); setAccountNotice(""); setNotice(""); }} />
   }
 
   if (identityState === "sign-in" || identityState === "sign-up") {
