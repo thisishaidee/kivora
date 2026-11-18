@@ -21,9 +21,9 @@ async function hashToken(token: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function createEnvironment() {
+function createEnvironment(verifiedWorkers: string[] = [workerA, workerB]) {
   const sessions = new Map<string, string>();
-  const accounts = new Set([workerA, workerB]);
+  const accounts = new Set(verifiedWorkers);
   const records = new Map<string, Record<string, unknown>>();
 
   const DB = {
@@ -35,7 +35,7 @@ function createEnvironment() {
           return this;
         },
         async first() {
-          if (sql.includes("FROM worker_sessions s")) return { worker_id: sessions.get(String(values[0])) ?? null };
+          if (sql.includes("FROM worker_sessions s")) { const owner = sessions.get(String(values[0])); return owner ? { worker_id: owner } : null; }
           if (sql.includes("FROM worker_accounts")) return accounts.has(String(values[0])) ? { verified: 1 } : null;
           if (sql.includes("SELECT format_version") && sql.includes("account_wallet_backups")) return records.get(String(values[0])) ?? null;
           if (sql.includes("SELECT 1 AS present FROM account_wallet_backups")) return records.has(String(values[0])) ? { present: 1 } : null;
@@ -100,7 +100,8 @@ describe("account wallet backup Worker API", () => {
     const anonymous = await worker.fetch(request("GET"), env);
     expect(anonymous.status).toBe(401);
 
-    const { env: secondEnv } = createEnvironment();
+    const { env: secondEnv, sessions: secondSessions } = createEnvironment([]);
+    secondSessions.set(await hashToken(tokenA), workerA);
     const unverified = await worker.fetch(request("GET", tokenA), secondEnv);
     expect(unverified.status).toBe(401);
   });
