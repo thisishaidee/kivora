@@ -2,5 +2,16 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kivora",
   "compatibility_date": "2026-11-13",
-  "pages_build_output_dir": "./dist"
+  "pages_build_output_dir": "./dist",
+  "env": {
+    "preview": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "kivora-preview",
+          "database_id": "c4be9439-7332-4c1f-8adb-3e853d354ed2"
+        }
+      ]
+    }
+  }
 }
