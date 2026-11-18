@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PublicHome from "./PublicHome";
 import SpeechPlayback from "./SpeechPlayback";
 import WalletPanel from "./WalletPanel";
@@ -13,7 +13,7 @@ import {
 } from "../../shared/src/contracts";
 import type { IntelligenceAssessment } from "../../shared/src/intelligence";
 
-type IdentityState = "checking" | "welcome" | "recovery" | "recovery-code" | "ready";
+type IdentityState = "checking" | "welcome" | "sign-in" | "recovery" | "recovery-code" | "ready";
 type WorkSession = {
   id: string;
   title: string;
@@ -94,6 +94,8 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export default function App() {
   const [identityState, setIdentityState] = useState<IdentityState>("checking");
+  const identityCheckCancelled = useRef(false);
+  const [activeScreen, setActiveScreen] = useState<"work" | "history" | "sources" | "payments" | "account">("work");
   const [workerId, setWorkerId] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
   const [recoveryInput, setRecoveryInput] = useState("");
@@ -202,6 +204,7 @@ export default function App() {
   useEffect(() => {
     let alive = true;
     const controller = new AbortController();
+    identityCheckCancelled.current = false;
     const timeout = window.setTimeout(() => controller.abort(), 10000);
 
     void api<{ worker: { id: string } }>("/api/identity", { signal: controller.signal })
@@ -221,7 +224,7 @@ export default function App() {
       })
       .catch(() => {
         window.clearTimeout(timeout);
-        if (alive) {
+        if (alive && !identityCheckCancelled.current) {
           setIdentityState("welcome");
           setNotice(controller.signal.aborted
             ? "The private preview check timed out. You can retry or open a new preview identity."
@@ -237,6 +240,7 @@ export default function App() {
   }, []);
 
   async function createIdentity() {
+    identityCheckCancelled.current = true;
     setBusy(true);
     setNotice("");
     try {
@@ -626,7 +630,23 @@ export default function App() {
   const visibleSessions = sessions.filter((session) => showArchived || !session.archived_at);
 
   if (identityState === "welcome") {
-    return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("recovery"); setNotice(""); }} />;
+    return <PublicHome busy={busy} notice={notice} onGetStarted={() => void createIdentity()} onSignIn={() => { setIdentityState("sign-in"); setNotice(""); }} />;
+  }
+
+  if (identityState === "sign-in") {
+    return (
+      <main className="page-shell auth-shell">
+        <header className="topbar"><a className="brand" href="/" aria-label="KIVORA home"><span className="brand-mark">K</span><span>KIVORA</span></a><span className="topbar-note">Practical intelligence for skilled work</span></header>
+        <section className="workspace identity-card auth-card">
+          <p className="eyebrow">KIVORA ACCOUNT</p>
+          <h2>Sign in with your email.</h2>
+          <p className="intro compact-intro">Email and password accounts, including email verification and password reset, are part of the final KIVORA account system. They are not connected to this temporary preview yet.</p>
+          <p className="privacy-note">This preview currently uses a temporary private identity. We are keeping preview recovery separate from your future KIVORA account sign-in, rather than showing a recovery key as if it were a password.</p>
+          <button className="submit-button" type="button" onClick={() => { setIdentityState("welcome"); setNotice(""); }}>Back to KIVORA preview <span aria-hidden="true">↗</span></button>
+        </section>
+        <footer className="footer"><span>KIVORA</span><span>Built for the people who make things work.</span></footer>
+      </main>
+    );
   }
 
   return (
@@ -693,7 +713,12 @@ export default function App() {
 
       {identityState === "ready" && (
         <>
-          <section className="workspace" aria-labelledby="start-title">
+          <nav className="workspace-nav" aria-label="Workspace sections">
+            {([["work","Workspace"],["history","History"],["sources","Evidence library"],["payments","Payments"],["account","Account"]] as const).map(([screen,label]) => <button key={screen} type="button" className={activeScreen === screen ? "workspace-nav-item active" : "workspace-nav-item"} aria-current={activeScreen === screen ? "page" : undefined} onClick={() => { setActiveScreen(screen); setNotice(""); }}>{label}</button>)}
+          </nav>
+
+          
+          {activeScreen === "work" && <section className="workspace" aria-labelledby="start-title">
             <div className="workspace-heading">
               <div>
                 <p className="eyebrow">ASK KIVORA</p>
@@ -924,7 +949,9 @@ export default function App() {
             </section>
           )}
 
-          <section className="workspace session-library">
+          }
+
+          {activeScreen === "history" && <section className="workspace session-library">
             <div className="workspace-heading">
               <div>
                 <p className="eyebrow">YOUR PRIVATE HISTORY</p>
@@ -954,7 +981,9 @@ export default function App() {
             )}
           </section>
 
-          <section className="workspace evidence-library">
+          }
+
+          {activeScreen === "sources" && <section className="workspace evidence-library">
             <div className="workspace-heading">
               <div>
                 <p className="eyebrow">TECHNICAL SOURCES</p>
@@ -1051,7 +1080,9 @@ export default function App() {
 
 
 
-          {activeSession && (
+          }
+
+          {activeScreen === "work" && activeSession && (
             <section className="workspace active-session">
               <div className="workspace-heading">
                 <div>
@@ -1081,9 +1112,9 @@ export default function App() {
             </section>
           )}
 
-          <WalletPanel />
+          {activeScreen === "payments" && <WalletPanel />}
 
-          <section className="workspace account-card">
+          {activeScreen === "account" && <section className="workspace account-card">
             <div className="workspace-heading">
               <div>
                 <p className="eyebrow">PREVIEW ACCESS</p>
@@ -1097,7 +1128,7 @@ export default function App() {
               <button className="unit-option" type="button" onClick={() => void logout()} disabled={busy}>Log out on this device</button>
               <button className="unit-option danger-option" type="button" onClick={() => void deleteIdentity()} disabled={busy}>Delete preview identity and all data</button>
             </div>
-          </section>
+          </section>}
 
         </>
       )}
