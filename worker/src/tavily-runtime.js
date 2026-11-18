@@ -8,8 +8,14 @@ const safeUrl = (value) => {
   try {
     if (typeof value !== "string") return null;
     const url = new URL(value);
-    if (url.protocol !== "https:") return null;
-    if (url.username || url.password) return null;
+    const host = url.hostname.toLowerCase().replace(/\.$/, "");
+    const isIpv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
+    const isLocal = host === "localhost" || host.endsWith(".localhost") ||
+      host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".test");
+    if (url.protocol !== "https:" || url.username || url.password || !host.includes(".") ||
+        isIpv4 || host.includes(":") || isLocal) return null;
+    if (!/^[a-z0-9.-]+$/.test(host) ||
+        host.split(".").some(label => !label || label.startsWith("-") || label.endsWith("-"))) return null;
     return url.toString();
   } catch {
     return null;
