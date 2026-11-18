@@ -611,19 +611,21 @@ export default function App() {
     return <PublicHome busy={busy} notice={notice} onGetStarted={() => { if (workerId) setIdentityState("ready"); else void createIdentity(); }} onSignIn={() => { setIdentityState("sign-in"); setAccountNotice(""); setNotice(""); }} onCreateAccount={() => { setIdentityState("sign-up"); setAccountNotice(""); setNotice(""); }} />
   }
 
-  if (identityState === "sign-in" || identityState === "sign-up") {
+  if (identityState === "sign-in" || identityState === "sign-up" || identityState === "forgot" || identityState === "reset") {
     const creatingAccount = identityState === "sign-up";
+    const requestingReset = identityState === "forgot";
+    const settingNewPassword = identityState === "reset";
     return (
       <main className="page-shell auth-shell">
         <header className="topbar"><a className="brand" href="/" aria-label="KIVORA landing page" onClick={(event) => { event.preventDefault(); setIdentityState("welcome"); setAccountNotice(""); }}><span className="brand-mark">K</span><span>KIVORA</span></a><span className="topbar-note">Practical intelligence for skilled work</span></header>
         <section className="workspace identity-card auth-card">
           <p className="eyebrow">KIVORA ACCOUNT</p>
-          <h2>{creatingAccount ? "Create your account." : "Welcome back."}</h2>
-          <p className="privacy-note">{creatingAccount ? "Use your email and a strong password. Email verification is required before an account can be used." : "Sign in to return to your private investigations and saved evidence."}</p>
+          <h2>{creatingAccount ? "Create your account." : requestingReset ? "Reset your password." : settingNewPassword ? "Choose a new password." : "Welcome back."}</h2>
+          <p className="privacy-note">{creatingAccount ? "Use your email and a strong password. Email verification is required before an account can be used." : requestingReset ? "Enter your email and we will send a secure reset link if an account matches." : settingNewPassword ? "Choose a new password with at least 12 characters." : "Sign in to return to your private investigations and saved evidence."}</p>
           <form onSubmit={(event) => void submitAccount(event)} className="account-form">
-            <label className="field"><span>Email address</span><input type="email" autoComplete="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} required maxLength={254} placeholder="you@example.com" /></label>
-            <label className="field"><span>Password</span><input type="password" autoComplete={creatingAccount ? "new-password" : "current-password"} value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} required minLength={creatingAccount ? 12 : 1} maxLength={128} placeholder={creatingAccount ? "At least 12 characters" : "Your password"} /></label>
-            <button className="submit-button" type="submit" disabled={accountBusy || !accountEmail.trim() || !accountPassword}>{accountBusy ? "Please wait…" : creatingAccount ? "Create account" : "Sign in"} <span aria-hidden="true">↗</span></button>
+            {!settingNewPassword && <label className="field"><span>Email address</span><input type="email" autoComplete="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} required maxLength={254} placeholder="you@example.com" /></label>}
+            {!requestingReset && <label className="field"><span>Password</span><input type="password" autoComplete={creatingAccount || settingNewPassword ? "new-password" : "current-password"} value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} required minLength={creatingAccount || settingNewPassword ? 12 : 1} maxLength={128} placeholder={creatingAccount || settingNewPassword ? "At least 12 characters" : "Your password"} /></label>}
+            <button className="submit-button" type="submit" disabled={accountBusy || (!settingNewPassword && !accountEmail.trim()) || (!requestingReset && !accountPassword)}>{accountBusy ? "Please wait…" : creatingAccount ? "Create account" : requestingReset ? "Send reset link" : settingNewPassword ? "Update password" : "Sign in"} <span aria-hidden="true">↗</span></button>
           </form>
           {accountNotice && <p className="notice" role="status">{accountNotice}</p>}
           <div className="auth-switch"><span>{creatingAccount ? "Already have an account?" : "New to KIVORA?"}</span><button className="text-button" type="button" onClick={() => { setIdentityState(creatingAccount ? "sign-in" : "sign-up"); setAccountNotice(""); }}>{creatingAccount ? "Sign in" : "Create an account"}</button></div>
