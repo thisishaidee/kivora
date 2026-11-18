@@ -25,7 +25,7 @@ export default function PublicHome({ busy, notice, onGetStarted, onSignIn }: Pub
         <nav aria-label="Main navigation">
           <a href="#how-it-works">How it works</a>
           <a href="#trades">For every trade</a>
-          <button type="button" className="public-signin" onClick={onSignIn}>Restore preview</button>
+          <button type="button" className="public-signin" onClick={onSignIn}>Sign in</button>
           <button type="button" className="public-nav-cta" onClick={onGetStarted} disabled={busy}>Try the preview</button>
         </nav>
       </header>
@@ -40,7 +40,7 @@ export default function PublicHome({ busy, notice, onGetStarted, onSignIn }: Pub
               <button type="button" className="public-primary" onClick={onGetStarted} disabled={busy}>{busy ? "Opening preview…" : "Try KIVORA preview"} <span aria-hidden="true">↗</span></button>
               <a className="public-secondary" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a>
             </div>
-            <p className="public-disclosure">Final KIVORA accounts will use email and password, with email verification and password reset. This preview still uses a private recovery key.</p>
+            <p className="public-disclosure">Final KIVORA accounts will use email and password, with email verification and password reset. This is a temporary product preview.</p>
             {notice && <p className="public-notice" role="status">{notice}</p>}
           </div>
 
