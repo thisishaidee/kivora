@@ -64,7 +64,7 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
   const [accountBackupState, setAccountBackupState] = useState<"checking" | "missing" | "ready" | "error">("checking");
   const [accountBackupMessage, setAccountBackupMessage] = useState("");
   const [, setAccountBackupRevision] = useState<number | null>(null);
-  const [localWalletDetected, setLocalWalletDetected] = useState(false);
+  const [localWalletDetected, setLocalWalletDetected] = useState(false);\n  const [localWalletCheckComplete, setLocalWalletCheckComplete] = useState(false);
   const pendingAccountBackupRef = useRef<string | null>(null);
   const accountBackupExistsRef = useRef(false);
 
@@ -77,6 +77,10 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
   useEffect(() => {
     if (!props.accountWorkerId) {
       setAccountBackupState("missing");
+      void hasEncryptedChangeset().then((exists) => {
+        setLocalWalletDetected(exists);
+        setLocalWalletCheckComplete(true);
+      }).catch(() => setLocalWalletCheckComplete(true));
       return;
     }
     let cancelled = false;
@@ -362,10 +366,10 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
               <input type="password" value={backupPassword} onChange={(event) => setBackupPassword(event.target.value)} autoComplete="current-password" minLength={12} />
             </label>}
             {props.accountWorkerId && accountBackupState === "checking" && <p className="privacy-note">Checking your account wallet…</p>}
-            {localWalletDetected && <p className="privacy-note">An encrypted wallet already exists in this browser. Restore it with its 12 words first, then explicitly link it to this account. KIVORA will not replace it with a new wallet.</p>}
+            {localWalletDetected && <p className="privacy-note">An encrypted wallet already exists in this browser. Restore it with its 12 words first. KIVORA will not replace it with a new wallet.</p>}
             {props.accountWorkerId && accountBackupState === "error" && <p className="wallet-sync-error" role="alert">{accountBackupMessage}</p>}
           </div>
-          <button className="submit-button" type="button" onClick={() => void createWallet()} disabled={busy || accountBackupState === "checking" || accountBackupExistsRef.current || localWalletDetected}>
+          <button className="submit-button" type="button" onClick={() => void createWallet()} disabled={busy || accountBackupState === "checking" || accountBackupExistsRef.current || localWalletDetected || !localWalletCheckComplete}>
             <span>{busy ? "Creating testnet wallet…" : "I understand — create testnet wallet"}</span>
             <span aria-hidden="true">↗</span>
           </button>
