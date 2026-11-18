@@ -59,9 +59,25 @@ These documents do not enable mainnet or real-fund functionality. Testnet intero
 - [Dakar Bitcoin Hack requirements](docs/HACKATHON.md)
 - [Foundation status and limitations](FOUNDATION-STATUS.md)
 
+## Accounts and identity
+
+KIVORA's intended permanent account model is email and password, with verified email addresses, secure password reset and revocable HttpOnly sessions. The Worker now contains registration, verification, login and password-reset API routes. Passwords are stored as PBKDF2-HMAC-SHA256 hashes with per-account salts; verification and reset tokens are stored only as hashes and are single-use and time-limited.
+
+Account email delivery is deliberately fail-closed. Registration and reset requests require the following Preview/production Worker settings to be configured with a verified sender and tested delivery:
+
+- `RESEND_API_KEY` — server-side Resend API key.
+- `EMAIL_FROM` — verified sender address, for example `KIVORA <accounts@your-domain.example>`.
+- `APP_BASE_URL` — HTTPS origin used to build verification and reset links.
+
+Do not expose account registration as ready until the email sender domain is verified and end-to-end delivery, link expiry, rate limits, session revocation and account data isolation have been tested. The connected Cloudflare account currently has no verified sending domain configured. No paid service or domain has been activated. The D1 account schema is in `migrations/0004_email_password_accounts.sql`; apply it to the isolated Preview database before testing these routes, and apply separately to production only after release approval.
+
+## Responsive interface
+
+The app workspace uses a persistent navigation rail on desktop and tablet, and a fixed five-item bottom navigation dock on mobile. The KIVORA wordmark returns to the public landing page without discarding the current private preview session. The public landing page presents a multi-trade workshop investigation example rather than a single cabinet-hardware scenario.
+
 ## Current implementation
 
-The repository contains a responsive React/Vite interface, shared TypeScript/Zod contracts, Cloudflare Worker APIs, D1-backed private preview sessions, on-device speech playback, Tavily source discovery and automated tests. Tavily results are displayed only as unverified leads; they cannot support technical instructions or be promoted to approved evidence by the AI.
+The repository contains a responsive React/Vite interface, shared TypeScript/Zod contracts, Cloudflare Worker APIs, D1-backed private worker sessions and account foundations, on-device speech playback, Tavily source discovery and automated tests. Tavily results are displayed only as unverified leads; they cannot support technical instructions or be promoted to approved evidence by the AI.
 
 ### Local development
 
@@ -82,7 +98,7 @@ The Pages Functions runtime imports the Worker handler directly and requires a D
 
 ## Current limitations
 
-Private worker identity and work-session endpoints are implemented and a preview D1 schema is provisioned. The optional NWC/NIP-47 Lightning panel supports connecting an existing wallet, reading advertised wallet details/balance and creating receive-only invoices; it does not send payments, custody funds or collect seed phrases. Real Android wallet/relay interoperability remains unverified. Tavily source discovery is integrated on the feature branch: results are unverified leads, HTTPS links only, and may be saved privately as pending review. The current schema does not yet support an independently recorded official-publisher verification status or a reviewer approval UI; do not treat a hostname match as proof of publisher identity. Only existing shared evidence records that pass the server-side reviewer, rights, trade, jurisdiction and product applicability gates may support guided technical content. AI inference remains disabled in the isolated Pages preview; the deterministic assessment is not a live AI answer. Private media upload remains feature-gated and unavailable in the UI. On-device speech playback is available for current preview responses; speech-to-text and a validated remote TTS provider are not implemented. Compatibility assessment and trade-specific safety enforcement remain partial and require further validation.
+Private worker identity and work-session endpoints are implemented and a preview D1 schema is provisioned. Email/password account routes and their migration are present, but cannot be exercised until the account migration is applied and transactional email delivery is configured and tested. The optional NWC/NIP-47 Lightning panel supports connecting an existing wallet, reading advertised wallet details/balance and creating receive-only invoices; it does not send payments, custody funds or collect seed phrases. Real Android wallet/relay interoperability remains unverified. Tavily source discovery is integrated on the feature branch: results are unverified leads, HTTPS links only, and may be saved privately as pending review. The current schema does not yet support an independently recorded official-publisher verification status or a reviewer approval UI; do not treat a hostname match as proof of publisher identity. Only existing shared evidence records that pass the server-side reviewer, rights, trade, jurisdiction and product applicability gates may support guided technical content. AI inference remains disabled in the isolated Pages preview; the deterministic assessment is not a live AI answer. Private media upload remains feature-gated and unavailable in the UI. On-device speech playback is available for current preview responses; speech-to-text and a validated remote TTS provider are not implemented. Compatibility assessment and trade-specific safety enforcement remain partial and require further validation.
 
 ## Security
 
