@@ -24,7 +24,7 @@ async function persistStagedWalletState(wallet: BdkWallet, seed: Uint8Array): Pr
   }
 }
 
-export default function TestnetWalletPanel() {
+export default function TestnetWalletPanel(_props: { accountWorkerId?: string; accountPassword?: string }) {
   const walletRef = useRef<BdkWallet | null>(null);
   const walletSeedRef = useRef<Uint8Array | null>(null);
   const [address, setAddress] = useState("");
