@@ -97,6 +97,7 @@ export default function App() {
   const identityCheckCancelled = useRef(false);
   const [activeScreen, setActiveScreen] = useState<"work" | "history" | "sources" | "payments" | "account">("work");
   const [workerId, setWorkerId] = useState("");
+  const [accountMode, setAccountMode] = useState(false);
   const [trade, setTrade] = useState<Trade>("unsure");
   const [language, setLanguage] = useState<Language>("en");
   const [units, setUnits] = useState<UnitSystem>("metric");
@@ -214,7 +215,7 @@ export default function App() {
       void api<{ worker: { id: string } }>("/api/accounts/verify", { method: "POST", body: JSON.stringify({ token: verifyToken }) })
         .then(async (result) => {
           if (!alive) return;
-          setWorkerId(result.worker.id); setIdentityState("ready"); setActiveScreen("work");
+          setWorkerId(result.worker.id); setAccountMode(true); setIdentityState("ready"); setActiveScreen("work");
           setNotice("Your email is verified. Your KIVORA account is ready.");
           try { await Promise.all([refreshSessions(), refreshEvidenceSources()]); } catch { setNotice("Your account is ready, but saved workspace data could not be loaded."); }
         })
@@ -230,12 +231,14 @@ export default function App() {
     identityCheckCancelled.current = false;
     const timeout = window.setTimeout(() => controller.abort(), 10000);
 
-    void api<{ worker: { id: string } }>("/api/identity", { signal: controller.signal })
+    void api<{ worker: { id: string; email?: string } }>("/api/identity", { signal: controller.signal })
       .then(async (result) => {
         window.clearTimeout(timeout);
         if (!alive || identityCheckCancelled.current) return;
         setNotice("");
         setWorkerId(result.worker.id);
+        setAccountMode(Boolean(result.worker.email));
+        if (result.worker.email) setAccountEmail(result.worker.email);
         setActiveScreen("work");
         setIdentityState("ready");
         try {
@@ -276,6 +279,7 @@ export default function App() {
     try {
       const result = await api<{ worker: { id: string } }>("/api/identity", { method: "POST" });
       setWorkerId(result.worker.id);
+      setAccountMode(false);
       setActiveScreen("work");
       setIdentityState("ready");
       try {
@@ -318,7 +322,7 @@ export default function App() {
         setAccountNotice("Your password has been reset. Sign in with your new password.");
       } else {
         const result = await api<{ worker: { id: string } }>("/api/accounts/login", { method: "POST", body: JSON.stringify({ email: accountEmail.trim(), password: accountPassword }) });
-        setWorkerId(result.worker.id); setIdentityState("ready"); setActiveScreen("work"); setAccountPassword("");
+        setWorkerId(result.worker.id); setAccountMode(true); setIdentityState("ready"); setActiveScreen("work"); setAccountPassword("");
         await Promise.all([refreshSessions(), refreshEvidenceSources()]);
       }
     } catch (error) {
