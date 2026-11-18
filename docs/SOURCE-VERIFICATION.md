@@ -39,7 +39,7 @@ Publisher authentication does not prove that the technical content is current, c
 - Safety warnings, prohibited actions and whether the cited section actually supports the proposed claim;
 - Usage rights before the material is shared.
 
-Only the existing server-side approval process may make evidence eligible for guidance. A browser user, Tavily, an AI model or a worker observation must never grant this approval. Existing evidence eligibility checks must remain fail-closed.
+Only the existing server-side approval process may make evidence eligible for guidance. A browser user, Tavily, an AI model or a worker observation must never grant this approval. Existing evidence eligibility checks must remain fail-closed. For equipment-specific requests, the server now requires an exact product make and model match; generic manufacturer material is not allowed to stand in for an unknown model. A standard may be used only when its jurisdiction matches the request exactly. Field-observation records are excluded from technical guidance even if someone later changes their review state.
 
 ### 3. Field observation
 
