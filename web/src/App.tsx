@@ -1126,7 +1126,7 @@ export default function App() {
             </section>
           )}
 
-          {activeScreen === "payments" && <><TestnetWalletPanel accountWorkerId={accountMode ? workerId : undefined} accountPassword={walletUnlockPassword} /><WalletPanel /></>}
+          {activeScreen === "payments" && <><TestnetWalletPanel accountWorkerId={accountMode ? workerId : undefined} accountPassword={walletUnlockPassword} onWalletPasswordConsumed={() => setWalletUnlockPassword("")} /><WalletPanel /></>}
 
           {activeScreen === "account" && <section className="workspace account-card">
             <div className="workspace-heading">
