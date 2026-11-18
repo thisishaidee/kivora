@@ -68,9 +68,9 @@ export async function searchTavilyLeads({ query, apiKey, fetchImpl = fetch }) {
         title,
         url,
         excerpt,
-        sourceType: "web_search_result",
-        reviewStatus: "unverified_lead",
-        evidenceEligible: false,
+        sourceType: /** @type {"web_search_result"} */ ("web_search_result"),
+        reviewStatus: /** @type {"unverified_lead"} */ ("unverified_lead"),
+        evidenceEligible: /** @type {false} */ (false),
       }];
     });
     return { ok: true, sources };
