@@ -3,6 +3,7 @@ type PublicHomeProps = {
   notice: string;
   onGetStarted: () => void;
   onSignIn: () => void;
+  onCreateAccount: () => void;
 };
 
 const trades = [
@@ -14,7 +15,7 @@ const trades = [
   "Construction & installation",
 ];
 
-export default function PublicHome({ busy, notice, onGetStarted, onSignIn }: PublicHomeProps) {
+export default function PublicHome({ busy, notice, onGetStarted, onSignIn, onCreateAccount }: PublicHomeProps) {
   return (
     <div className="public-home">
       <header className="public-header">
@@ -37,23 +38,27 @@ export default function PublicHome({ busy, notice, onGetStarted, onSignIn }: Pub
             <h1>Know what<br /><em>to do next.</em></h1>
             <p className="public-lede">When you meet an unfamiliar product, material, machine or technique, KIVORA helps you understand it, investigate what matters and make a more informed next move.</p>
             <div className="public-actions">
-              <button type="button" className="public-primary" onClick={onGetStarted} disabled={busy}>{busy ? "Opening preview…" : "Try KIVORA preview"} <span aria-hidden="true">↗</span></button>
+              <button type="button" className="public-primary" onClick={onGetStarted} disabled={busy}>{busy ? "Opening workspace…" : "Explore the workspace"} <span aria-hidden="true">↗</span></button>
               <a className="public-secondary" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a>
             </div>
-            <p className="public-disclosure">Final KIVORA accounts will use email and password, with email verification and password reset. This is a temporary product preview.</p>
+            <p className="public-disclosure">Email and password accounts are being prepared. Workspace access is currently in a limited preview while secure email verification is completed.</p>
             {notice && <p className="public-notice" role="status">{notice}</p>}
           </div>
 
           <div className="public-demo" aria-label="Illustrative example of a KIVORA question">
-            <div className="demo-topline"><span className="demo-dot" /> AN EXAMPLE QUESTION <span className="demo-label">ILLUSTRATIVE</span></div>
-            <p className="demo-question">“I have this cabinet hinge, but I don't know what type it is or how to fit it.”</p>
+            <div className="demo-topline"><span className="demo-dot" /> A WORKSHOP INVESTIGATION <span className="demo-label">PRODUCT EXAMPLE</span></div>
+            <div className="demo-context"><span className="demo-context-icon">⌁</span><span><strong>Mechanical · Workshop equipment</strong><small>Understanding a compressor fault</small></span></div>
+            <p className="demo-question">“My workshop air compressor runs, but the tank pressure barely rises. What should I investigate before replacing parts?”</p>
             <div className="demo-divider" />
-            <div className="demo-response-head"><span className="demo-mark">K</span><span>KIVORA INTELLIGENCE</span></div>
-            <p className="demo-response">Start by identifying the hinge before choosing a fitting method. The cup diameter, overlay and mounting plate all matter.</p>
-            <div className="demo-next"><span>01</span><span>Identify the component</span><span>↗</span></div>
-            <div className="demo-next"><span>02</span><span>Check the exact model and fit</span><span>↗</span></div>
-            <div className="demo-next"><span>03</span><span>Confirm the next safe step</span><span>↗</span></div>
-            <p className="demo-footnote">Example only — not a live AI response or verified fitting instruction.</p>
+            <div className="demo-response-head"><span className="demo-mark">✦</span><span>KIVORA INVESTIGATION PATH</span></div>
+            <p className="demo-response">Start by separating what you can observe from what still needs confirmation. The exact make, model and pressure behaviour matter before drawing conclusions.</p>
+            <div className="demo-checks">
+              <div><span>01</span><strong>Identify the equipment</strong><small>Record the make, model and rating plate details.</small></div>
+              <div><span>02</span><strong>Capture the symptoms</strong><small>Note gauge readings, unusual sounds and when the pressure stops rising.</small></div>
+              <div><span>03</span><strong>Check the right evidence</strong><small>Find the matching manufacturer manual and its safety instructions.</small></div>
+            </div>
+            <div className="demo-context-footer"><span>TOOLS AVAILABLE</span><strong>Pressure gauge · Leak-detection solution · Model plate</strong></div>
+            <p className="demo-footnote">Illustrative workflow only. No repair instruction is generated without applicable evidence and safety checks.</p>
           </div>
         </section>
 
