@@ -19,6 +19,20 @@ describe("Worker-native assessment parity", () => {
     expect(assessWorkerRuntime(request)).toEqual(assessTypeScript(request));
   });
 
+  it("asks for exact product identity before allowing model-specific evidence", () => {
+    const result = assessWorkerRuntime({
+      trade: "plumbing",
+      task: "Identify the cartridge for my kitchen tap.",
+      jurisdiction: "Nigeria",
+      involvesEquipment: true,
+      equipmentModel: "K-100",
+    });
+    expect(result.decision).toBe("clarify");
+    expect(result.missingInformation).toContain("equipment make");
+    expect(result.compatibilityStatus).toBe("undetermined");
+    expect(result.evidenceSources).toEqual([]);
+  });
+
   it("matches reviewed exact-model evidence applicability", () => {
     const request = {
       trade: "plumbing",
