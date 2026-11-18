@@ -237,3 +237,10 @@ export async function deleteEncryptedChangeset(): Promise<void> {
     transaction.onabort = () => reject(transaction.error ?? new Error("Local wallet deletion was aborted."));
   });
 }
+
+/** Detect an existing encrypted wallet without deleting or attempting to decrypt it. */
+export async function hasEncryptedChangeset(): Promise<boolean> {
+  if (typeof indexedDB === "undefined") return false;
+  const db = await openDatabase();
+  return Boolean(await readRecord(db));
+}
