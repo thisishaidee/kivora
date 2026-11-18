@@ -197,7 +197,7 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
     }
   }
 
-  function confirmRecoveryPhrase() {
+  async function confirmRecoveryPhrase() {
     const correct = verificationPositions.every((position, index) =>
       verificationWords[index].trim().toLowerCase() === phraseWords[position],
     );
@@ -209,6 +209,28 @@ export default function TestnetWalletPanel(props: { accountWorkerId?: string; ac
     setVerificationWords(["", "", ""]);
     setShowPhrase(false);
     setStatus("Recovery phrase verified. Keep it offline and private. You can now use the testnet wallet.");
+    if (!props.accountWorkerId || !pendingAccountBackupRef.current) return;
+    if (backupPassword.length < 12) {
+      setAccountBackupMessage("Your wallet is ready on this device. Enter your KIVORA account password below to link an encrypted account backup.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const encrypted = await encryptAccountWalletBackup(pendingAccountBackupRef.current, backupPassword, props.accountWorkerId);
+      const saved = await accountBackupRequest<{ saved: boolean; revision: number }>("PUT", encrypted);
+      await rememberAccountWalletUnlockKey(encrypted, backupPassword, props.accountWorkerId);
+      accountBackupExistsRef.current = true;
+      setAccountBackupRevision(saved.revision);
+      setAccountBackupState("ready");
+      setAccountBackupMessage("Encrypted wallet backup saved to your KIVORA account. Future sign-ins can restore it without the 12 words.");
+      pendingAccountBackupRef.current = null;
+      setBackupPassword("");
+    } catch (error) {
+      setAccountBackupState("error");
+      setAccountBackupMessage(error instanceof Error ? error.message : "The encrypted wallet backup could not be linked. Keep your recovery phrase safe.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function restoreFromPhrase() {
