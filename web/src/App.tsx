@@ -1148,6 +1148,20 @@ export default function App() {
                   <span>Continue this investigation</span>
                   <textarea value={followUpText} onChange={(event) => setFollowUpText(event.target.value)} rows={3} maxLength={2000} placeholder="Ask another question, add a measurement, describe what changed or explore another part of this subject." />
                 </label>
+                <details className="intake-context">
+                  <summary>+ Add or update exact product details (optional)</summary>
+                  <p className="privacy-note">Use the manufacturer and exact model or part number where available. Similar models are not treated as confirmed matches.</p>
+                  <div className="field-grid">
+                    <label className="field">
+                      <span>Manufacturer or brand</span>
+                      <input value={equipmentMake} onChange={(event) => { setEquipmentMake(event.target.value); setInvolvesEquipment(true); }} maxLength={120} placeholder="Brand or manufacturer" />
+                    </label>
+                    <label className="field">
+                      <span>Exact model or part number</span>
+                      <input value={equipmentModel} onChange={(event) => { setEquipmentModel(event.target.value); setInvolvesEquipment(true); }} maxLength={120} placeholder="Model / part number" />
+                    </label>
+                  </div>
+                </details>
                 <button className="submit-button" type="submit" disabled={busy || !followUpText.trim()}>
                   {busy ? "Checking…" : "Continue investigation"} <span aria-hidden="true">↗</span>
                 </button>
