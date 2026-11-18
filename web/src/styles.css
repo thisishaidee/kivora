@@ -333,3 +333,53 @@ textarea {
 .auth-card{margin:70px 0 0}
 .auth-card h2{font-size:26px;letter-spacing:-.04em;margin:10px 0 14px}
 @media(max-width:650px){.workspace-nav{margin-bottom:16px;gap:3px}.workspace-nav-item{padding:10px 11px;font-size:10px}.auth-card{margin-top:38px}}
+
+
+/* KIVORA product workspace refresh */
+.page-shell:has(.app-topbar){max-width:1440px;padding:0 56px 40px}
+.app-topbar{height:76px;border-bottom:1px solid #e3e5de}
+.app-topbar-right{display:flex;align-items:center;gap:22px}
+.workspace-status{display:inline-flex;align-items:center;gap:8px;font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.09em;color:#66715f}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#87977d;box-shadow:0 0 0 3px #87977d1c}
+.app-welcome-strip{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:42px 0 27px}
+.app-welcome-strip .eyebrow{margin:0 0 10px}
+.app-welcome-strip h1{font-size:clamp(27px,3.2vw,39px);line-height:1.08;letter-spacing:-.055em;font-weight:600;margin:0;color:#20231f}
+.app-welcome-strip p:not(.eyebrow){font-size:12px;line-height:1.65;color:#747b70;margin:10px 0 0;max-width:560px}
+.intelligence-signature{display:flex;align-items:center;gap:11px;padding:11px 14px;border:1px solid #e4e7df;border-radius:10px;background:#fff;flex:0 0 auto}
+.sparkle-mark{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:#20231f;color:#fff;font-size:18px;line-height:1}
+.sparkle-mark.small{display:inline-grid;width:18px;height:18px;border-radius:5px;font-size:12px;vertical-align:middle;margin-right:5px}
+.intelligence-signature strong,.intelligence-signature small{display:block}
+.intelligence-signature strong{font-size:11px;color:#30372d;font-weight:650}
+.intelligence-signature small{font-size:9px;color:#8a9086;margin-top:4px}
+.workspace-nav{max-width:none;margin:0 0 22px;padding:5px;border:1px solid #e4e5df;border-radius:11px;background:#fff;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
+.workspace-nav::-webkit-scrollbar{display:none}
+.workspace-nav-item{display:inline-flex;align-items:center;gap:9px;min-height:42px;padding:10px 16px;border-radius:7px;font-size:11px;color:#697064}
+.workspace-nav-item.active{background:#20231f;color:#fff}
+.nav-glyph{font-size:15px;line-height:1;opacity:.85}
+.page-shell:has(.app-topbar) .workspace{max-width:none;width:100%;padding:30px 34px;border-radius:13px;box-shadow:0 8px 30px #22220a06}
+.page-shell:has(.app-topbar) .active-session,.page-shell:has(.app-topbar) .assessment-card,.page-shell:has(.app-topbar) .assistant-card,.page-shell:has(.app-topbar) .research-card{margin-top:18px}
+.page-shell:has(.app-topbar) .workspace-heading h2{font-size:24px}
+.page-shell:has(.app-topbar) .task-field textarea{min-height:150px;background:#fcfcfa;border-radius:10px;padding:17px}
+.page-shell:has(.app-topbar) .submit-button{border-radius:8px;min-height:48px;padding:15px 18px}
+.page-shell:has(.app-topbar) .intake-context{border-radius:10px;background:#fafbf8}
+.response-eyebrow{display:flex;align-items:center;color:#59664f}
+.page-shell:has(.app-topbar) .global-notice{max-width:none;margin:16px 0 0}
+@media(max-width:760px){
+ .page-shell:has(.app-topbar){padding:0 18px 30px}
+ .app-topbar{height:66px}
+ .app-topbar-right{gap:0}
+ .app-topbar .topbar-note{display:none}
+ .workspace-status{font-size:8px}
+ .app-welcome-strip{align-items:flex-start;flex-direction:column;padding:31px 0 21px;gap:17px}
+ .app-welcome-strip h1{font-size:29px}
+ .intelligence-signature{padding:8px 11px}
+ .workspace-nav{margin-bottom:15px;gap:3px}
+ .workspace-nav-item{padding:9px 11px;min-height:42px;font-size:10px;gap:6px}
+ .nav-glyph{font-size:13px}
+ .page-shell:has(.app-topbar) .workspace{padding:22px 18px}
+ .page-shell:has(.app-topbar) .workspace-heading h2{font-size:20px}
+}
+@media(max-width:390px){
+ .workspace-nav-item{padding:9px 9px;font-size:9px}
+ .nav-glyph{display:none}
+}
