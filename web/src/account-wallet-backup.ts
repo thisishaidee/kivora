@@ -104,7 +104,6 @@ export async function encryptAccountWalletBackup(
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveEncryptionKey(password, salt, KDF_ITERATIONS);
-  if (typeof indexedDB !== "undefined") await cacheUnlockKey(workerId, key);
   const plaintext = new TextEncoder().encode(serializedBackup);
   try {
     const encrypted = await crypto.subtle.encrypt(
@@ -161,12 +160,29 @@ export async function decryptAccountWalletBackup(
     const bytes = new Uint8Array(plaintext);
     try {
       const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-      if (password && typeof indexedDB !== "undefined") await cacheUnlockKey(workerId, key);
-      return decoded;
+      if (password && typeof indexedDB !== "undefined") {\n        try { await cacheUnlockKey(workerId, key); } catch { /* Unlock still succeeded; caching is best-effort. */ }\n      }\n      return decoded;
     } finally {
       bytes.fill(0);
     }
   } catch {
     throw new Error("This password could not unlock the wallet backup. Use your 12-word recovery phrase if you have reset your account password.");
   }
+}
+
+/** Cache the password-derived key only after the server confirms the encrypted backup was saved. */
+export async function rememberAccountWalletUnlockKey(
+  backup: EncryptedAccountWalletBackup,
+  password: string,
+  workerId: string,
+): Promise<void> {
+  if (backup?.formatVersion !== FORMAT_VERSION || backup.network !== NETWORK ||
+      backup.kdf !== "PBKDF2-SHA-256" || backup.cipher !== "AES-256-GCM" ||
+      !Number.isInteger(backup.iterations) || backup.iterations < MIN_KDF_ITERATIONS ||
+      backup.iterations > MAX_KDF_ITERATIONS) {
+    throw new Error("This wallet backup format is not supported.");
+  }
+  const salt = fromBase64(backup.salt, 16);
+  if (salt.byteLength !== 16) throw new Error("The encrypted wallet backup is malformed.");
+  const key = await deriveEncryptionKey(password, salt, backup.iterations);
+  if (typeof indexedDB !== "undefined") await cacheUnlockKey(workerId, key);
 }
