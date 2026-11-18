@@ -519,3 +519,7 @@ textarea {
 .wallet-transaction-amount{text-align:right}
 .wallet-transaction a{grid-column:1/-1;font-size:10px;color:#52664b;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
 @media(max-width:420px){.wallet-chain-panel{padding:14px}.wallet-chain-heading h3{font-size:21px}}
+
+.intake-flag{display:flex;align-items:center;gap:10px;margin-top:16px;color:#4c5546;font-size:13px;line-height:1.5}
+.intake-flag input[type="checkbox"]{width:16px;height:16px;flex:0 0 auto;accent-color:#65765a}
+.intake-context .intake-flag+.field-grid{margin-top:14px}
