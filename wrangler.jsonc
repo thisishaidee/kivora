@@ -5,6 +5,10 @@
   "pages_build_output_dir": "./dist",
   "env": {
     "preview": {
+      "vars": {
+        "APP_BASE_URL": "https://feat-account-linked-wallet-i.kivora-bfx.pages.dev/",
+        "EMAIL_FROM": "KIVORA <accounts@kivora.name.ng>"
+      },
       "d1_databases": [
         {
           "binding": "DB",
