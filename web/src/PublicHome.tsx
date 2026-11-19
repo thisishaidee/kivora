@@ -41,7 +41,7 @@ export default function PublicHome({ busy, notice, onGetStarted, onSignIn, onCre
               <button type="button" className="public-primary" onClick={onGetStarted} disabled={busy}>{busy ? "Opening workspace…" : "Explore the workspace"} <span aria-hidden="true">↗</span></button>
               <a className="public-secondary" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a>
             </div>
-            <p className="public-disclosure">Account registration will open once secure email verification is configured. You can explore the workspace in the meantime.</p>
+            <p className="public-disclosure">Create an account with your email to keep your investigations available across devices. Email verification is required.</p>
             {notice && <p className="public-notice" role="status">{notice}</p>}
           </div>
 
