@@ -9,7 +9,7 @@
 /** @typedef {{ prepare(sql: string): D1Statement, batch(statements: D1Statement[]): Promise<D1Result[]> }} D1Database */
 /** @typedef {{ limit(options: { key: string }): Promise<{ success: boolean }> }} RateLimiter */
 /** @typedef {{ put(key: string, value: ReadableStream<Uint8Array>, options?: Record<string, unknown>): Promise<unknown>, get(key: string, options?: { range?: { offset: number, length?: number } }): Promise<{ body: ReadableStream<Uint8Array>, size: number, httpMetadata?: { contentType?: string } } | null>, delete(keys: string | string[]): Promise<void> }} R2Bucket */
-/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, TAVILY_API_KEY?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> }, RESEND_API_KEY?: string, EMAIL_FROM?: string, APP_BASE_URL?: string }} Env */
+/** @typedef {{ ASSETS?: { fetch(request: Request): Promise<Response> }, DB?: D1Database, MEDIA_BUCKET?: R2Bucket, MEDIA_UPLOAD_ENABLED?: string, IDENTITY_LIMITER?: RateLimiter, WORKER_LIMITER?: RateLimiter, AI_LIMITER?: RateLimiter, AI_ENABLED?: string, TAVILY_API_KEY?: string, AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> }, RESEND_API_KEY?: string, BREVO_API_KEY?: string, EMAIL_FROM?: string, APP_BASE_URL?: string }} Env */
 
 import { assessWorkRequest, parseWorkRequest } from "../../shared/src/intelligence-runtime.js";
 import { parsePrivateEvidenceCapture } from "../../shared/src/evidence-runtime.js";
@@ -137,8 +137,24 @@ const verifyPassword = async (password, salt, expected) => {
 };
 /** @param {Env} env @param {string} to @param {string} subject @param {string} html */
 const sendAccountEmail = async (env, to, subject, html) => {
-  if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL || !/^https:\/\//i.test(env.APP_BASE_URL)) return false;
+  if ((!env.BREVO_API_KEY && !env.RESEND_API_KEY) || !env.EMAIL_FROM || !env.APP_BASE_URL || !/^https:\/\//i.test(env.APP_BASE_URL)) return false;
   try {
+    if (env.BREVO_API_KEY) {
+      const senderMatch = env.EMAIL_FROM.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+      const senderEmail = senderMatch ? senderMatch[2].trim() : env.EMAIL_FROM.trim();
+      const senderName = senderMatch && senderMatch[1].trim() ? senderMatch[1].trim() : "KIVORA";
+      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: { "api-key": env.BREVO_API_KEY, accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify({
+          sender: { email: senderEmail, name: senderName },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+        }),
+      });
+      return response.ok;
+    }
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
@@ -275,7 +291,7 @@ const handleApi = async (request, env, url) => {
       const limit = await env.IDENTITY_LIMITER.limit({ key: "account-register:" + (request.headers.get("cf-connecting-ip") || "unknown") });
       if (!limit.success) return json({ error: "rate_limited" }, 429);
     }
-    if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
+    if ((!env.BREVO_API_KEY && !env.RESEND_API_KEY) || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
     const body = await readJson(request);
     const email = normalizeEmail(body?.email);
     const password = typeof body?.password === "string" ? body.password : "";
