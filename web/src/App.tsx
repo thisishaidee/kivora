@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import PublicHome from "./PublicHome";
 import SpeechPlayback from "./SpeechPlayback";
-import WalletPanel from "./WalletPanel";
-import TestnetWalletPanel from "./TestnetWalletPanel";
+const WalletPanel = lazy(() => import("./WalletPanel"));
+const TestnetWalletPanel = lazy(() => import("./TestnetWalletPanel"));
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -732,9 +732,11 @@ export default function App() {
 
       {identityState === "ready" && (
         <>
-          <div style={{ display: activeScreen === "payments" ? "block" : "none" }}>
-            <TestnetWalletPanel accountWorkerId={accountMode ? workerId : undefined} accountPassword={walletUnlockPassword} onWalletPasswordConsumed={() => setWalletUnlockPassword("")} />
-          </div>
+          {activeScreen === "payments" && (
+            <Suspense fallback={<section className="workspace wallet-loading" role="status">Loading wallet tools…</section>}>
+              <TestnetWalletPanel accountWorkerId={accountMode ? workerId : undefined} accountPassword={walletUnlockPassword} onWalletPasswordConsumed={() => setWalletUnlockPassword("")} />
+            </Suspense>
+          )}
           <section className="app-welcome-strip">
             <div>
               <p className="eyebrow">YOUR WORKSPACE</p>
@@ -1184,7 +1186,7 @@ export default function App() {
             </section>
           )}
 
-          {activeScreen === "payments" && <WalletPanel />}
+          {activeScreen === "payments" && <Suspense fallback={<section className="workspace wallet-loading" role="status">Loading wallet tools…</section>}><WalletPanel /></Suspense>}
 
           {activeScreen === "account" && <section className="workspace account-card">
             <div className="workspace-heading">
