@@ -649,3 +649,4 @@ textarea {
  .quick-prompts>div{display:grid;grid-template-columns:1fr}
  .quick-prompts button{width:100%;min-height:40px;border-radius:8px}
 }
+.wallet-loading{margin:18px 0;padding:22px 24px;color:#737b6e;font-size:12px;line-height:1.6;min-height:72px;display:flex;align-items:center}
