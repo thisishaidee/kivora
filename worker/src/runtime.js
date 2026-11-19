@@ -345,7 +345,7 @@ const handleApi = async (request, env, url) => {
       const limit = await env.IDENTITY_LIMITER.limit({ key: "account-verify-resend:" + (request.headers.get("cf-connecting-ip") || "unknown") });
       if (!limit.success) return json({ error: "rate_limited" }, 429);
     }
-    if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
+    if ((!env.BREVO_API_KEY && !env.RESEND_API_KEY) || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
     const body = await readJson(request);
     const email = normalizeEmail(body?.email);
     if (validEmail(email)) {
@@ -412,7 +412,7 @@ const handleApi = async (request, env, url) => {
       const limit = await env.IDENTITY_LIMITER.limit({ key: "account-reset:" + (request.headers.get("cf-connecting-ip") || "unknown") });
       if (!limit.success) return json({ error: "rate_limited" }, 429);
     }
-    if (!env.RESEND_API_KEY || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
+    if ((!env.BREVO_API_KEY && !env.RESEND_API_KEY) || !env.EMAIL_FROM || !env.APP_BASE_URL) return json({ error: "email_delivery_unavailable" }, 503);
     const body = await readJson(request);
     const email = normalizeEmail(body?.email);
     if (!validEmail(email)) return json({ message: "If an account matches that address, a reset link will be sent." });
