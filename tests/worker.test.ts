@@ -102,6 +102,46 @@ describe("KIVORA Worker routes", () => {
     }
   });
 
+  it("creates an account through Brevo when the Brevo API key is configured", async () => {
+    const db = makeDb();
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(JSON.stringify({ messageId: "brevo_test_123" }), { status: 201, headers: { "content-type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const response = await worker.fetch(
+        new Request("https://kivora.test/api/accounts/register", {
+          method: "POST",
+          headers: { origin: "https://kivora.test", "content-type": "application/json" },
+          body: JSON.stringify({ email: "worker@example.com", password: "a-long-test-passphrase" }),
+        }),
+        {
+          ASSETS: { fetch: vi.fn() },
+          DB: db as never,
+          BREVO_API_KEY: "brevo_test_key",
+          EMAIL_FROM: "KIVORA <accounts@example.com>",
+          APP_BASE_URL: "https://preview.kivora.test",
+        },
+      );
+
+      expect(response.status).toBe(201);
+      expect(fetchMock).toHaveBeenCalledOnce();
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.brevo.com/v3/smtp/email");
+      expect((init?.headers as Record<string, string>)["api-key"]).toBe("brevo_test_key");
+      const email = JSON.parse(String(init?.body));
+      expect(email).toMatchObject({
+        sender: { email: "accounts@example.com", name: "KIVORA" },
+        to: [{ email: "worker@example.com" }],
+        subject: "Verify your KIVORA account",
+      });
+      expect(email.htmlContent).toContain("https://preview.kivora.test/?verify=");
+      expect(db.statements.some((statement) => statement.sql.includes("INSERT INTO worker_accounts"))).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("rolls back a new account when Resend rejects the verification email", async () => {
     const db = makeDb();
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
