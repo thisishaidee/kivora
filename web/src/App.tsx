@@ -760,6 +760,14 @@ export default function App() {
 
             <form onSubmit={(event) => void handleSubmit(event)}>
               <p className="consultation-hint">You do not need to choose a trade or know the technical terms. Ask in your own words.</p>
+              <div className="quick-prompts" aria-label="Example questions">
+                <span>NEED A STARTING POINT?</span>
+                <div>
+                  <button type="button" onClick={() => setTask("I have a cabinet hinge I don't recognise. How can I identify it and find the right fitting information?")}>Identify a cabinet fitting</button>
+                  <button type="button" onClick={() => setTask("A plumbing fitting does not match the pipe I have. What details should I check before choosing a replacement?")}>Check a plumbing fitting</button>
+                  <button type="button" onClick={() => setTask("A machine is making an unfamiliar noise. What should I record so I can investigate it safely?")}>Investigate a machine issue</button>
+                </div>
+              </div>
 
               <label className="field task-field">
                 <span>Your question</span>
