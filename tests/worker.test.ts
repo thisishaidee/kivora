@@ -60,6 +60,78 @@ describe("KIVORA Worker routes", () => {
     expect(db.statements).toHaveLength(0);
   });
 
+  it("creates an account only after Resend accepts the verification email", async () => {
+    const db = makeDb();
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(JSON.stringify({ id: "email_test_123" }), { status: 200, headers: { "content-type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const response = await worker.fetch(
+        new Request("https://kivora.test/api/accounts/register", {
+          method: "POST",
+          headers: { origin: "https://kivora.test", "content-type": "application/json" },
+          body: JSON.stringify({ email: "worker@example.com", password: "a-long-test-passphrase" }),
+        }),
+        {
+          ASSETS: { fetch: vi.fn() },
+          DB: db as never,
+          RESEND_API_KEY: "re_test_key",
+          EMAIL_FROM: "KIVORA <accounts@example.com>",
+          APP_BASE_URL: "https://preview.kivora.test",
+        },
+      );
+
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({ message: expect.stringContaining("Check your inbox") });
+      expect(fetchMock).toHaveBeenCalledOnce();
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.resend.com/emails");
+      expect((init?.headers as Record<string, string>).authorization).toBe("Bearer re_test_key");
+      const email = JSON.parse(String(init?.body));
+      expect(email).toMatchObject({
+        from: "KIVORA <accounts@example.com>",
+        to: ["worker@example.com"],
+        subject: "Verify your KIVORA account",
+      });
+      expect(email.html).toContain("https://preview.kivora.test/?verify=");
+      expect(db.statements.some((statement) => statement.sql.includes("INSERT INTO worker_accounts"))).toBe(true);
+      expect(db.statements.some((statement) => statement.sql.includes("INSERT INTO account_email_tokens"))).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("rolls back a new account when Resend rejects the verification email", async () => {
+    const db = makeDb();
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(JSON.stringify({ message: "invalid API key" }), { status: 401, headers: { "content-type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const response = await worker.fetch(
+        new Request("https://kivora.test/api/accounts/register", {
+          method: "POST",
+          headers: { origin: "https://kivora.test", "content-type": "application/json" },
+          body: JSON.stringify({ email: "worker@example.com", password: "a-long-test-passphrase" }),
+        }),
+        {
+          ASSETS: { fetch: vi.fn() },
+          DB: db as never,
+          RESEND_API_KEY: "re_test_key",
+          EMAIL_FROM: "KIVORA <accounts@example.com>",
+          APP_BASE_URL: "https://preview.kivora.test",
+        },
+      );
+
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({ error: "email_delivery_unavailable" });
+      expect(db.statements.some((statement) => statement.sql.includes("DELETE FROM workers"))).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("fails closed when the D1 binding is absent", async () => {
     const response = await worker.fetch(
       new Request("https://kivora.test/api/identity", {
