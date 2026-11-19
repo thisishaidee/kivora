@@ -37,13 +37,14 @@ The existing anonymous preview identity is a temporary access path. When account
 
 Email verification and password reset require a transactional email sender and a verified sender domain. Cloudflare Email Sending documentation currently states that sending to arbitrary recipients requires Workers Paid, and the connected Cloudflare account currently has no zones/domains available to onboard. Do not enable a paid plan, purchase a domain, or expose registration as working without explicit authorization and a successful end-to-end delivery test.
 
-The Worker currently supports Resend through server-side `RESEND_API_KEY`, `EMAIL_FROM` and `APP_BASE_URL` bindings. The sender must be configured with a verified domain and tested before registration is enabled. Until then, the registration and reset endpoints return an unavailable response and do not create a partial account. The D1 schema is in `migrations/0004_email_password_accounts.sql`; it has been applied to the isolated Preview database only.
+The Worker supports Resend (`RESEND_API_KEY`) and Brevo (`BREVO_API_KEY`) through server-side secrets, plus `EMAIL_FROM` and `APP_BASE_URL`. Brevo is preferred when both provider keys are configured. Brevo requires transactional sending to be enabled and the sender address/domain to be verified. Test real delivery before registration is enabled. Until a provider key and verified sender are available, registration and reset endpoints return an unavailable response and do not create a partial account. The D1 schema is in `migrations/0004_email_password_accounts.sql`; it has been applied to the isolated Preview database only.
 
 ## Lowest-cost email provider review
 
 Do not buy a domain or enable a paid email plan for the first account release without comparing the zero-cost option first.
 
 - Firebase Authentication on the Spark plan is the current leading option to evaluate: the plan is no-cost and does not require a payment method, and its documented limits include up to 1,000 address-verification emails/day and 150 password-reset emails/day. It supplies the password and email-action lifecycle, reducing the need to operate a custom password store and sender.
+- Brevo's free plan currently includes 300 email sends/day and supports transactional email; it requires account approval for sending and a verified sender/domain. KIVORA now has a Brevo API adapter, so this is the quickest provider swap to test without changing the account database or password flow.
 - Resend's free plan currently includes 3,000 emails/month and 100/day, but requires a domain that KIVORA controls and can verify in DNS.
 - Supabase's built-in email sender is not suitable for general production sign-up: it is limited to team-authorized recipient addresses and currently 2 emails/hour. Custom SMTP is required for broader delivery.
 
