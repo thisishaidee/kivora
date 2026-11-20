@@ -666,3 +666,6 @@ textarea {
 
 
 .block-evidence{margin-top:14px;padding:12px 14px;border:1px solid #e5e8df;border-radius:8px;background:#fafbf9}.block-evidence-label{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.08em;color:#858b81}.block-evidence ul{margin:8px 0 0;padding-left:18px;font-size:11px;line-height:1.65;color:#62685f}.block-evidence li+li{margin-top:5px}.block-evidence a{overflow-wrap:anywhere}
+
+
+.follow-up-suggestions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}.follow-up-suggestions button{border:1px solid #dfe2d9;border-radius:999px;background:#fff;padding:9px 12px;color:#59634f;font-size:11px;line-height:1.4;cursor:pointer;text-align:left}.follow-up-suggestions button:hover{background:#eef1e9;border-color:#77876d}.follow-up-suggestions button:focus-visible{outline:2px solid #65765a;outline-offset:2px}
