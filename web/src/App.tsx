@@ -1177,7 +1177,7 @@ export default function App() {
                   <textarea value={followUpText} onChange={(event) => setFollowUpText(event.target.value)} rows={3} maxLength={2000} placeholder="Ask another question, add a measurement, describe what changed or explore another part of this subject." />
                 </label>
                 <div className="follow-up-suggestions" aria-label="Suggested follow-up questions">
-                  {["What should I check before proceeding?","What measurements or details are still missing?","How can I verify the result safely?"].map((suggestion) => <button type="button" key={suggestion} onClick={() => setFollowUpText((previous) => previous.trim() ? previous.trim() + "\\n\\n" + suggestion : suggestion)}>{suggestion}</button>)}
+                  {["What should I check before proceeding?","What measurements or details are still missing?","How can I verify the result safely?"].map((suggestion) => <button type="button" key={suggestion} onClick={() => setFollowUpText((previous) => previous.trim() ? previous.trim() + "\n\n" + suggestion : suggestion)}>{suggestion}</button>)}
                 </div>
                 <details className="intake-context">
                   <summary>+ Add or update exact product details (optional)</summary>
