@@ -663,3 +663,6 @@ textarea {
  .message-meta{align-items:flex-start;flex-direction:column;gap:4px}
  .message-meta time{font-size:9px}
 }
+
+
+.block-evidence{margin-top:14px;padding:12px 14px;border:1px solid #e5e8df;border-radius:8px;background:#fafbf9}.block-evidence-label{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:.08em;color:#858b81}.block-evidence ul{margin:8px 0 0;padding-left:18px;font-size:11px;line-height:1.65;color:#62685f}.block-evidence li+li{margin-top:5px}.block-evidence a{overflow-wrap:anywhere}
