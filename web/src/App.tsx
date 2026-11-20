@@ -918,6 +918,15 @@ export default function App() {
                 <article className="assistant-block" key={index}>
                   <h3>{block.kind === "procedure" ? "Evidence-backed steps" : block.kind === "measurement" ? "Measurements" : block.kind === "parts" ? "Parts and components" : block.kind === "safety" ? "Safety" : "Explanation"}</h3>
                   <p>{block.content}</p>
+                  {block.evidenceIds.length > 0 && (
+                    <div className="block-evidence">
+                      <span className="block-evidence-label">REFERENCED EVIDENCE</span>
+                      <ul>{block.evidenceIds.map((evidenceId) => {
+                        const source = assistantResponse.citations.find((item) => item.id === evidenceId);
+                        return <li key={evidenceId}>{source ? (source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.publisher} — {source.title}</a> : <span>{source.publisher} — {source.title}</span>) : <span>Evidence reference {evidenceId} could not be matched to the source list.</span>}</li>;
+                      })}</ul>
+                    </div>
+                  )}
                 </article>
               ))}
               {assistantResponse.questions.length > 0 && (
