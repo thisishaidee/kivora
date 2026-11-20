@@ -1151,10 +1151,13 @@ export default function App() {
                 </div>
                 <button className="text-button" type="button" onClick={() => { setActiveSession(null); setMessages([]); }}>Close</button>
               </div>
-              <div className="message-list">
+              <div className="message-list" role="log" aria-label="Investigation conversation" aria-live="polite" aria-relevant="additions">
                 {messages.map((message) => (
                   <article className={message.role === "assistant" ? "message-card assistant-message" : "message-card worker-message"} key={message.id}>
-                    <span className="message-role">{message.role === "worker" ? "YOU" : message.role.toUpperCase()}</span>
+                    <div className="message-meta">
+                      <span className="message-role">{message.role === "worker" ? "YOU" : message.role.toUpperCase()}</span>
+                      <time dateTime={new Date(message.created_at * 1000).toISOString()}>{new Date(message.created_at * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</time>
+                    </div>
                     <p>{message.content}</p>
                   </article>
                 ))}

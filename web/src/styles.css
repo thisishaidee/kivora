@@ -650,3 +650,16 @@ textarea {
  .quick-prompts button{width:100%;min-height:40px;border-radius:8px}
 }
 .wallet-loading{margin:18px 0;padding:22px 24px;color:#737b6e;font-size:12px;line-height:1.6;min-height:72px;display:flex;align-items:center}
+
+/* Conversation timeline: make authorship and chronology clear at a glance. */
+.message-meta{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.message-meta time{color:#92988e;font-size:10px;line-height:1.4}
+.message-card.worker-message{background:#f4f6f1;border-color:#e3e8de}
+.message-card.assistant-message{background:#fff;border-color:#e8ebe5}
+.message-card.worker-message .message-role{color:#69765e}
+.message-card.assistant-message .message-role{color:#64705e}
+@media(max-width:560px){
+ .message-card{padding:13px 14px}
+ .message-meta{align-items:flex-start;flex-direction:column;gap:4px}
+ .message-meta time{font-size:9px}
+}
