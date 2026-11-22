@@ -87,6 +87,10 @@ export default function App() {
   const [language, setLanguage] = useState<Language>("en");
   const [units, setUnits] = useState<UnitSystem>("metric");
   const [task, setTask] = useState("");
+  const [measurements, setMeasurements] = useState("");
+  const [materials, setMaterials] = useState("");
+  const [availableTools, setAvailableTools] = useState("");
+  const [constraints, setConstraints] = useState("");
   const [jurisdiction, setJurisdiction] = useState("");
   const [involvesEquipment, setInvolvesEquipment] = useState(false);
   const [equipmentMake, setEquipmentMake] = useState("");
@@ -106,6 +110,10 @@ export default function App() {
   const [evidenceSection, setEvidenceSection] = useState("");
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [messages, setMessages] = useState<WorkMessage[]>([]);
+  const [followUpText, setFollowUpText] = useState("");
+  const [verificationOutcome, setVerificationOutcome] = useState("not_tried");
+  const [verificationNotes, setVerificationNotes] = useState("");
+  const [verificationSaved, setVerificationSaved] = useState(false);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -267,6 +275,13 @@ export default function App() {
     const validLanguage = languageSchema.safeParse(language);
     const validUnits = unitSystemSchema.safeParse(units);
     const submittedTask = task.trim();
+    const knownFacts = [
+      measurements.trim() ? `Measurements: ${measurements.trim()}` : "",
+      materials.trim() ? `Materials: ${materials.trim()}` : "",
+      availableTools.trim() ? `Available tools: ${availableTools.trim()}` : "",
+      constraints.trim() ? `Constraints: ${constraints.trim()}` : "",
+    ].filter(Boolean);
+    const sessionDescription = [submittedTask, ...knownFacts, jurisdiction.trim() ? "Work jurisdiction: " + jurisdiction.trim() : "", involvesEquipment ? "Equipment details: make=" + (equipmentMake.trim() || "unknown") + "; model=" + (equipmentModel.trim() || "unknown") : ""].filter(Boolean).join("\n\n");
     if (!validTrade.success || !validLanguage.success || !validUnits.success || !submittedTask) {
       setNotice("Add a job description and check your preferences.");
       return;
@@ -282,15 +297,19 @@ export default function App() {
           trade: validTrade.data,
           language: validLanguage.data,
           units: validUnits.data,
-          task: submittedTask,
+          task: sessionDescription,
         }),
       });
       setTask("");
+      setMeasurements("");
+      setMaterials("");
+      setAvailableTools("");
+      setConstraints("");
       setActiveSession(result.session);
       setMessages([{
         id: "initial-task",
         role: "worker",
-        content: submittedTask,
+        content: sessionDescription,
         created_at: result.session.created_at,
       }]);
       await refreshSessions();
@@ -301,6 +320,7 @@ export default function App() {
             sessionId: result.session.id,
             trade: validTrade.data,
             task: submittedTask,
+            knownFacts,
             language: validLanguage.data,
             units: validUnits.data,
             jurisdiction: jurisdiction.trim() || undefined,
@@ -311,6 +331,7 @@ export default function App() {
         });
         setAssessment(assistantResult.assessment);
         setAssistantResponse(assistantResult.response);
+        setVerificationSaved(false);
         const assistantText = [
           assistantResult.response.summary,
           ...assistantResult.response.blocks.map(block => block.content),
@@ -325,7 +346,7 @@ export default function App() {
         setNotice(assistantResult.response.status === "guided"
           ? "KIVORA prepared a response from reviewed evidence. Check its sources before acting."
           : assistantResult.response.status === "unavailable"
-            ? "Your task is saved. AI guidance is not enabled yet; no technical procedure was generated."
+            ? "Your task is saved. AI inference is currently disabled; no technical procedure was generated."
             : "Your task is saved. Review the safety assessment and requested details before taking action.");
       } catch {
         setNotice("Your task is saved, but the assistant service is unavailable. No technical guidance was generated.");
@@ -337,6 +358,60 @@ export default function App() {
     }
   }
 
+  async function submitVerification(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeSession || verificationSaved) return;
+    const outcomeLabels: Record<string, string> = { not_tried: "Not tried yet", resolved: "The issue appears resolved", unchanged: "The issue remains", unexpected: "I observed a different result", expert: "I need qualified help" };
+    const outcome = outcomeLabels[verificationOutcome];
+    if (!outcome) return;
+    const content = ["WORKER OBSERVATION — NOT INDEPENDENTLY VERIFIED", "Outcome: " + outcome, verificationNotes.trim() ? "Notes: " + verificationNotes.trim() : ""].filter(Boolean).join("\n");
+    setBusy(true);
+    setNotice("");
+    try {
+      await api("/api/work-sessions/" + activeSession.id + "/messages", { method: "POST", body: JSON.stringify({ content }) });
+      const now = Math.floor(Date.now() / 1000);
+      setMessages(previous => [...previous, { id: "verification-" + now, role: "worker", content, created_at: now }]);
+      setVerificationSaved(true);
+      setNotice("Your observation was saved to this private work session. It has not been treated as verified technical evidence.");
+      await refreshSessions();
+    } catch {
+      setNotice("Your observation could not be saved. Please try again.");
+    } finally { setBusy(false); }
+  }
+  async function submitFollowUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeSession || !followUpText.trim()) return;
+    const message = followUpText.trim();
+    setBusy(true);
+    setNotice("");
+    setAssessment(null);
+    setAssistantResponse(null);
+    try {
+      await api("/api/work-sessions/" + activeSession.id + "/messages", { method: "POST", body: JSON.stringify({ content: message }) });
+      const priorWorkerContext = messages.filter(item => item.role === "worker").slice(-5).map(item => item.content);
+      const savedContext = priorWorkerContext.join("\n");
+      const combinedTask = [...priorWorkerContext, message].join("\n\n").slice(-3900);
+      const savedJurisdiction = savedContext.split("\n").find(line => line.startsWith("Work jurisdiction: "))?.slice("Work jurisdiction: ".length).trim();
+      const equipmentLine = savedContext.split("\n").find(line => line.startsWith("Equipment details: "));
+      const savedEquipment = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
+      const assistantResult = await api<{ assessment: IntelligenceAssessment; response: AssistantResponse }>("/api/assist", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: activeSession.id, trade: activeSession.trade, task: combinedTask, language: activeSession.language, units: activeSession.unit_system, jurisdiction: jurisdiction.trim() || savedJurisdiction || undefined, involvesEquipment: involvesEquipment || Boolean(savedEquipment), equipmentMake: equipmentMake.trim() || (savedEquipment?.[1].trim() !== "unknown" ? savedEquipment?.[1].trim() : undefined), equipmentModel: equipmentModel.trim() || (savedEquipment?.[2].trim() !== "unknown" ? savedEquipment?.[2].trim() : undefined) }),
+      });
+      const assistantText = [assistantResult.response.summary, ...assistantResult.response.blocks.map(block => block.content), ...assistantResult.response.questions].join("\n\n");
+      const now = Math.floor(Date.now() / 1000);
+      setMessages(previous => [...previous, { id: "worker-" + now, role: "worker", content: message, created_at: now }, { id: "assistant-" + now, role: "assistant", content: assistantText, created_at: now }]);
+      setFollowUpText("");
+      setAssessment(assistantResult.assessment);
+      setAssistantResponse(assistantResult.response);
+      setVerificationSaved(false);
+      await refreshSessions();
+      setNotice(assistantResult.response.status === "guided" ? "KIVORA checked your update against reviewed evidence." : assistantResult.response.status === "unavailable" ? "Your update is saved. AI inference is currently disabled; no technical procedure was generated." : "Your update is saved. Review the latest assessment and requested details before acting.");
+    } catch {
+      setNotice("Your update could not be fully processed. Check the saved work session before retrying.");
+      try { const result = await api<{ session: WorkSession; messages: WorkMessage[] }>("/api/work-sessions/" + activeSession.id); setMessages(result.messages); } catch { /* Keep current local history visible. */ }
+    } finally { setBusy(false); }
+  }
   async function openSession(id: string) {
     setBusy(true);
     setNotice("");
@@ -344,8 +419,17 @@ export default function App() {
       const result = await api<{ session: WorkSession; messages: WorkMessage[] }>(`/api/work-sessions/${id}`);
       setActiveSession(result.session);
       setMessages(result.messages);
+      const firstWorkerMessage = result.messages.find(message => message.role === "worker")?.content ?? "";
+      const jurisdictionLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Work jurisdiction: "));
+      const equipmentLine = firstWorkerMessage.split("\n").find(line => line.startsWith("Equipment details: "));
+      const equipmentDetails = equipmentLine?.match(/^Equipment details: make=([^;]+); model=(.+)$/i);
+      setJurisdiction(jurisdictionLine?.slice("Work jurisdiction: ".length).trim() ?? "");
+      setInvolvesEquipment(Boolean(equipmentDetails));
+      setEquipmentMake(equipmentDetails?.[1].trim() !== "unknown" ? equipmentDetails?.[1].trim() ?? "" : "");
+      setEquipmentModel(equipmentDetails?.[2].trim() !== "unknown" ? equipmentDetails?.[2].trim() ?? "" : "");
       setAssessment(null);
       setAssistantResponse(null);
+      setVerificationSaved(false);
     } catch {
       setNotice("That work session could not be opened.");
     } finally {
@@ -561,13 +645,34 @@ export default function App() {
 
               <label className="field task-field">
                 <span>Describe the job, product or problem</span>
-                <textarea value={task} onChange={(event) => setTask(event.target.value)} placeholder="What are you trying to do? What have you noticed? Include a product or model number if you have one." rows={5} />
+                <textarea value={task} onChange={(event) => setTask(event.target.value)} placeholder="What are you trying to do? What have you noticed? Include a product or model number if you have one." rows={5} maxLength={2000} />
               </label>
+
+              <div className="intake-context">
+                <p className="eyebrow">JOB CONTEXT · OPTIONAL BUT USEFUL</p>
+                <p className="privacy-note">A few practical details help KIVORA distinguish your actual job from a general question. Add only what you know; you can leave anything blank.</p>
+                <label className="field">
+                  <span>Measurements and dimensions</span>
+                  <textarea value={measurements} onChange={(event) => setMeasurements(event.target.value)} rows={2} maxLength={450} placeholder="For example: opening width, depth, thickness, pipe diameter or observed readings. Include units." />
+                </label>
+                <label className="field">
+                  <span>Materials or components involved</span>
+                  <textarea value={materials} onChange={(event) => setMaterials(event.target.value)} rows={2} maxLength={450} placeholder="For example: MDF, plywood, copper pipe, PVC fitting, hinge type or component label." />
+                </label>
+                <label className="field">
+                  <span>Tools and equipment available</span>
+                  <textarea value={availableTools} onChange={(event) => setAvailableTools(event.target.value)} rows={2} maxLength={450} placeholder="What tools can you actually use for this job?" />
+                </label>
+                <label className="field">
+                  <span>Constraints or what you have already tried</span>
+                  <textarea value={constraints} onChange={(event) => setConstraints(event.target.value)} rows={2} maxLength={450} placeholder="Access, time, space, budget, parts available, previous attempts or anything that limits the work." />
+                </label>
+              </div>
 
               <button className="submit-button" type="submit" disabled={busy || !task.trim()}>
                 {busy ? "Saving…" : "Save work session"} <span aria-hidden="true">↗</span>
               </button>
-              <p className="privacy-note">Your task is stored in your private workspace. Avoid passwords, access codes and customer personal details. AI guidance is not connected yet.</p>
+              <p className="privacy-note">Your task is stored in your private workspace. Avoid passwords, access codes and customer personal details. AI inference is currently disabled while the evidence and cost controls are being validated.</p>
             </form>
           </section>
 
@@ -635,6 +740,30 @@ export default function App() {
                     </li>
                   ))}</ul>
                 </div>
+              )}
+              {assistantResponse.status === "guided" && activeSession && (
+                <form onSubmit={(event) => void submitVerification(event)} className="verification-form">
+                  <p className="eyebrow">CLOSE THE LOOP</p>
+                  <h3>What happened when you checked this?</h3>
+                  <p className="privacy-note">Record what you observed. This stays in your private work history and is not automatically treated as verified technical knowledge.</p>
+                  <label className="field">
+                    <span>Your outcome</span>
+                    <select value={verificationOutcome} onChange={(event) => setVerificationOutcome(event.target.value)} disabled={verificationSaved}>
+                      <option value="not_tried">I have not tried it yet</option>
+                      <option value="resolved">The issue appears resolved</option>
+                      <option value="unchanged">The issue remains</option>
+                      <option value="unexpected">I observed a different result</option>
+                      <option value="expert">I need qualified help</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>What did you observe? (optional)</span>
+                    <textarea value={verificationNotes} onChange={(event) => setVerificationNotes(event.target.value)} rows={2} maxLength={1000} placeholder="Describe the result, what changed or what still needs checking." disabled={verificationSaved} />
+                  </label>
+                  <button className="submit-button" type="submit" disabled={busy || verificationSaved}>
+                    {verificationSaved ? "Observation saved" : busy ? "Saving…" : "Save work observation"}
+                  </button>
+                </form>
               )}
               <p className="privacy-note">Compatibility remains {assistantResponse.compatibilityStatus}. KIVORA only returns model-generated technical content when its evidence references pass validation; this is not a substitute for professional judgement or a site-specific risk assessment.</p>
             </section>
@@ -764,7 +893,16 @@ export default function App() {
                   </article>
                 ))}
               </div>
-              <p className="privacy-note">This is your saved task history. KIVORA's evidence-backed AI response workflow is still being built.</p>
+              <form onSubmit={(event) => void submitFollowUp(event)} className="follow-up-form">
+                <label className="field">
+                  <span>Continue this work session</span>
+                  <textarea value={followUpText} onChange={(event) => setFollowUpText(event.target.value)} rows={3} maxLength={2000} placeholder="Add a measurement, answer a question, describe what changed or explain what you tried next." />
+                </label>
+                <button className="submit-button" type="submit" disabled={busy || !followUpText.trim()}>
+                  {busy ? "Checking…" : "Send update"} <span aria-hidden="true">↗</span>
+                </button>
+              </form>
+              <p className="privacy-note">Your latest worker updates are checked together with the work-session context. Missing reviewed evidence still prevents unsupported technical procedures.</p>
             </section>
           )}
 
