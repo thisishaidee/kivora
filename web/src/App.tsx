@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PaymentRequestPreview from "./PaymentRequestPreview";
+import WalletPanel from "./WalletPanel";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -784,9 +785,11 @@ export default function App() {
             </div>
           </section>
 
-          <PaymentRequestPreview />
         </>
       )}
+
+      <WalletPanel />
+      <PaymentRequestPreview />
 
       {notice && identityState === "ready" && <p className="notice global-notice" role="status">{notice}</p>}
 

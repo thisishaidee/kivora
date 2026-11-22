@@ -49,7 +49,9 @@
 
 ## Stage 6 — Hackathon integration and release
 - [x] Confirm the official submission requires a Bitcoin/Lightning wallet implementation.
-- [ ] Select and implement a real, testable wallet integration.
+- [x] Select and implement a non-custodial Lightning wallet connection and receive-invoice flow.
+- [ ] Verify NWC interoperability with a real Android wallet and relay.
+- [ ] Add received-invoice status and payment history after interoperability testing.
 - [ ] Keep wallet use separate from ordinary AI access; never store seed phrases or private keys.
 - [ ] Publish an accessible MVP or demo video.
 - [ ] Prepare the three-minute presentation and final submission.

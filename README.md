@@ -52,6 +52,7 @@ These documents do not enable mainnet or real-fund functionality. Testnet intero
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 - [Worker identity and private sessions](docs/WORKER_IDENTITY.md)
 - [Worker validation plan](docs/VALIDATION_PLAN.md)
+- [Lightning wallet integration](docs/LIGHTNING_WALLET.md)
 - [Dakar Bitcoin Hack requirements](docs/HACKATHON.md)
 - [Foundation status and limitations](FOUNDATION-STATUS.md)
 
@@ -74,7 +75,7 @@ Requires Node.js 22 or newer.
 
 ## Current limitations
 
-Worker identity and private work-session endpoints are implemented on the current feature branch and the D1 schema is provisioned in Cloudflare. The branch still needs CI, Worker deployment and end-to-end browser verification. AI providers, evidence retrieval, image understanding, voice input/output, compatibility assessment and trade-specific safety enforcement are not yet implemented. The optional NWC wallet integration is being developed separately. See the implementation plan for the sequence and deployment gates.
+Worker identity and private work-session endpoints are implemented on the current feature branch and the D1 schema is provisioned in Cloudflare. The branch still needs CI, Worker deployment and end-to-end browser verification. AI providers, evidence retrieval, image understanding, voice input/output, compatibility assessment and trade-specific safety enforcement are not yet implemented. The optional NWC wallet connection and receive-invoice flow is under review and still requires real Android wallet/relay interoperability testing. See the implementation plan for the sequence and deployment gates.
 
 ## Security
 
