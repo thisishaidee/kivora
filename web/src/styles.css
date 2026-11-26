@@ -114,3 +114,10 @@ select:focus,textarea:focus,input:not([type="checkbox"]):focus{border-color:#657
 .payment-alternative .eyebrow{margin:0 0 8px}
 .payment-alternative .unit-option{margin-top:8px}
 @media(max-width:650px){.payment-details div{grid-template-columns:1fr;gap:5px}}
+
+.hybrid-proof{margin:0 0 24px;border-color:#d9dfd2}
+.hybrid-warning{margin:16px 0 0;padding:12px 14px;border-left:3px solid #9a8350;background:#faf8f1;color:#6e5b32;font-size:12px;line-height:1.6}
+.hybrid-error{margin:14px 0 0;color:#965e51;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.hybrid-result{margin-top:20px;padding-top:18px;border-top:1px solid #eceee8}
+.hybrid-result strong{display:inline-block;margin:4px 0 10px;font-family:"DM Mono",monospace;font-size:13px;letter-spacing:.08em}
+.hybrid-result>p:last-child{margin-bottom:0}
