@@ -5,7 +5,7 @@ permissions:
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**"]
+    branches: [main, "feat/**", "fix/**", "buildhybridai/**"]
   pull_request:
     branches: [main]
 
@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Refresh lockfile for dependency changes
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Install dependencies
         run: |
           if [ -f package-lock.json ]; then
@@ -39,7 +41,7 @@ jobs:
           path: dist-worker/worker.js
           retention-days: 3
       - name: Commit generated lockfile
-        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/fix/'))
+        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'push' && (startsWith(github.ref, 'refs/heads/fix/') || startsWith(github.ref, 'refs/heads/buildhybridai/')))
         run: |
           branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           cp package-lock.json /tmp/kivora-package-lock.json
