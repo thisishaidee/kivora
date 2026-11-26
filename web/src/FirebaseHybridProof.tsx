@@ -70,10 +70,9 @@ export default function FirebaseHybridProof() {
       // Chrome's Prompt API is available only in supported desktop Chrome.
       // On other browsers/devices, PREFER_ON_DEVICE safely falls back to cloud.
       if (typeof window !== "undefined" && "LanguageModel" in window) {
-        void model.initializeDeviceModel((value) => {
+        setProgress("Preparing the on-device model. The first download may take several minutes.");
+        await model.initializeDeviceModel((value) => {
           setProgress(`Preparing on-device model: ${Math.round(value * 100)}%`);
-        }).catch(() => {
-          setProgress("On-device model unavailable here; attempting cloud fallback.");
         });
       } else {
         setProgress("This browser does not expose Chrome's desktop Prompt API; testing cloud fallback.");
