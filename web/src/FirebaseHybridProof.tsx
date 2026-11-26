@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
-import { getAI, getGenerativeModel, GoogleAIBackend, InferenceMode } from "firebase/ai";
+import { getAI, getGenerativeModel, GoogleAIBackend, InferenceMode, InferenceSource } from "firebase/ai";
 
 type FirebaseConfig = {
   apiKey: string;
@@ -85,7 +85,11 @@ export default function FirebaseHybridProof() {
       const source = response.response.inferenceSource;
       setResult({
         text: response.response.text(),
-        source: source === "ON_DEVICE" || source === "IN_CLOUD" ? source : "UNKNOWN",
+        source: source === InferenceSource.ON_DEVICE
+          ? "ON_DEVICE"
+          : source === InferenceSource.IN_CLOUD
+            ? "IN_CLOUD"
+            : "UNKNOWN",
       });
       setProgress("");
     } catch (cause) {
