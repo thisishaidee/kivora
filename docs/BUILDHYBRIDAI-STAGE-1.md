@@ -1,6 +1,6 @@
 # BuildHybridAI 2026 — Stage 1 Hybrid Inference Proof
 
-Status: preparation branch; no application runtime code changed yet.
+Status: isolated Firebase AI Logic proof implementation committed to the preparation branch; CI validation and live Firebase request are pending.
 
 ## Verified repository baseline
 
@@ -10,8 +10,8 @@ Status: preparation branch; no application runtime code changed yet.
 - Existing frontend: React 19 + Vite 6 + TypeScript
 - Existing backend: Cloudflare Worker + D1
 - Existing AI adapter: Cloudflare Workers AI in `shared/src/response-runtime.js` and `worker/src/runtime.js`
-- Firebase JS SDK dependency: absent from root `package.json`
-- Firebase AI Logic initialization and App Check initialization: absent from inspected source
+- Firebase JS SDK `13.0.0` is now pinned in root `package.json`
+- An isolated `FirebaseHybridProof` component now initializes Firebase AI Logic and reCAPTCHA Enterprise App Check
 - Existing Worker AI is configured with `AI_ENABLED: false`; preserve this configuration during the proof.
 
 ## Stage 1 objective
@@ -25,7 +25,7 @@ The proof must demonstrate a genuine Firebase AI Logic response, report the actu
 - The owner is currently developing from Android and has no desktop Chrome test device available.
 - Firebase AI Logic web on-device inference requires desktop Chrome 139+ and the Chrome Prompt API. Android Chrome cannot prove the local web inference path.
 - Android can be used to validate the cloud inference path in the web app, subject to Firebase project setup, network access, and App Check configuration.
-- A Firebase project is not yet identified. This is unknown, not proof that no Firebase project exists.
+- Firebase project: `kivora-c888a`; Gemini Developer API is enabled; the KIVORA Web app is registered.
 - Do not claim Gemini Nano local execution until a supported desktop Chrome test returns `ON_DEVICE`.
 - Do not claim a specific Gemini Nano version is pinned by the web SDK; the browser-managed Prompt API model is device/browser controlled.
 
@@ -43,6 +43,24 @@ Official guides:
 - https://firebase.google.com/docs/ai-logic/hybrid/web/get-started
 - https://firebase.google.com/docs/ai-logic/hybrid/web/configuration-options
 - https://firebase.google.com/docs/app-check/web/recaptcha-enterprise-provider
+
+## Implementation progress and remaining sequence
+
+Completed in the branch:
+
+1. Added the Firebase JS SDK dependency (`13.0.0`).
+2. Added an isolated hybrid inference proof panel to the existing React app.
+3. Configured the panel for `PREFER_ON_DEVICE` and an explicit `gemini-3.5-flash-lite` cloud fallback.
+4. Added user-gesture-triggered `initializeDeviceModel()` and visible reporting of the SDK's `inferenceSource`.
+5. Added environment-variable placeholders in `.env.example`; no live Firebase values or secret credentials were committed.
+6. Updated CI to run on this branch and refresh/commit the lockfile before dependency installation.
+
+Remaining:
+
+- Add the Firebase web configuration and the public reCAPTCHA Enterprise site key to Cloudflare Pages environment variables.
+- Register the generated site key in Firebase App Check for the KIVORA Web app.
+- Wait for CI, fix any type/build/test issues, then deploy the preview and run a real cloud request from Android.
+- Verify `ON_DEVICE` on supported desktop Chrome 139+ later; Android cannot prove local inference.
 
 ## Implementation sequence after project identification
 
