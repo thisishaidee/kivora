@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PaymentRequestPreview from "./PaymentRequestPreview";
+import FirebaseHybridProof from "./FirebaseHybridProof";
 import type { FormEvent } from "react";
 import {
   languageSchema,
@@ -442,6 +443,8 @@ export default function App() {
         <h1>Know what<br /><em>to do next.</em></h1>
         <p className="intro">Get clearer on unfamiliar products, materials, equipment and problems. Start with the job in front of you.</p>
       </section>
+
+      <FirebaseHybridProof />
 
       {identityState === "checking" && (
         <section className="workspace identity-card">
