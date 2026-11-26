@@ -10,7 +10,7 @@ Status: isolated Firebase AI Logic proof implementation committed to the prepara
 - Existing frontend: React 19 + Vite 6 + TypeScript
 - Existing backend: Cloudflare Worker + D1
 - Existing AI adapter: Cloudflare Workers AI in `shared/src/response-runtime.js` and `worker/src/runtime.js`
-- Firebase JS SDK `12.5.0` is now pinned in root `package.json` (the minimum version documented for Web hybrid inference and `inferenceSource`)
+- Firebase JS SDK `12.14.0` is now pinned in root `package.json` (includes `initializeDeviceModel()` and the `inferenceSource` API)
 - An isolated `FirebaseHybridProof` component now initializes Firebase AI Logic and reCAPTCHA Enterprise App Check
 - Existing Worker AI is configured with `AI_ENABLED: false`; preserve this configuration during the proof.
 
