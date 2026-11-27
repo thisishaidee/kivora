@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
+import { getToken, initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import { getAI, getGenerativeModel, GoogleAIBackend, InferenceMode, InferenceSource } from "firebase/ai";
 
 type FirebaseConfig = {
@@ -34,20 +34,41 @@ function initializeFirebaseServices() {
   if (!hasFirebaseConfig) throw new Error("firebase_config_missing");
   const app = getApps().length ? getApp() : initializeApp(config);
   if (!siteKey) throw new Error("app_check_site_key_missing");
+  let appCheck;
   if (!appCheckInitialized) {
-    initializeAppCheck(app, {
+    appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(siteKey),
       isTokenAutoRefreshEnabled: true,
     });
     appCheckInitialized = true;
+  } else {
+    appCheck = getAppCheckInstance(app);
   }
   const ai = getAI(app, { backend: new GoogleAIBackend() });
-  return getGenerativeModel(ai, {
+  const model = getGenerativeModel(ai, {
     mode: InferenceMode.PREFER_ON_DEVICE,
     inCloudParams: {
       model: "gemini-3.5-flash-lite",
       generationConfig: { temperature: 0.2, maxOutputTokens: 256 },
     },
+  });
+  return { app, appCheck, model };
+}
+
+function getAppCheckInstance(app: ReturnType<typeof getApp>) {
+  return initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(siteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(`${label}_timeout_after_${ms}ms`)), ms);
+    promise.then(
+      (value) => { window.clearTimeout(timer); resolve(value); },
+      (error) => { window.clearTimeout(timer); reject(error); },
+    );
   });
 }
 
@@ -65,7 +86,9 @@ export default function FirebaseHybridProof() {
     setResult(null);
     setProgress("");
     try {
-      const model = initializeFirebaseServices();
+      const { appCheck, model } = initializeFirebaseServices();
+      setProgress("Checking reCAPTCHA Enterprise and Firebase App Check…");
+      await withTimeout(getToken(appCheck, false), 20000, "app_check_token");
 
       // Chrome's Prompt API is available only in supported desktop Chrome.
       // On other browsers/devices, PREFER_ON_DEVICE safely falls back to cloud.
@@ -78,9 +101,10 @@ export default function FirebaseHybridProof() {
         setProgress("This browser does not expose Chrome's desktop Prompt API; testing cloud fallback.");
       }
 
-      const response = await model.generateContent(
+      setProgress("App Check token received. Sending the Firebase AI Logic request…");
+      const response = await withTimeout(model.generateContent(
         "Reply with exactly: KIVORA Firebase AI Logic connection verified."
-      );
+      ), 45000, "firebase_ai_logic");
       const source = response.response.inferenceSource;
       setResult({
         text: response.response.text(),
@@ -97,6 +121,10 @@ export default function FirebaseHybridProof() {
         setError("Firebase web configuration is missing from the deployment environment.");
       } else if (message === "app_check_site_key_missing") {
         setError("The reCAPTCHA Enterprise site key has not been configured for this deployment yet.");
+      } else if (message.startsWith("app_check_token_timeout")) {
+        setError("App Check did not return a token within 20 seconds. Check that the reCAPTCHA Enterprise site key allows this preview hostname and that the key is active.");
+      } else if (message.startsWith("firebase_ai_logic_timeout")) {
+        setError("App Check succeeded, but Firebase AI Logic did not respond within 45 seconds. Check Firebase AI Logic API status, model access, and project restrictions.");
       } else {
         setError(`Firebase AI Logic request failed: ${message}`);
       }
