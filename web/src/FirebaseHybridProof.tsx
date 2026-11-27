@@ -28,22 +28,19 @@ const config: FirebaseConfig = {
 const siteKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY ?? "6LcFUjMuAAAAAEsJeZMSU-Pf4EFlULRPv9jKkYqZ";
 const hasFirebaseConfig = Boolean(config.apiKey && config.authDomain && config.projectId && config.appId);
 
-let appCheckInitialized = false;
+let appCheckInstance: ReturnType<typeof initializeAppCheck> | null = null;
 
 function initializeFirebaseServices() {
   if (!hasFirebaseConfig) throw new Error("firebase_config_missing");
   const app = getApps().length ? getApp() : initializeApp(config);
   if (!siteKey) throw new Error("app_check_site_key_missing");
-  let appCheck;
-  if (!appCheckInitialized) {
-    appCheck = initializeAppCheck(app, {
+  if (!appCheckInstance) {
+    appCheckInstance = initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(siteKey),
       isTokenAutoRefreshEnabled: true,
     });
-    appCheckInitialized = true;
-  } else {
-    appCheck = getAppCheckInstance(app);
   }
+  const appCheck = appCheckInstance;
   const ai = getAI(app, { backend: new GoogleAIBackend() });
   const model = getGenerativeModel(ai, {
     mode: InferenceMode.PREFER_ON_DEVICE,
@@ -55,12 +52,6 @@ function initializeFirebaseServices() {
   return { app, appCheck, model };
 }
 
-function getAppCheckInstance(app: ReturnType<typeof getApp>) {
-  return initializeAppCheck(app, {
-    provider: new ReCaptchaEnterpriseProvider(siteKey),
-    isTokenAutoRefreshEnabled: true,
-  });
-}
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
