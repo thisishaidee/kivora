@@ -18,14 +18,14 @@ type ProofResult = {
 };
 
 const config: FirebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? "",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? "",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID ?? "",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? "",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? "AIzaSyCcW4L23dfKNWErHHN_Hj47Wi121xm_bRs",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? "kivora-c888a.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "kivora-c888a",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID ?? "1:570419109670:web:75ad5505d0c1996654abe7",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "570419109670",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? "kivora-c888a.firebasestorage.app",
 };
-const siteKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY ?? "";
+const siteKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY ?? "6LcFUjMuAAAAAEsJeZMSU-Pf4EFlULRPv9jKkYqZ";
 const hasFirebaseConfig = Boolean(config.apiKey && config.authDomain && config.projectId && config.appId);
 
 let appCheckInitialized = false;
