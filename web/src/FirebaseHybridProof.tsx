@@ -63,19 +63,28 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-function getAppCheckDiagnostics(): string {
+function getAppCheckDiagnostics(policyErrors: string[], scriptErrors: string[]): string {
   const recaptchaResources = performance.getEntriesByType("resource")
-    .map((entry) => entry.name)
-    .filter((url) => /recaptcha|gstatic\.com\/recaptcha/i.test(url));
+    .filter((entry) => /recaptcha|gstatic\\.com\\/recaptcha/i.test(entry.name))
+    .map((entry) => {
+      const timing = entry as PerformanceResourceTiming & { responseStatus?: number };
+      return entry.name + "{status=" + (timing.responseStatus ?? "unavailable")
+        + ",durationMs=" + Math.round(entry.duration)
+        + ",transferSize=" + entry.transferSize + "}";
+    });
   const recaptchaScripts = Array.from(document.scripts)
     .map((script) => script.src)
     .filter((url) => /recaptcha/i.test(url));
+  const recaptchaWindow = window as Window & { grecaptcha?: { enterprise?: unknown } };
   return [
     "page=" + window.location.hostname,
     "online=" + navigator.onLine,
-    "recaptchaGlobal=" + ("grecaptcha" in window),
+    "grecaptcha=" + ("grecaptcha" in window),
+    "grecaptchaEnterprise=" + Boolean(recaptchaWindow.grecaptcha?.enterprise),
     "recaptchaScripts=" + (recaptchaScripts.length ? recaptchaScripts.join(",") : "none"),
-    "recaptchaResources=" + (recaptchaResources.length ? recaptchaResources.slice(-5).join(",") : "none"),
+    "recaptchaResources=" + (recaptchaResources.length ? recaptchaResources.slice(-5).join(";") : "none"),
+    "cspViolations=" + (policyErrors.length ? policyErrors.join(";") : "none"),
+    "scriptErrors=" + (scriptErrors.length ? scriptErrors.join(";") : "none"),
   ].join(" | ");
 }
 
@@ -95,12 +104,31 @@ export default function FirebaseHybridProof() {
     try {
       const { appCheck, model } = initializeFirebaseServices();
       setProgress("Checking reCAPTCHA Enterprise and Firebase App Check…");
+      const policyErrors: string[] = [];
+      const scriptErrors: string[] = [];
+      const onPolicyViolation = (event: Event) => {
+        const violation = event as SecurityPolicyViolationEvent;
+        if (/recaptcha|google/i.test(violation.blockedURI + " " + violation.violatedDirective)) {
+          policyErrors.push(violation.violatedDirective + ":" + violation.blockedURI);
+        }
+      };
+      const onResourceError = (event: Event) => {
+        const target = event.target;
+        if (target instanceof HTMLScriptElement && /recaptcha/i.test(target.src)) {
+          scriptErrors.push(target.src + " failed to load");
+        }
+      };
+      document.addEventListener("securitypolicyviolation", onPolicyViolation);
+      window.addEventListener("error", onResourceError, true);
       try {
         const tokenResult = await withTimeout(getToken(appCheck, false), 20000, "app_check_token");
         if (!tokenResult.token) throw new Error("app_check_empty_token");
       } catch (appCheckCause) {
         const reason = appCheckCause instanceof Error ? appCheckCause.message : String(appCheckCause);
-        throw new Error("APP_CHECK_FAILURE: " + reason + " | " + getAppCheckDiagnostics());
+        throw new Error("APP_CHECK_FAILURE: " + reason + " | " + getAppCheckDiagnostics(policyErrors, scriptErrors));
+      } finally {
+        document.removeEventListener("securitypolicyviolation", onPolicyViolation);
+        window.removeEventListener("error", onResourceError, true);
       }
 
       // Chrome's Prompt API is available only in supported desktop Chrome.
