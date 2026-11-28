@@ -63,6 +63,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+function getAppCheckDiagnostics(): string {
+  const recaptchaResources = performance.getEntriesByType("resource")
+    .map((entry) => entry.name)
+    .filter((url) => /recaptcha|gstatic\.com\/recaptcha/i.test(url));
+  const recaptchaScripts = Array.from(document.scripts)
+    .map((script) => script.src)
+    .filter((url) => /recaptcha/i.test(url));
+  return [
+    "page=" + window.location.hostname,
+    "online=" + navigator.onLine,
+    "recaptchaGlobal=" + ("grecaptcha" in window),
+    "recaptchaScripts=" + (recaptchaScripts.length ? recaptchaScripts.join(",") : "none"),
+    "recaptchaResources=" + (recaptchaResources.length ? recaptchaResources.slice(-5).join(",") : "none"),
+  ].join(" | ");
+}
+
 export default function FirebaseHybridProof() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
@@ -79,7 +95,13 @@ export default function FirebaseHybridProof() {
     try {
       const { appCheck, model } = initializeFirebaseServices();
       setProgress("Checking reCAPTCHA Enterprise and Firebase App Check…");
-      await withTimeout(getToken(appCheck, false), 20000, "app_check_token");
+      try {
+        const tokenResult = await withTimeout(getToken(appCheck, false), 20000, "app_check_token");
+        if (!tokenResult.token) throw new Error("app_check_empty_token");
+      } catch (appCheckCause) {
+        const reason = appCheckCause instanceof Error ? appCheckCause.message : String(appCheckCause);
+        throw new Error("APP_CHECK_FAILURE: " + reason + " | " + getAppCheckDiagnostics());
+      }
 
       // Chrome's Prompt API is available only in supported desktop Chrome.
       // On other browsers/devices, PREFER_ON_DEVICE safely falls back to cloud.
@@ -108,12 +130,14 @@ export default function FirebaseHybridProof() {
       setProgress("");
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "unknown_error";
-      if (message === "firebase_config_missing") {
+      if (message.startsWith("APP_CHECK_FAILURE:")) {
+        setError("Firebase App Check failed: " + message.replace("APP_CHECK_FAILURE: ", ""));
+      } else if (message === "firebase_config_missing") {
         setError("Firebase web configuration is missing from the deployment environment.");
       } else if (message === "app_check_site_key_missing") {
         setError("The reCAPTCHA Enterprise site key has not been configured for this deployment yet.");
       } else if (message.startsWith("app_check_token_timeout")) {
-        setError("App Check did not return a token within 20 seconds. Check that the reCAPTCHA Enterprise site key allows this preview hostname and that the key is active.");
+        setError("App Check did not return a token. " + getAppCheckDiagnostics());
       } else if (message.startsWith("firebase_ai_logic_timeout")) {
         setError("App Check succeeded, but Firebase AI Logic did not respond within 45 seconds. Check Firebase AI Logic API status, model access, and project restrictions.");
       } else {
