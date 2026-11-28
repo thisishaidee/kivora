@@ -63,14 +63,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-function getAppCheckDiagnostics(policyErrors: string[], scriptErrors: string[]): string {
+function getAppCheckDiagnostics(policyErrors: string[] = [], scriptErrors: string[] = []): string {
   const recaptchaResources = performance.getEntriesByType("resource")
     .filter((entry) => /recaptcha|gstatic\\.com\\/recaptcha/i.test(entry.name))
     .map((entry) => {
       const timing = entry as PerformanceResourceTiming & { responseStatus?: number };
       return entry.name + "{status=" + (timing.responseStatus ?? "unavailable")
         + ",durationMs=" + Math.round(entry.duration)
-        + ",transferSize=" + entry.transferSize + "}";
+        + ",transferSize=" + ("transferSize" in entry ? String((entry as PerformanceResourceTiming).transferSize) : "unavailable") + "}";
     });
   const recaptchaScripts = Array.from(document.scripts)
     .map((script) => script.src)
